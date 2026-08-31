@@ -191,22 +191,11 @@ export default function HomePage() {
       setProgress(0);
       progressTimer = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 95) return 95;
-          let step = 0;
-          if (prev < 25) {
-            // 0s - 2s: Tăng từ tốn từ 0% -> 25% (khoảng 0.6% - 1.4% mỗi 100ms)
-            step = Math.random() * 0.8 + 0.6;
-          } else if (prev < 60) {
-            // 2s - 5s: Tăng đều từ 25% -> 60% (khoảng 0.4% - 1.1% mỗi 100ms)
-            step = Math.random() * 0.7 + 0.4;
-          } else if (prev < 80) {
-            // 5s - 9s: Tăng chậm lại từ 60% -> 80% (khoảng 0.2% - 0.6% mỗi 100ms)
-            step = Math.random() * 0.4 + 0.2;
-          } else {
-            // Sau 9s: Nhích cực chậm từ 80% -> tối đa 95%
-            step = 0.1;
-          }
-          return Math.min(Number((prev + step).toFixed(1)), 95);
+          if (prev >= 97) return 97;
+          // Công thức giảm tốc tiệm cận theo chu kỳ 150 - 180 giây (~2.5 - 3 phút)
+          const remaining = 99 - prev;
+          const step = remaining * 0.0018 + 0.005;
+          return Math.min(Number((prev + step).toFixed(1)), 97);
         });
       }, 100);
     } else {
