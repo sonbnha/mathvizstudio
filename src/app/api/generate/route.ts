@@ -80,6 +80,17 @@ function extractSvgCode(rawText: string): string {
   return clean.trim();
 }
 
+// Helper function to extract GeoGebra command lines
+function extractGgbCommands(rawText: string): string[] {
+  let clean = rawText.trim();
+  const match = clean.match(/```(?:geogebra|ggb|text)?\s*([\s\S]*?)```/i);
+  const text = match ? match[1] : clean;
+  return text
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('//') && !line.startsWith('#') && !line.startsWith('```'));
+}
+
 export async function POST(req: NextRequest) {
   try {
     let body: any = {};
@@ -220,12 +231,9 @@ export async function POST(req: NextRequest) {
         });
 
         if (result && result.text) {
-          const testClean = extractSvgCode(result.text);
-          if (testClean && testClean.includes('<svg')) {
-            response = result;
-            console.info(`[Gemini API] Model ${currentModel} đã sinh mã GeoEngine thành công!`);
-            break;
-          }
+          response = result;
+          console.info(`[Gemini API] Model ${currentModel} đã sinh mã GeoGebra thành công!`);
+          break;
         }
       } catch (err: any) {
         lastError = err;
@@ -238,10 +246,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (!response || !response.text) {
-      throw lastError || new Error('Mô hình Gemini không thể sinh mã hình học hợp lệ.');
+      throw lastError || new Error('Mô hình Gemini không thể sinh mã GeoGebra hợp lệ.');
     }
 
     const rawText = response.text || '';
+    const ggbCommands = extractGgbCommands(rawText);
     const cleanedSvg = extractSvgCode(rawText);
 
     // 4. Update usage credits
@@ -260,6 +269,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
+      commands: ggbCommands,
+      ggbScript: ggbCommands.join('\n'),
       svg: cleanedSvg,
       remainingCredits,
     });

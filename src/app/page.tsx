@@ -39,6 +39,7 @@ import {
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
+import { GeoGebraViewer, GeoGebraViewerRef } from '@/components/GeoGebraViewer';
 
 const PRESETS = [
   {
@@ -160,6 +161,10 @@ export default function HomePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+
+  // GeoGebra Applet State
+  const [ggbCommands, setGgbCommands] = useState<string[]>([]);
+  const ggbViewerRef = useRef<GeoGebraViewerRef>(null);
 
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -675,14 +680,20 @@ export default function HomePage() {
         throw new Error(data.message || data.error || 'Đã có lỗi xảy ra khi tạo hình.');
       }
 
-      if (!data.svg || typeof data.svg !== 'string' || !data.svg.includes('<svg')) {
-        throw new Error(
-          'Không nhận được dữ liệu vẽ SVG hợp lệ từ mô hình. Vui lòng thử lại với đề bài rõ ràng hơn.'
-        );
+      if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
+        setGgbCommands(data.commands);
       }
 
-      setSvgOutput(data.svg);
-      saveToHistory(data.svg, activePrompt);
+      if (data.svg && typeof data.svg === 'string' && data.svg.includes('<svg')) {
+        setSvgOutput(data.svg);
+        saveToHistory(data.svg, activePrompt);
+      } else if (data.commands && data.commands.length > 0) {
+        setSvgOutput(data.commands.join('\n'));
+      } else {
+        throw new Error(
+          'Không nhận được dữ liệu vẽ hình học hợp lệ từ mô hình. Vui lòng thử lại với đề bài rõ ràng hơn.'
+        );
+      }
 
       // Hit 100% on success and delay 250ms with smooth completion effect
       setProgress(100);
@@ -1500,7 +1511,15 @@ export default function HomePage() {
                 </div>
               )}
 
-              {svgOutput ? (
+              {ggbCommands.length > 0 ? (
+                <div className="w-full h-full flex items-center justify-center min-h-[360px]">
+                  <GeoGebraViewer
+                    ref={ggbViewerRef}
+                    commands={ggbCommands}
+                    onSVGExported={(svg) => saveToHistory(svg, prompt)}
+                  />
+                </div>
+              ) : svgOutput ? (
                 svgOutput.includes('<svg') ? (
                   <div
                     id="svgMount"

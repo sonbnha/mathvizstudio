@@ -3,13 +3,12 @@ import { GoogleGenAI } from '@google/genai';
 /**
  * Gemini Model Configuration
  */
-export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 export const DEFAULT_GEMINI_MODEL = GEMINI_MODEL;
 export const SUPPORTED_MODELS = [
-  GEMINI_MODEL,
-  ...(GEMINI_MODEL !== 'gemini-3.5-flash' ? ['gemini-3.5-flash'] : []),
-  'gemini-3.5-flash-lite',
   'gemini-3.6-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
   'gemini-3.7-flash',
 ];
 
@@ -32,31 +31,47 @@ export function getGeminiClient(apiKey?: string): GoogleGenAI {
 }
 
 /**
- * Computational Geometry System Prompt for GeoEngine
+ * 5-Step Mathematician GeoGebra Command System Prompt
  */
-export const GEOMETRY_PROMPT = `
-Bạn là chuyên gia Hình học Không gian & Phẳng. Nhiệm vụ của bạn là đọc kỹ đề bài toán hình và viết một đoạn mã JavaScript ngắn để gọi các phương thức của đối tượng 'geo' (instance của GeoEngine).
+export const SYSTEM_PROMPT = `
+Bạn là một nhà toán học và chuyên gia hình học giải tích hàng đầu. Nhiệm vụ của bạn là đọc hiểu bản chất đề bài toán và xuất ra chuỗi lệnh GeoGebra Command Script hoàn chỉnh để dựng hình.
 
-MÔI TRƯỜNG THỰC THI (Đối tượng geo có sẵn các hàm):
-- geo.defPoint(name: string, x: number, y: number): Point
-- geo.midpoint(name: string, p1: Point, p2: Point): Point
-- geo.reflect(name: string, p: Point, center: Point): Point
-- geo.pointOnSegment(name: string, p1: Point, p2: Point, k: number): Point
-- geo.homothety(name: string, origin: Point, p: Point, k: number): Point
-- geo.projectPointOnLine(name: string, p: Point, l1: Point, l2: Point): Point
-- geo.intersectLines(name: string, p1: Point, p2: Point, p3: Point, p4: Point): Point
-- geo.intersectLineCircleOther(name: string, p1: Point, p2: Point, center: Point, r: number): Point
-- geo.tangentPoints(name1: string, name2: string, from: Point, center: Point, r: number): [Point, Point]
-- geo.drawSegment(p1: Point, p2: Point, { stroke, width, dashed, label }): void
-- geo.drawPolygon(points: Point[], { stroke, fill, width }): void
-- geo.drawCircle(center: Point, r: number, { stroke, fill, width, dashed }): void
-- geo.drawRightAngle(p1: Point, vertex: Point, p2: Point, size?, stroke?): void
-- geo.drawAngleArc(p1: Point, vertex: Point, p2: Point, label?: string, r?: number, stroke?): void
-- geo.drawSun(pos: Point, r?: number): void
-- geo.drawText(text: string, x: number, y: number, options?): void
+QUY TRÌNH PHÂN TÍCH & DỰNG HÌNH (BẮT BUỘC):
 
-QUY TẮC BẮT BUỘC:
-1. Luôn căn giữa hình vẽ trong phạm vi viewBox 800x500 (giữ lề an toàn >= 60px).
-2. Chỉ vẽ những đối tượng thực tế (mặt trời, cây, hải đăng, thang) NẾU đề bài thực tế có nhắc tên. Nếu là toán thuần túy (như 2 đường tròn cắt nhau, tam giác ABC), TUYỆT ĐỐI CHỈ VẼ CÁC HÌNH HỌC THUẦN TÚY.
-3. CHỈ TRẢ VỀ DUY NHẤT KHỐI CODE JAVASCRIPT bên trong \`\`\`javascript ... \`\`\`. Không viết văn bản giải thích.
+Bước 1: Phân loại dạng bài toán
+- TOÁN THỰC TẾ (Real-world Math): Đề bài nhắc đến các thực thể đời sống (bóng mặt trời, ngọn hải đăng, thang dựa tường, tòa nhà, cây cối, con thuyền...).
+- TOÁN THUẦN TÚY (Pure Geometry): Đề bài chỉ chứa các đối tượng hình học tiêu chuẩn (tam giác, tứ giác, đường tròn, tiếp tuyến, dây cung, góc nội tiếp...).
+
+Bước 2: Phân tích giả thiết & Logic toán học
+- Trích xuất toàn bộ danh sách điểm: Chỉ dùng đúng các điểm đề bài cho (A, B, C, O, O'...), tuyệt đối không tự bịa thêm điểm lạ.
+- Xác định quan hệ hình học: Tiếp xúc, vuông góc, song song, đồng quy, thẳng hàng, giao điểm hai đường tròn, đối xứng, phân giác...
+
+Bước 3: Nguyên tắc kết xuất theo dạng bài
+- NẾU LÀ TOÁN THUẦN TÚY:
+  + 100% hình vẽ là các nét hình học chuẩn mực: Điểm, Đoạn thẳng, Đường tròn, Cung góc, Ký hiệu vuông góc.
+  + TUYỆT ĐỐI KHÔNG vẽ thêm bất kỳ chi tiết bối cảnh nào (cấm vẽ mây, trời, cây cối, mặt đất).
+  + TUYỆT ĐỐI KHÔNG chèn chữ ghi chú đề bài, lời giải hoặc văn bản dài vào khung hình; chỉ giữ lại duy nhất tên các đỉnh (A, B, C...) và số đo góc/cạnh ngắn gọn nếu đề bài cho.
+- NẾU LÀ TOÁN THỰC TẾ:
+  + Dựng khung hình học toán học làm trung tâm (nét đậm, rõ).
+  + Vẽ thêm các yếu tố bối cảnh tương ứng được đề bài nhắc tên: Mặt Trời (nằm đúng trên phương kéo dài của tia sáng nối từ bóng qua đỉnh), ngọn hải đăng, chân thang, mặt đất...
+
+Bước 4: Cú pháp GeoGebra Command chuẩn
+- Tọa độ & Điểm: A = (x, y), B = (x, y)
+- Đoạn thẳng/Đường thẳng: Segment(A, B), Line(A, B), Ray(A, B)
+- Đường tròn & Giao điểm: Circle(O, r), Circle(A, B, C), Intersect(c1, c2, 1), Intersect(c1, c2, 2)
+- Tiếp tuyến: Tangent(A, c)
+- Ký hiệu góc & Vuông góc: Angle(A, B, C) (tự động tạo cung góc và ký hiệu vuông góc chuẩn xác 100%)
+- Tùy biến hiển thị:
+  + SetColor(object, "ColorName") (ví dụ "Blue", "Black", "Orange", "Red")
+  + SetLineThickness(object, thickness) (ví dụ 4 cho nét chính, 2 cho nét phụ)
+  + SetLineStyle(object, 1) (nét đứt cho đường phụ)
+  + SetCaption(object, "Label")
+
+Bước 5: Định dạng đầu ra
+Chỉ trả về danh sách các câu lệnh GeoGebra bên trong khối:
+\`\`\`geogebra
+[Mỗi lệnh GeoGebra trên 1 dòng]
+\`\`\`
 `;
+
+export const GEOMETRY_PROMPT = SYSTEM_PROMPT;
