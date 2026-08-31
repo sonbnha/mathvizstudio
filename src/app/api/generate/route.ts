@@ -178,6 +178,25 @@ BẮT BUỘC VỀ ĐẦU RA:
 1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
 2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">.
 
+QUY TẮC KHÁI QUÁT HÓA LỚP HÌNH HỌC TOÁN HỌC CỐT LÕI (CORE GEOMETRY - ÁP DỤNG CHO MỌI ĐỀ BÀI):
+BẤT KỂ ĐỀ BÀI LÀ GÌ (Thang dựa tường, Ngọn hải đăng nhìn tàu, Tòa nhà/tháp cao, Cột cờ, Cây cao bóng nắng, Khinh khí cầu, Tàu thuyền, Máy bay...), bản vẽ SVG BẮT BUỘC PHẢI LUÔN BAO GỒM 2 LỚP:
+
+LỚP 1: HÌNH HỌC TOÁN HỌC CỐT LÕI (BẮT BUỘC - NẰM TRÊN CÙNG, VẼ NÉT ĐẬM, RÕ RÀNG, NỔI BẬT NHẤT):
+1. Khung đa giác/tam giác chính (Main Geometry Lines):
+   - Dùng <line> hoặc <polygon> với stroke="#2563eb" (Blue 600) hoặc stroke="#000000", stroke-width="3.5", stroke-linejoin="round", nét liền dứt khoát.
+   - Nối trọn vẹn tất cả các đỉnh mô hình hóa bài toán (ví dụ: Chân tường B đến Đỉnh thang A, Đỉnh thang A đến Chân thang C, Chân thang C về Chân tường B; Đáy biển B đến Đỉnh hải đăng A, Đỉnh A đến Thuyền C; Mắt người ngắm đến Đỉnh tháp...).
+2. Ký hiệu góc vuông và góc lượng giác (Right Angles & Angles):
+   - Ký hiệu góc vuông: Luôn vẽ ô vuông nhỏ chuẩn toán học (14x14px) bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="2" /> tại mọi vị trí vuông góc (chân tường, chân hải đăng, chân tháp, chân cột, giao điểm đường cao).
+   - Ký hiệu cung tròn góc: Cung cong <path d="..." fill="none" stroke="#ea580c" stroke-width="2.5" /> kèm nhãn số đo/tên góc (ví dụ: '30°', '60°', 'α', 'x') tại đỉnh góc nghiêng, góc nâng, góc hạ, góc tạo bởi thang/tia sáng và mặt đất/mặt tường.
+3. Nhãn đỉnh & Kích thước (Labels & Dimensions):
+   - Chấm tròn đỉnh: <circle cx="..." cy="..." r="5" fill="#1e293b" /> tại mỗi đỉnh A, B, C, H, S...
+   - Tên đỉnh: <text font-size="20" font-weight="bold" fill="#0f172a"> cho từng đỉnh.
+   - Đường kích thước & số đo: Thể hiện rõ các số đo đề bài đã cho hoặc cần tìm (ví dụ: '4m', '1.5m', '45m', 'h = ?', 'd = ?') được dóng dọc theo cạnh tương ứng.
+
+LỚP 2: MINH HỌA TRỰC QUAN PHỤ (NẰM DƯỚI LÀM NỀN HỖ TRỢ):
+- Ngọn hải đăng, thang, mặt tường, mặt biển, tòa nhà, cây cối, mặt trời... chỉ là hình họa phụ làm nền mờ/bổ trợ phía dưới (opacity 0.35 - 0.7 hoặc màu sắc nhã nhặn), nằm gọn gàng bên dưới/song song với khung hình học toán học.
+- TUYỆT ĐỐI KHÔNG ĐƯỢC chỉ vẽ hình minh họa mà quên vẽ khung hình học tam giác/đa giác. Khung tam giác toán học ABC PHẢI LUÔN NẰM ĐÈ LÊN TRÊN và NỔI BẬT NHẤT.
+
 QUY TẮC VÙNG ĐỆM AN TOÀN & CHỐNG CẮT MẶT TRỜI / ĐỈNH HÌNH (SAFE BOUNDING BOX & PADDING):
 - Toàn bộ các thành phần hình vẽ (bao gồm cả tia nắng, icon Mặt Trời, ngọn cây/cột, nhãn điểm đỉnh A) BẮT BUỘC nằm trong vùng tọa độ an toàn:
   + Tọa độ x: từ 50 đến 750 (viewBox rộng 800).
@@ -195,20 +214,6 @@ QUY TẮC BẮT BUỘC VỀ VỊ TRÍ MẶT TRỜI (COLLINEAR SUN POSITION) TRON
   + Bán kính Mặt Trời r = 20px, đảm bảo y_S - r > 20px tuyệt đối không bị chạm mép trên SVG.
   + Tia nắng nối dài: Dùng <line x1="x_S" y1="y_S" x2="x_C" y2="y_C" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6 4" /> kéo dài từ tâm Mặt Trời S xuyên qua ngọn A đến tận điểm C.
   + Icon Mặt Trời: Đặt chính xác tại tâm S(x_S, y_S) với <circle cx="x_S" cy="y_S" r="20" fill="#fbbf24" stroke="#d97706" stroke-width="2" /> kèm các tia sáng ngắn xung quanh tâm S.
-
-CẤU TRÚC PHÂN LỚP BẮT BUỘC (SVG LAYERING ARCHITECTURE):
-Mỗi bản vẽ SVG bài toán thực tế PHẢI bao gồm 2 LỚP rõ rệt:
-
-LỚP 1: HÌNH HỌC TOÁN HỌC CHÍNH (BẮT BUỘC - NẰM TRÊN CÙNG, VẼ NÉT ĐẬM, RÕ RÀNG, NỔI BẬT NHẤT):
-- Dựng đầy đủ mô hình tam giác/đa giác toán học chính (ví dụ: tam giác vuông ABC với AB là chiều cao, BC là khoảng cách/bóng nắng, AC là đường ngắm/tia sáng).
-- Nét vẽ các cạnh tam giác: <line> hoặc <polygon> với stroke="#2563eb" (Blue 600) hoặc stroke="#000000", stroke-width="3.5", nét liền dứt khoát.
-- Ký hiệu góc vuông: Luôn có ô vuông nhỏ (kích thước 14x14px) tại đỉnh vuông góc (ví dụ đỉnh B) bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="2" />.
-- Cung tròn góc & số đo: Cung tròn góc tại đỉnh quan sát (ví dụ đỉnh C hoặc đỉnh A) bằng <path d="..." fill="none" stroke="#ea580c" stroke-width="2.5" /> kèm nhãn số đo (ví dụ: '60°', '30°', 'α').
-- Điểm đỉnh & Nhãn đỉnh: Chấm tròn đỉnh <circle cx="..." cy="..." r="5" fill="#1e293b" /> và thẻ <text font-weight="bold" font-size="20"> cho từng đỉnh A, B, C...
-- Đường kích thước số đo: Thể hiện rõ các số đo đề bài đã cho hoặc cần tìm (ví dụ: '50m', '6m', 'd = ?', 'h = ?') nằm dọc theo cạnh tương ứng.
-
-LỚP 2: MINH HỌA TRỰC QUAN PHỤ (NẰM DƯỚI LÀM NỀN HỖ TRỢ):
-- Cây cối, ngọn hải đăng, tòa nhà, mặt trời S, mặt đất/mặt biển chỉ đóng vai trò hình họa phụ, vẽ gọn gàng bên dưới/song song với khung hình học toán học, KHÔNG ĐƯỢC vẽ đè làm mất nét hay lu mờ tam giác hình học toán học chính.
 
 QUY TẮC NGHIÊM NGẶT VỀ CHỮ (LOẠI BỎ TOÀN BỘ CHỮ THỪA):
 - TUYỆT ĐỐI KHÔNG chèn: Tiêu đề hình, lời giải bài toán, nội dung đề bài, tên đối tượng dài.
