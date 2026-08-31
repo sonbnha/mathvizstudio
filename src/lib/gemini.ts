@@ -3,8 +3,15 @@ import { GoogleGenAI } from '@google/genai';
 /**
  * Gemini Model Configuration
  */
-export const GEMINI_MODEL = 'gemini-3.6-flash';
+export const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
 export const DEFAULT_GEMINI_MODEL = GEMINI_MODEL;
+export const SUPPORTED_MODELS = [
+  GEMINI_MODEL,
+  ...(GEMINI_MODEL !== 'gemini-3.5-flash' ? ['gemini-3.5-flash'] : []),
+  'gemini-3.5-flash-lite',
+  'gemini-3.6-flash',
+  'gemini-3.7-flash',
+];
 
 /**
  * Returns the configured Gemini Model name

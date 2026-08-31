@@ -193,21 +193,52 @@ QUY TẮC BỐ CỤC & TỌA ĐỘ:
 
     contents.push(userPrompt);
 
-    const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    const MODELS = [
+      DEFAULT_MODEL,
+      ...(DEFAULT_MODEL !== 'gemini-3.5-flash' ? ['gemini-3.5-flash'] : []),
+      'gemini-3.5-flash-lite',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+    ];
 
-    console.info(`[Gemini API] Đang gửi yêu cầu tới model: ${GEMINI_MODEL}...`);
-    const response = await ai.models.generateContent({
-      model: GEMINI_MODEL,
-      contents,
-      config: {
-        systemInstruction,
-        temperature: 0.1,
-        maxOutputTokens: 4096,
-      },
-    });
+    let response: any = null;
+    let lastError: any = null;
+
+    for (let i = 0; i < MODELS.length; i++) {
+      const currentModel = MODELS[i];
+      try {
+        console.info(`[Gemini API] Đang gửi yêu cầu tới model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
+        const result = await ai.models.generateContent({
+          model: currentModel,
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.1,
+            maxOutputTokens: 6144,
+          },
+        });
+
+        if (result && result.text) {
+          const testClean = extractSvgCode(result.text);
+          if (testClean && testClean.includes('<svg')) {
+            response = result;
+            console.info(`[Gemini API] Model ${currentModel} đã sinh SVG thành công (${testClean.length} bytes)!`);
+            break;
+          }
+        }
+      } catch (err: any) {
+        lastError = err;
+        console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
+        if (i < MODELS.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          continue;
+        }
+      }
+    }
 
     if (!response || !response.text) {
-      throw new Error('Mô hình Gemini không trả về dữ liệu văn bản.');
+      throw lastError || new Error('Mô hình Gemini không thể sinh mã SVG hợp lệ.');
     }
 
     const rawText = response.text || '';

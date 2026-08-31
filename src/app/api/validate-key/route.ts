@@ -29,14 +29,26 @@ export async function POST(req: NextRequest) {
     const ai = new GoogleGenAI({ apiKey });
 
     // Lightweight verification call
-    const result = await ai.models.generateContent({
-      model: 'gemini-3.6-flash',
-      contents: 'Ping test. Reply with OK.',
-      config: {
-        maxOutputTokens: 5,
-        temperature: 0,
-      },
-    });
+    let result: any = null;
+    try {
+      result = await ai.models.generateContent({
+        model: 'gemini-3.5-flash',
+        contents: 'Ping test. Reply with OK.',
+        config: {
+          maxOutputTokens: 5,
+          temperature: 0,
+        },
+      });
+    } catch {
+      result = await ai.models.generateContent({
+        model: 'gemini-3.6-flash',
+        contents: 'Ping test. Reply with OK.',
+        config: {
+          maxOutputTokens: 5,
+          temperature: 0,
+        },
+      });
+    }
 
     if (result && result.text) {
       return NextResponse.json({
