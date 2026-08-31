@@ -2,27 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
+export const maxDuration = 30;
+
 // Helper function to sanitize and extract ONLY valid, clean SVG content
 function sanitizeSvg(svgString: string): string {
-  let clean = svgString.trim();
+  try {
+    let clean = svgString.trim();
 
-  // Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
-  if (clean.startsWith('```')) {
-    clean = clean.replace(/^```(?:xml|svg|html|javascript|js|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    // Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
+    if (clean.startsWith('```')) {
+      clean = clean.replace(/^```(?:xml|svg|html|javascript|js|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    }
+
+    // 1. Trích xuất đúng khối <svg>...</svg>
+    const match = clean.match(/<svg[\s\S]*?<\/svg>/i);
+    if (match) {
+      clean = match[0];
+    } else {
+      clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
+    }
+
+    // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
+    clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
+
+    return clean.trim();
+  } catch (err) {
+    console.warn('[sanitizeSvg Error]:', err);
+    return svgString;
   }
-
-  // 1. Trích xuất đúng khối <svg>...</svg>
-  const match = clean.match(/<svg[\s\S]*?<\/svg>/i);
-  if (match) {
-    clean = match[0];
-  } else {
-    clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
-  }
-
-  // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
-  clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
-
-  return clean.trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -78,12 +85,12 @@ export async function POST(req: NextRequest) {
 
     const promptText = body.prompt?.trim() || '';
     const imageBase64 = body.imageBase64;
-    const mimeType = body.mimeType || 'image/png';
-    const styleMode = (body.styleMode || 'color').toLowerCase() === 'monochrome' ? 'monochrome' : 'color';
+    const mimeType = body.mimeType || 'image/jpeg';
+    const styleMode = body.styleMode || 'color';
 
     if (!promptText && !imageBase64) {
       return NextResponse.json(
-        { error: 'Vui lòng cung cấp văn bản gợi ý (prompt) hoặc hình ảnh (imageBase64).' },
+        { error: 'Cần cung cấp ít nhất một đoạn văn bản hoặc một hình ảnh bài toán.' },
         { status: 400 }
       );
     }
@@ -166,6 +173,9 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
     const MODELS = [
       defaultModel,
       ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-3.7-flash',
     ];
 
     let response: any = null;
@@ -195,17 +205,10 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
         console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
         
         const errorStatus = err?.status || err?.statusCode;
-        const errorMsg = String(err?.message || '').toLowerCase();
-        const isRetryable =
-          errorStatus === 503 ||
-          errorStatus === 429 ||
-          errorStatus === 500 ||
-          errorMsg.includes('overloaded') ||
-          errorMsg.includes('high demand') ||
-          errorMsg.includes('resource exhausted');
+        const isRetryable = errorStatus === 503 || errorStatus === 429 || errorStatus === 500;
 
         if (i < MODELS.length - 1 && isRetryable) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           continue;
         }
       }
@@ -237,55 +240,22 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
       remainingCredits,
     });
   } catch (error: any) {
-    console.error('Gemini API Error:', error);
-    const errorMsg = String(error?.message || '').toLowerCase();
-    const errorStatus = error?.status || error?.statusCode;
+    console.error('DEBUG CHI TIẾT LỖI TẠI GENERATE API:', error);
+    const actualMessage =
+      error?.response?.data?.error?.message ||
+      error?.response?.data?.message ||
+      error?.error?.message ||
+      error?.message ||
+      (typeof error === 'string' ? error : JSON.stringify(error));
 
-    const isQuotaOrRateLimit =
-      errorStatus === 429 ||
-      errorMsg.includes('429') ||
-      errorMsg.includes('quota') ||
-      errorMsg.includes('rate limit') ||
-      errorMsg.includes('resource_exhausted') ||
-      errorMsg.includes('resource exhausted') ||
-      errorMsg.includes('overloaded');
-
-    if (isQuotaOrRateLimit) {
-      return NextResponse.json(
-        {
-          error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
-          code: 'RATE_LIMIT_EXCEEDED',
-          isQuotaError: true,
-          details: error?.message,
-        },
-        { status: 429 }
-      );
-    }
-
-    const isInvalidKey =
-      errorStatus === 400 &&
-      (errorMsg.includes('api_key_invalid') ||
-        errorMsg.includes('api key not valid') ||
-        errorMsg.includes('invalid api key') ||
-        errorMsg.includes('api_key'));
-
-    if (isInvalidKey) {
-      return NextResponse.json(
-        {
-          error: 'Gemini API Key không hợp lệ hoặc đã bị vô hiệu hóa.',
-          code: 'INVALID_API_KEY',
-          details: error?.message,
-        },
-        { status: 400 }
-      );
-    }
+    const errorStatus = error?.status || error?.statusCode || 500;
 
     return NextResponse.json(
       {
-        error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
-        details: error?.message,
+        error: actualMessage,
+        details: String(error?.stack || error),
       },
-      { status: errorStatus && errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500 }
+      { status: errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500 }
     );
   }
 }

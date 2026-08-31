@@ -599,13 +599,17 @@ export default function HomePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 429 || data.isQuotaError || data.code === 'RATE_LIMIT_EXCEEDED') {
-          pendingGenerationRef.current = { promptText: activePrompt, isRefinement };
-          setQuotaKeyInput(currentKey);
-          setIsQuotaModalOpen(true);
-          throw new Error('Hệ thống đang quá tải lượt dùng miễn phí. Vui lòng thêm Gemini API Key cá nhân để tiếp tục ngay!');
-        }
-        throw new Error(data.error || 'Đã có lỗi xảy ra khi tạo hình.');
+        console.error('DEBUG CHI TIẾT LỖI TỪ SERVER:', data);
+        const actualMessage =
+          data?.error?.message ||
+          data?.message ||
+          data?.error ||
+          (typeof data === 'string' ? data : JSON.stringify(data));
+        throw new Error(actualMessage);
+      }
+
+      if (!data.svg || typeof data.svg !== 'string' || !data.svg.includes('<svg')) {
+        throw new Error('Không nhận được dữ liệu vẽ SVG hợp lệ từ mô hình.');
       }
 
       setSvgOutput(data.svg);
@@ -621,7 +625,14 @@ export default function HomePage() {
       // Refresh license key status in real time
       checkLicenseKey();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối tới máy chủ.');
+      console.error('DEBUG CHI TIẾT LỖI TẠO HÌNH:', err);
+      const actualMessage =
+        err?.response?.data?.error?.message ||
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        err?.message ||
+        (typeof err === 'string' ? err : JSON.stringify(err));
+      setErrorMsg(actualMessage);
       setProgress(0);
     } finally {
       setLoading(false);

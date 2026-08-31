@@ -1,7 +1,7 @@
 export const APP_VERSION = {
-  version: "0.1.5",
+  version: "0.1.6",
   stage: "alpha", // "alpha" | "beta" | "rc" | "stable"
-  fullString: "v0.1.5-alpha",
+  fullString: "v0.1.6-alpha",
   buildDate: "31/08/2026",
 };
 

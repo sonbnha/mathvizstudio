@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
+export const maxDuration = 30;
+
 function extractTikzOnly(rawText: string): string {
   let clean = rawText.trim();
   if (clean.startsWith('```')) {

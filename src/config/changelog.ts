@@ -10,6 +10,16 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v0.1.6-alpha",
+    date: "31/08/2026",
+    title: "Chẩn đoán chi tiết lỗi AI & Gỡ bỏ thông báo quá tải gán cứng",
+    changes: [
+      { type: "fix", description: "Gỡ bỏ toàn bộ chuỗi thông báo 'Hệ thống đang quá tải' gán cứng khi bắt lỗi API" },
+      { type: "improve", description: "Hiển thị chính xác nguyên nhân lỗi thực tế từ Gemini / máy chủ lên giao diện" },
+      { type: "improve", description: "Cấu hình maxDuration = 30s chống timeout serverless trên Vercel" },
+    ],
+  },
+  {
     version: "v0.1.5-alpha",
     date: "31/08/2026",
     title: "Chuẩn hóa Hình học Toán học SVG & Tối ưu AI Engine",
