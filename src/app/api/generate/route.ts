@@ -4,9 +4,20 @@ import { prisma } from '@/lib/prisma';
 
 // Helper function to sanitize and extract ONLY valid, clean SVG content
 function sanitizeSvg(svgString: string): string {
+  let clean = svgString.trim();
+
+  // Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
+  if (clean.startsWith('```')) {
+    clean = clean.replace(/^```(?:xml|svg|html|javascript|js|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+  }
+
   // 1. Trích xuất đúng khối <svg>...</svg>
-  const match = svgString.match(/<svg[\s\S]*?<\/svg>/i);
-  let clean = match ? match[0] : svgString.replace(/```xml|```svg|```/g, '').trim();
+  const match = clean.match(/<svg[\s\S]*?<\/svg>/i);
+  if (match) {
+    clean = match[0];
+  } else {
+    clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
+  }
 
   // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
   clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
@@ -78,12 +89,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Gemini API setup (Priority 1: User custom BYOK key, Priority 2: System GEMINI_API_KEY)
-    const customApiKey = req.headers.get('x-custom-api-key')?.trim();
-    const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+    const customKey = req.headers.get('x-custom-api-key');
+    const apiKey =
+      customKey && customKey.trim().length > 10
+        ? customKey.trim()
+        : process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
+      console.error('[Gemini API] Thiếu cấu hình API Key: Cả key người dùng và GEMINI_API_KEY đều trống.');
       return NextResponse.json(
         { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
-        { status: 500 }
+        { status: 400 }
       );
     }
 
@@ -223,7 +239,7 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
       remainingCredits,
     });
   } catch (error: any) {
-    console.error('Error generating math SVG:', error);
+    console.error('Gemini API Error:', error);
     const errorMsg = String(error?.message || '').toLowerCase();
     const errorStatus = error?.status || error?.statusCode;
 
@@ -239,9 +255,10 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
     if (isQuotaOrRateLimit) {
       return NextResponse.json(
         {
-          error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí.',
+          error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
           code: 'RATE_LIMIT_EXCEEDED',
           isQuotaError: true,
+          details: error?.message,
         },
         { status: 429 }
       );
@@ -251,21 +268,26 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
       errorStatus === 400 &&
       (errorMsg.includes('api_key_invalid') ||
         errorMsg.includes('api key not valid') ||
-        errorMsg.includes('invalid api key'));
+        errorMsg.includes('invalid api key') ||
+        errorMsg.includes('api_key'));
 
     if (isInvalidKey) {
       return NextResponse.json(
         {
           error: 'Gemini API Key không hợp lệ hoặc đã bị vô hiệu hóa.',
           code: 'INVALID_API_KEY',
+          details: error?.message,
         },
         { status: 400 }
       );
     }
 
     return NextResponse.json(
-      { error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.' },
-      { status: 500 }
+      {
+        error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
+        details: error?.message,
+      },
+      { status: errorStatus && errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500 }
     );
   }
 }

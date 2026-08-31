@@ -581,8 +581,8 @@ export default function HomePage() {
         'Content-Type': 'application/json',
         'X-License-Key': licenseKey.trim(),
       };
-      if (currentKey) {
-        headers['x-custom-api-key'] = currentKey;
+      if (currentKey && currentKey.trim().length > 10) {
+        headers['x-custom-api-key'] = currentKey.trim();
       }
 
       const res = await fetch('/api/generate', {
@@ -744,8 +744,8 @@ export default function HomePage() {
         'Content-Type': 'application/json',
         'X-License-Key': licenseKey.trim(),
       };
-      if (currentKey) {
-        headers['x-custom-api-key'] = currentKey;
+      if (currentKey && currentKey.trim().length > 10) {
+        headers['x-custom-api-key'] = currentKey.trim();
       }
 
       const res = await fetch('/api/export/tikz', {

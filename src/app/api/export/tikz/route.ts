@@ -3,11 +3,15 @@ import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
 function extractTikzOnly(rawText: string): string {
-  const match = rawText.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/i);
+  let clean = rawText.trim();
+  if (clean.startsWith('```')) {
+    clean = clean.replace(/^```(?:latex|tex|json|javascript|js)?\n?/i, '').replace(/\n?```$/i, '').trim();
+  }
+  const match = clean.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/i);
   if (match) {
     return match[0].trim();
   }
-  return rawText.replace(/```latex|```tex|```/g, '').trim();
+  return clean.replace(/```latex|```tex|```/gi, '').trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -56,12 +60,17 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Gemini API setup (Priority 1: User custom BYOK key, Priority 2: System GEMINI_API_KEY)
-    const customApiKey = req.headers.get('x-custom-api-key')?.trim();
-    const apiKey = customApiKey || process.env.GEMINI_API_KEY;
+    const customKey = req.headers.get('x-custom-api-key');
+    const apiKey =
+      customKey && customKey.trim().length > 10
+        ? customKey.trim()
+        : process.env.GEMINI_API_KEY;
+
     if (!apiKey) {
+      console.error('[TikZ API] Thiếu cấu hình API Key: Cả key người dùng và GEMINI_API_KEY đều trống.');
       return NextResponse.json(
         { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
-        { status: 500 }
+        { status: 400 }
       );
     }
 
@@ -138,9 +147,9 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
       tikz: cleanedTikz,
     });
   } catch (error: any) {
-    console.error('Error generating TikZ code:', error);
+    console.error('Gemini TikZ API Error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Lỗi khi tạo mã TikZ LaTeX.' },
+      { error: error?.message || 'Lỗi khi tạo mã TikZ LaTeX.', details: error?.message },
       { status: 500 }
     );
   }

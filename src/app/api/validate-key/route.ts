@@ -11,14 +11,17 @@ export async function POST(req: NextRequest) {
       body = {};
     }
 
-    const apiKey =
-      body.apiKey?.trim() ||
-      req.headers.get('x-custom-api-key')?.trim() ||
-      process.env.GEMINI_API_KEY;
+    const customKey =
+      (body.apiKey && body.apiKey.trim().length > 10 ? body.apiKey.trim() : null) ||
+      (req.headers.get('x-custom-api-key') && req.headers.get('x-custom-api-key')!.trim().length > 10
+        ? req.headers.get('x-custom-api-key')!.trim()
+        : null);
+
+    const apiKey = customKey || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Vui lòng cung cấp Gemini API Key để kiểm tra.' },
+        { error: 'Vui lòng cung cấp Gemini API Key hợp lệ để kiểm tra.' },
         { status: 400 }
       );
     }
