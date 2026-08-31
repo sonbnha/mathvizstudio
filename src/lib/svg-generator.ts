@@ -27,7 +27,7 @@ export interface CircleTangent {
 }
 
 export interface MathSpec {
-  type: 'SHADOW' | 'LADDER' | 'LIGHTHOUSE' | 'BUILDING' | 'CIRCLE' | 'GENERAL_TRIANGLE' | string;
+  type: 'PURE_GEOMETRY' | 'SHADOW' | 'LADDER' | 'LIGHTHOUSE' | 'BUILDING' | 'CIRCLE' | 'GENERAL_TRIANGLE' | string;
   points?: { [key: string]: MathPoint | string };
   dimensions?: MathDimension;
   angles?: MathAngle[];
@@ -42,10 +42,49 @@ export interface MathSpec {
   };
 }
 
+export interface Point2D {
+  x: number;
+  y: number;
+}
+
 function getPointLabel(points: { [key: string]: any } | undefined, key: string, fallback: string): string {
   if (!points || !points[key]) return fallback;
   if (typeof points[key] === 'string') return points[key];
   return points[key].label || fallback;
+}
+
+/**
+ * Universal mathematical SVG Angle Arc Generator (100% accurate polar direction & convex curvature)
+ */
+export function createSvgAngleArc(
+  V: Point2D,
+  P1: Point2D,
+  P2: Point2D,
+  label?: string,
+  r: number = 32,
+  color: string = '#ea580c'
+): string {
+  const ang1 = Math.atan2(P1.y - V.y, P1.x - V.x);
+  const ang2 = Math.atan2(P2.y - V.y, P2.x - V.x);
+  const diff = ((ang2 - ang1 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI;
+
+  const startX = +(V.x + r * Math.cos(ang1)).toFixed(2);
+  const startY = +(V.y + r * Math.sin(ang1)).toFixed(2);
+  const endX = +(V.x + r * Math.cos(ang2)).toFixed(2);
+  const endY = +(V.y + r * Math.sin(ang2)).toFixed(2);
+  const sweepFlag = diff > 0 ? 1 : 0;
+
+  let arcSvg = `<path d="M ${startX} ${startY} A ${r} ${r} 0 0 ${sweepFlag} ${endX} ${endY}" fill="none" stroke="${color}" stroke-width="2.5" />`;
+
+  if (label && label.trim().length > 0) {
+    const midAng = ang1 + diff / 2;
+    const labelDist = r + 18;
+    const labelX = +(V.x + labelDist * Math.cos(midAng)).toFixed(2);
+    const labelY = +(V.y + labelDist * Math.sin(midAng)).toFixed(2);
+    arcSvg += `\n  <text x="${labelX}" y="${labelY}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="${color}" filter="url(#textGlow)">${label}</text>`;
+  }
+
+  return arcSvg;
 }
 
 /**
@@ -75,16 +114,7 @@ function renderShadowSvg(spec: MathSpec): string {
   const xS = Math.round(xC + k * (xA - xC));
   const yS = Math.round(yC + k * (yA - yC));
 
-  // Angle Arc at C (sweep-flag = 0 to bulge inward)
-  const rArc = 35;
-  const alphaRad = Math.atan2(yB - yA, xC - xB); // angle of elevation
-  const arcStartX = xC - rArc;
-  const arcStartY = yC;
-  const arcEndX = Math.round(xC - rArc * Math.cos(alphaRad));
-  const arcEndY = Math.round(yC - rArc * Math.sin(alphaRad));
-
-  const labelAngleX = Math.round(xC - (rArc + 20) * Math.cos(alphaRad / 2));
-  const labelAngleY = Math.round(yC - (rArc + 20) * Math.sin(alphaRad / 2) - 2);
+  const arcC = createSvgAngleArc({ x: xC, y: yC }, { x: xB, y: yB }, { x: xA, y: yA }, angleC, 35);
 
   return `<svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -136,8 +166,8 @@ function renderShadowSvg(spec: MathSpec): string {
   <!-- Ký hiệu góc vuông tại B -->
   <path d="M ${xB} ${yB - 16} L ${xB + 16} ${yB - 16} L ${xB + 16} ${yB}" fill="none" stroke="#2563eb" stroke-width="2.5" />
 
-  <!-- Cung tròn góc nâng tại C (sweep-flag = 0) -->
-  <path d="M ${arcStartX} ${arcStartY} A ${rArc} ${rArc} 0 0 0 ${arcEndX} ${arcEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+  <!-- Cung tròn góc tại C -->
+  ${arcC}
 
   <!-- Các điểm đỉnh -->
   <circle cx="${xA}" cy="${yA}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
@@ -150,9 +180,6 @@ function renderShadowSvg(spec: MathSpec): string {
     <text x="${xB - 22}" y="${yB + 20}" text-anchor="end">${pB}</text>
     <text x="${xC + 22}" y="${yC + 20}" text-anchor="start">${pC}</text>
   </g>
-
-  <!-- Nhãn góc C -->
-  <text x="${labelAngleX}" y="${labelAngleY}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleC}</text>
 
   <!-- Đường dóng và số đo chiều cao AB -->
   <g stroke="#475569" stroke-width="1">
@@ -196,15 +223,7 @@ function renderLadderSvg(spec: MathSpec): string {
   const xC = 450;
   const yC = 415;
 
-  const rArc = 35;
-  const alphaRad = Math.atan2(yB - yA, xC - xB);
-  const arcStartX = xC - rArc;
-  const arcStartY = yC;
-  const arcEndX = Math.round(xC - rArc * Math.cos(alphaRad));
-  const arcEndY = Math.round(yC - rArc * Math.sin(alphaRad));
-
-  const labelAngleX = Math.round(xC - (rArc + 20) * Math.cos(alphaRad / 2));
-  const labelAngleY = Math.round(yC - (rArc + 20) * Math.sin(alphaRad / 2) - 2);
+  const arcC = createSvgAngleArc({ x: xC, y: yC }, { x: xB, y: yB }, { x: xA, y: yA }, angleC, 35);
 
   // Ladder rungs generation
   const rungCount = 7;
@@ -251,8 +270,8 @@ function renderLadderSvg(spec: MathSpec): string {
   <!-- Ký hiệu góc vuông tại B -->
   <path d="M ${xB} ${yB - 16} L ${xB + 16} ${yB - 16} L ${xB + 16} ${yB}" fill="none" stroke="#2563eb" stroke-width="2.5" />
 
-  <!-- Cung tròn góc nâng tại C (sweep-flag = 0) -->
-  <path d="M ${arcStartX} ${arcStartY} A ${rArc} ${rArc} 0 0 0 ${arcEndX} ${arcEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+  <!-- Cung tròn góc nâng tại C -->
+  ${arcC}
 
   <!-- Các điểm đỉnh -->
   <circle cx="${xA}" cy="${yA}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
@@ -265,9 +284,6 @@ function renderLadderSvg(spec: MathSpec): string {
     <text x="${xB - 22}" y="${yB + 20}" text-anchor="end">${pB}</text>
     <text x="${xC + 22}" y="${yC + 20}" text-anchor="start">${pC}</text>
   </g>
-
-  <!-- Nhãn góc C -->
-  <text x="${labelAngleX}" y="${labelAngleY}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleC}</text>
 
   <!-- Số đo chiều dài thang AC -->
   <text x="${(xA + xC) / 2 + 22}" y="${(yA + yC) / 2 - 8}" text-anchor="start" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#2563eb" filter="url(#textGlow)">${dimHypo}</text>
@@ -307,24 +323,8 @@ function renderLighthouseSvg(spec: MathSpec): string {
   const xC = 620;
   const yC = 415;
 
-  const rArc = 35;
-  const alphaRad = Math.atan2(yC - yA, xC - xA);
-
-  // Depression Arc at A (sweep-flag = 1)
-  const depStartX = xA + rArc;
-  const depStartY = yA;
-  const depEndX = Math.round(xA + rArc * Math.cos(alphaRad));
-  const depEndY = Math.round(yA + rArc * Math.sin(alphaRad));
-  const depLabelX = Math.round(xA + (rArc + 20) * Math.cos(alphaRad / 2));
-  const depLabelY = Math.round(yA + (rArc + 20) * Math.sin(alphaRad / 2));
-
-  // Elevation Arc at C (sweep-flag = 0)
-  const arcStartX = xC - rArc;
-  const arcStartY = yC;
-  const arcEndX = Math.round(xC - rArc * Math.cos(alphaRad));
-  const arcEndY = Math.round(yC - rArc * Math.sin(alphaRad));
-  const labelAngleX = Math.round(xC - (rArc + 20) * Math.cos(alphaRad / 2));
-  const labelAngleY = Math.round(yC - (rArc + 20) * Math.sin(alphaRad / 2) - 2);
+  const arcDep = createSvgAngleArc({ x: xA, y: yA }, { x: xA + 160, y: yA }, { x: xC, y: yC }, angleDep, 35);
+  const arcElev = angleElev ? createSvgAngleArc({ x: xC, y: yC }, { x: xB, y: yB }, { x: xA, y: yA }, angleElev, 35) : '';
 
   return `<svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -364,13 +364,10 @@ function renderLighthouseSvg(spec: MathSpec): string {
   <!-- Ký hiệu góc vuông tại B -->
   <path d="M ${xB} ${yB - 16} L ${xB + 16} ${yB - 16} L ${xB + 16} ${yB}" fill="none" stroke="#2563eb" stroke-width="2.5" />
 
-  <!-- Cung tròn góc hạ tại A (sweep-flag = 1) -->
-  <path d="M ${depStartX} ${depStartY} A ${rArc} ${rArc} 0 0 1 ${depEndX} ${depEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-  <text x="${depLabelX}" y="${depLabelY + 5}" text-anchor="start" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleDep}</text>
+  <!-- Cung tròn góc hạ tại A -->
+  ${arcDep}
 
-  ${angleElev ? `<!-- Cung tròn góc nâng tại C -->
-  <path d="M ${arcStartX} ${arcStartY} A ${rArc} ${rArc} 0 0 0 ${arcEndX} ${arcEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-  <text x="${labelAngleX}" y="${labelAngleY}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleElev}</text>` : ''}
+  ${arcElev ? `<!-- Cung tròn góc nâng tại C -->\n  ${arcElev}` : ''}
 
   <!-- Các điểm đỉnh -->
   <circle cx="${xA}" cy="${yA}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
@@ -426,15 +423,7 @@ function renderBuildingSvg(spec: MathSpec): string {
   const xC = 580;
   const yC = 415;
 
-  const rArc = 35;
-  const alphaRad = Math.atan2(yB - yA, xC - xB);
-  const arcStartX = xC - rArc;
-  const arcStartY = yC;
-  const arcEndX = Math.round(xC - rArc * Math.cos(alphaRad));
-  const arcEndY = Math.round(yC - rArc * Math.sin(alphaRad));
-
-  const labelAngleX = Math.round(xC - (rArc + 20) * Math.cos(alphaRad / 2));
-  const labelAngleY = Math.round(yC - (rArc + 20) * Math.sin(alphaRad / 2) - 2);
+  const arcC = createSvgAngleArc({ x: xC, y: yC }, { x: xB, y: yB }, { x: xA, y: yA }, angleC, 35);
 
   return `<svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -468,8 +457,8 @@ function renderBuildingSvg(spec: MathSpec): string {
   <!-- Ký hiệu góc vuông tại B -->
   <path d="M ${xB} ${yB - 16} L ${xB + 16} ${yB - 16} L ${xB + 16} ${yB}" fill="none" stroke="#2563eb" stroke-width="2.5" />
 
-  <!-- Cung tròn góc nâng tại C (sweep-flag = 0) -->
-  <path d="M ${arcStartX} ${arcStartY} A ${rArc} ${rArc} 0 0 0 ${arcEndX} ${arcEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+  <!-- Cung tròn góc nâng tại C -->
+  ${arcC}
 
   <!-- Các điểm đỉnh -->
   <circle cx="${xA}" cy="${yA}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
@@ -482,9 +471,6 @@ function renderBuildingSvg(spec: MathSpec): string {
     <text x="${xB - 22}" y="${yB + 20}" text-anchor="end">${pB}</text>
     <text x="${xC + 22}" y="${yC + 20}" text-anchor="start">${pC}</text>
   </g>
-
-  <!-- Nhãn góc C -->
-  <text x="${labelAngleX}" y="${labelAngleY}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleC}</text>
 
   <!-- Đường dóng và số đo chiều cao AB -->
   <g stroke="#475569" stroke-width="1">
@@ -580,6 +566,7 @@ function renderCircleSvg(spec: MathSpec): string {
     <text x="${xO - 20}" y="${yO + 8}" text-anchor="end">${pO}</text>
     <text x="${xM + 18}" y="${yM + 8}" text-anchor="start">${pM}</text>
     <text x="${xA}" y="${yA - 16}" text-anchor="middle">${pA}</text>
+    <text x="${xB}" y="${yB + 30}" text-anchor="middle">${pB}</text>
     <text x="${xH + 14}" y="${yH - 12}" text-anchor="start">${pH}</text>
     <text x="${(xO + xA) / 2 - 12}" y="${(yO + yA) / 2}" font-size="18" fill="#2563eb" font-style="italic" font-weight="normal">R</text>
   </g>
@@ -606,18 +593,11 @@ function renderPureGeometryTriangleSvg(spec: MathSpec): string {
   const xC = 600;
   const yC = 400;
 
-  const rArc = 35;
-  const alphaRad = Math.atan2(yB - yA, xC - xB);
-  const arcStartX = xC - rArc;
-  const arcStartY = yC;
-  const arcEndX = Math.round(xC - rArc * Math.cos(alphaRad));
-  const arcEndY = Math.round(yC - rArc * Math.sin(alphaRad));
-
-  const labelAngleX = Math.round(xC - (rArc + 20) * Math.cos(alphaRad / 2));
-  const labelAngleY = Math.round(yC - (rArc + 20) * Math.sin(alphaRad / 2) - 2);
-
   const angleC = spec.angles?.find((a) => a.vertex === 'C' || a.position === 'elevation')?.value || '';
   const angleA = spec.angles?.find((a) => a.vertex === 'A' || a.position === 'depression')?.value || '';
+
+  const arcC = angleC ? createSvgAngleArc({ x: xC, y: yC }, { x: xB, y: yB }, { x: xA, y: yA }, angleC, 35) : '';
+  const arcA = angleA ? createSvgAngleArc({ x: xA, y: yA }, { x: xB, y: yB }, { x: xC, y: yC }, angleA, 35) : '';
 
   return `<svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
   <defs>
@@ -632,13 +612,8 @@ function renderPureGeometryTriangleSvg(spec: MathSpec): string {
   <!-- Ký hiệu góc vuông tại B -->
   <path d="M ${xB} ${yB - 18} L ${xB + 18} ${yB - 18} L ${xB + 18} ${yB}" fill="none" stroke="#2563eb" stroke-width="2.5" />
 
-  ${angleC ? `<!-- Cung tròn góc tại C (sweep-flag = 0) -->
-  <path d="M ${arcStartX} ${arcStartY} A ${rArc} ${rArc} 0 0 0 ${arcEndX} ${arcEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-  <text x="${labelAngleX}" y="${labelAngleY}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleC}</text>` : ''}
-
-  ${angleA ? `<!-- Cung tròn góc tại A -->
-  <path d="M ${xA} ${yA + rArc} A ${rArc} ${rArc} 0 0 0 ${Math.round(xA + rArc * Math.cos(Math.PI/2 - alphaRad))} ${Math.round(yA + rArc * Math.sin(Math.PI/2 - alphaRad))}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-  <text x="${xA + 25}" y="${yA + 45}" text-anchor="start" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleA}</text>` : ''}
+  ${arcC ? `<!-- Cung tròn góc tại C -->\n  ${arcC}` : ''}
+  ${arcA ? `<!-- Cung tròn góc tại A -->\n  ${arcA}` : ''}
 
   <!-- Các điểm đỉnh -->
   <circle cx="${xA}" cy="${yA}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
@@ -700,4 +675,3 @@ export function renderStructuredMathToSvg(spec: MathSpec): string {
   // Default to pure geometry triangle (NO clipart, NO trees, NO sun)
   return renderPureGeometryTriangleSvg(spec);
 }
-
