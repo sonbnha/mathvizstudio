@@ -889,81 +889,63 @@ export default function HomePage() {
       const target = e.target as SVGElement;
       if (!target) return;
 
-      // Find if clicked element is a <text> or <circle>
+      // CHỈ CHO PHÉP kéo thả thẻ <text> (Nhãn tên điểm A, B, C... hoặc nhãn kích thước)
       const textTarget = (target.tagName.toLowerCase() === 'text'
         ? target
         : target.closest('text')) as SVGTextElement | null;
-      const circleTarget = (target.tagName.toLowerCase() === 'circle'
-        ? target
-        : target.closest('circle')) as SVGCircleElement | null;
 
-      if (textTarget) {
-        e.preventDefault();
-        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
-        const initX = parseFloat(textTarget.getAttribute('x') || '0');
-        const initY = parseFloat(textTarget.getAttribute('y') || '0');
+      if (!textTarget) return;
 
-        draggingElementRef.current = {
-          element: textTarget,
-          startX,
-          startY,
-          initX,
-          initY,
-          type: 'text',
-        };
-        textTarget.classList.add('opacity-80');
-      } else if (circleTarget) {
-        e.preventDefault();
-        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
-        const initX = parseFloat(circleTarget.getAttribute('cx') || '0');
-        const initY = parseFloat(circleTarget.getAttribute('cy') || '0');
+      e.preventDefault();
+      e.stopPropagation();
 
-        draggingElementRef.current = {
-          element: circleTarget,
-          startX,
-          startY,
-          initX,
-          initY,
-          type: 'circle',
-        };
-        circleTarget.classList.add('opacity-80');
-      }
+      const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
+      const initX = parseFloat(textTarget.getAttribute('x') || '0');
+      const initY = parseFloat(textTarget.getAttribute('y') || '0');
+
+      draggingElementRef.current = {
+        element: textTarget,
+        startX,
+        startY,
+        initX,
+        initY,
+        type: 'text',
+      };
+      textTarget.classList.add('opacity-75');
+      document.body.style.cursor = 'grabbing';
     };
 
     const handlePointerMove = (e: PointerEvent) => {
       if (!draggingElementRef.current) return;
       e.preventDefault();
 
-      const { element, startX, startY, initX, initY, type } = draggingElementRef.current;
+      const { element, startX, startY, initX, initY } = draggingElementRef.current;
       const currentPos = getSvgCoordinates(svg, e.clientX, e.clientY);
       const dx = currentPos.x - startX;
       const dy = currentPos.y - startY;
 
-      if (type === 'text') {
-        const newX = Math.round((initX + dx) * 10) / 10;
-        const newY = Math.round((initY + dy) * 10) / 10;
-        element.setAttribute('x', String(newX));
-        element.setAttribute('y', String(newY));
+      const newX = Math.round((initX + dx) * 10) / 10;
+      const newY = Math.round((initY + dy) * 10) / 10;
+      element.setAttribute('x', String(newX));
+      element.setAttribute('y', String(newY));
 
-        // Also update any child tspans if they have absolute x coords
-        const tspans = element.querySelectorAll('tspan');
-        tspans.forEach((tspan) => {
-          if (tspan.getAttribute('x')) {
-            tspan.setAttribute('x', String(newX));
-          }
-        });
-      } else if (type === 'circle') {
-        const newCx = Math.round((initX + dx) * 10) / 10;
-        const newCy = Math.round((initY + dy) * 10) / 10;
-        element.setAttribute('cx', String(newCx));
-        element.setAttribute('cy', String(newCy));
-      }
+      // Also update any child tspans if they have absolute x coords
+      const tspans = element.querySelectorAll('tspan');
+      tspans.forEach((tspan) => {
+        if (tspan.getAttribute('x')) {
+          tspan.setAttribute('x', String(newX));
+        }
+        if (tspan.getAttribute('y')) {
+          tspan.setAttribute('y', String(newY));
+        }
+      });
     };
 
     const handlePointerUp = () => {
       if (draggingElementRef.current) {
-        draggingElementRef.current.element.classList.remove('opacity-80');
+        draggingElementRef.current.element.classList.remove('opacity-75');
         draggingElementRef.current = null;
+        document.body.style.cursor = '';
 
         // Synchronize updated SVG DOM back to React state
         const serialized = new XMLSerializer().serializeToString(svg);
@@ -1524,7 +1506,7 @@ export default function HomePage() {
                     id="svgMount"
                     className={`w-full h-full flex items-center justify-center min-h-[300px] max-h-[420px] [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:object-contain ${
                       isEditMode
-                        ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500'
+                        ? '[&_path]:pointer-events-none [&_line]:pointer-events-none [&_polyline]:pointer-events-none [&_polygon]:pointer-events-none [&_rect]:pointer-events-none [&_circle]:pointer-events-none [&_image]:pointer-events-none [&_text]:pointer-events-auto [&_text]:cursor-grab [&_text:active]:cursor-grabbing [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_text]:select-none'
                         : ''
                     }`}
                     dangerouslySetInnerHTML={{ __html: svgOutput }}
