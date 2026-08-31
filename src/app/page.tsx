@@ -181,6 +181,30 @@ export default function HomePage() {
   const [tikzCopied, setTikzCopied] = useState(false);
   const [tikzError, setTikzError] = useState<string | null>(null);
 
+  // Dynamic Loading Message Steps for Canvas Overlay
+  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
+  const loadingSteps = [
+    'Đang phân tích dữ liệu & cấu trúc bài toán...',
+    'Đang tính toán vector tọa độ & góc hình học...',
+    'Đang tối ưu hóa nhãn số đo & căn chỉnh tỷ lệ...',
+    'Đang hoàn thiện và dựng hình trực quan...'
+  ];
+
+  const isGenerating = loading || refineLoading;
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isGenerating) {
+      setLoadingStepIndex(0);
+      interval = setInterval(() => {
+        setLoadingStepIndex((prev) => (prev + 1) % loadingSteps.length);
+      }, 1600);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isGenerating]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialize Theme on Mount (Light Mode is Default)
@@ -1079,7 +1103,7 @@ export default function HomePage() {
                 {/* Interactive Edit Mode Toggle Button */}
                 <button
                   onClick={() => setIsEditMode(!isEditMode)}
-                  disabled={!svgOutput}
+                  disabled={!svgOutput || isGenerating}
                   className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border ${
                     isEditMode
                       ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
@@ -1097,7 +1121,7 @@ export default function HomePage() {
 
                 <button
                   onClick={handleCopySVG}
-                  disabled={!svgOutput}
+                  disabled={!svgOutput || isGenerating}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1.5"
                   title="Sao chép mã SVG"
                 >
@@ -1116,7 +1140,7 @@ export default function HomePage() {
 
                 <button
                   onClick={handleDownloadSVG}
-                  disabled={!svgOutput}
+                  disabled={!svgOutput || isGenerating}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1.5"
                   title="Tải file .svg"
                 >
@@ -1126,7 +1150,7 @@ export default function HomePage() {
 
                 <button
                   onClick={() => handleDownloadPNG(2)}
-                  disabled={!svgOutput}
+                  disabled={!svgOutput || isGenerating}
                   className="px-2.5 py-1.5 rounded-lg bg-cyan-600/10 dark:bg-cyan-600/20 border border-cyan-500/30 hover:bg-cyan-600/20 dark:hover:bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition flex items-center gap-1.5"
                   title="Tải file PNG nét cao"
                 >
@@ -1137,7 +1161,7 @@ export default function HomePage() {
                 {/* TikZ LaTeX Export Button */}
                 <button
                   onClick={handleExportTikz}
-                  disabled={!svgOutput && !prompt.trim()}
+                  disabled={(!svgOutput && !prompt.trim()) || isGenerating}
                   className="px-2.5 py-1.5 rounded-lg bg-indigo-600/10 dark:bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/20 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
                   title="Xuất mã TikZ / LaTeX để dùng trên Overleaf hoặc MathType"
                 >
@@ -1151,12 +1175,56 @@ export default function HomePage() {
             <div
               id="previewContainer"
               ref={svgContainerRef}
-              className={`flex-1 w-full rounded-xl flex items-center justify-center p-4 min-h-[320px] relative overflow-hidden select-none transition-all ${
+              className={`flex-1 w-full rounded-xl flex items-center justify-center p-4 min-h-[340px] relative overflow-hidden select-none transition-all ${
                 svgOutput
                   ? 'bg-white border border-slate-300 dark:border-slate-700/80 shadow-sm dark:shadow-xl dark:shadow-black/50 text-slate-900'
                   : 'bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-inner'
               }`}
             >
+              {/* High-Tech Mathematical Loading Animation Overlay */}
+              {isGenerating && (
+                <div className="absolute inset-0 z-30 backdrop-blur-md bg-white/85 dark:bg-slate-950/90 flex flex-col items-center justify-center p-6 gap-5 animate-in fade-in duration-200">
+                  {/* Glowing Geometric Spinner */}
+                  <div className="relative flex items-center justify-center w-24 h-24">
+                    {/* Outer ambient glow */}
+                    <div className="absolute inset-0 rounded-full bg-cyan-500/20 dark:bg-cyan-500/30 blur-xl animate-pulse" />
+
+                    {/* Outer dashed spinning ring */}
+                    <div className="absolute w-20 h-20 rounded-full border-2 border-dashed border-cyan-500/40 dark:border-cyan-400/50 animate-[spin_8s_linear_infinite]" />
+
+                    {/* Middle counter-rotating gradient ring */}
+                    <div className="absolute w-16 h-16 rounded-full border-2 border-transparent border-t-indigo-500 border-r-cyan-400 dark:border-t-indigo-400 dark:border-r-cyan-300 animate-[spin_2.5s_linear_infinite_reverse]" />
+
+                    {/* Inner high-speed spinner */}
+                    <div className="absolute w-12 h-12 rounded-full border-2 border-cyan-500/20 border-b-cyan-500 animate-spin" />
+
+                    {/* Center Pulsing Sparkle / Math Icon */}
+                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 dark:shadow-cyan-500/50 animate-pulse">
+                      <Sparkles className="w-5 h-5 animate-bounce text-white" />
+                    </div>
+                  </div>
+
+                  {/* Status Texts with Glow & Animation */}
+                  <div className="flex flex-col items-center text-center gap-1.5 max-w-sm">
+                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                      <span className="inline-block w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
+                      <span>{refineLoading ? 'Đang tinh chỉnh mô hình...' : 'Đang tính toán và dựng hình trực quan...'}</span>
+                    </h3>
+                    <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium min-h-[18px] transition-all duration-300">
+                      {loadingSteps[loadingStepIndex]}
+                    </p>
+                    <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                      Mô hình vector SVG chuẩn sư phạm đang được xử lý theo thời gian thực.
+                    </p>
+                  </div>
+
+                  {/* High-tech pulsing progress bar */}
+                  <div className="w-48 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" />
+                  </div>
+                </div>
+              )}
+
               {svgOutput ? (
                 <div
                   id="svgMount"
