@@ -20,8 +20,8 @@ export async function POST(req: NextRequest) {
     const licenseKey = req.headers.get('x-license-key') || req.headers.get('X-License-Key');
     if (!licenseKey) {
       return NextResponse.json(
-        { error: 'Thiếu License Key trong Header X-License-Key.' },
-        { status: 403 }
+        { error: 'MISSING_LICENSE', message: 'Vui lòng nhập License Key để tiếp tục sử dụng.' },
+        { status: 401 }
       );
     }
 
@@ -29,16 +29,23 @@ export async function POST(req: NextRequest) {
       where: { key: licenseKey.trim() },
     });
 
-    if (!keyRecord || !keyRecord.isActive) {
+    if (!keyRecord) {
       return NextResponse.json(
-        { error: 'License key không hợp lệ hoặc đã bị khóa.' },
+        { error: 'INVALID_LICENSE', message: 'Mã License Key không hợp lệ hoặc không tồn tại trên hệ thống.' },
+        { status: 401 }
+      );
+    }
+
+    if (!keyRecord.isActive) {
+      return NextResponse.json(
+        { error: 'LICENSE_DISABLED', message: 'Mã License Key của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
       return NextResponse.json(
-        { error: 'License key đã hết hạn sử dụng.' },
+        { error: 'LICENSE_EXPIRED', message: 'Mã bản quyền của bạn đã hết hạn sử dụng. Vui lòng gia hạn hoặc liên hệ quản trị viên.' },
         { status: 403 }
       );
     }

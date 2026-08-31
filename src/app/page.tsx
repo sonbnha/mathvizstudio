@@ -637,12 +637,28 @@ export default function HomePage() {
       const data = await res.json();
 
       if (!res.ok) {
+        // 1. Phân loại lỗi License Key (Hết hạn, hết lượt, key sai, bị khóa) -> Báo lỗi trực tiếp, TUYỆT ĐỐI KHÔNG mở popup BYOK
+        if (
+          data.error === 'LICENSE_EXPIRED' ||
+          data.error === 'LICENSE_LIMIT_REACHED' ||
+          data.error === 'INVALID_LICENSE' ||
+          data.error === 'MISSING_LICENSE' ||
+          data.error === 'LICENSE_DISABLED' ||
+          (res.status === 403 && !data.isAiKeyError && !data.isAiQuotaError) ||
+          (res.status === 401 && !data.isAiKeyError && !data.isAiQuotaError)
+        ) {
+          checkLicenseKey();
+          throw new Error(data.message || data.error || 'Mã License Key không hợp lệ hoặc đã hết lượt/hết hạn sử dụng.');
+        }
+
+        // 2. Chỉ khi lỗi thực sự xuất phát từ Gemini AI (Quá tải 429 / Quota AI / Key AI lỗi) -> Mới mở pop-up BYOK
         if (
           res.status === 429 ||
-          res.status === 401 ||
-          res.status === 403 ||
-          data.isQuotaError ||
-          data.isKeyError ||
+          data.error === 'AI_QUOTA_EXCEEDED' ||
+          data.error === 'AI_KEY_MISSING' ||
+          data.error === 'INVALID_AI_KEY' ||
+          data.isAiQuotaError ||
+          data.isAiKeyError ||
           data.code === 'RATE_LIMIT_EXCEEDED' ||
           data.code === 'INVALID_API_KEY'
         ) {
@@ -650,11 +666,13 @@ export default function HomePage() {
           setQuotaKeyInput(currentKey);
           setIsQuotaModalOpen(true);
           throw new Error(
-            data.error ||
-              'Hệ thống đang quá tải hoặc API Key không hợp lệ. Vui lòng nhập Gemini API Key cá nhân để tiếp tục ngay!'
+            data.message ||
+              data.error ||
+              'Hệ thống AI đang quá tải lượt dùng. Vui lòng nhập Gemini API Key cá nhân để tiếp tục ngay!'
           );
         }
-        throw new Error(data.error || 'Đã có lỗi xảy ra khi tạo hình.');
+
+        throw new Error(data.message || data.error || 'Đã có lỗi xảy ra khi tạo hình.');
       }
 
       if (!data.svg || typeof data.svg !== 'string' || !data.svg.includes('<svg')) {

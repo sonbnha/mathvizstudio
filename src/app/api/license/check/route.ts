@@ -24,28 +24,28 @@ export async function POST(req: NextRequest) {
 
     if (!keyRecord) {
       return NextResponse.json(
-        { valid: false, message: 'Mã key không tồn tại.' },
-        { status: 404 }
+        { valid: false, error: 'INVALID_LICENSE', message: 'Mã License Key không hợp lệ hoặc không tồn tại.' },
+        { status: 401 }
       );
     }
 
     if (!keyRecord.isActive) {
       return NextResponse.json(
-        { valid: false, message: 'Key đã bị vô hiệu hóa.' },
+        { valid: false, error: 'LICENSE_DISABLED', message: 'Mã License Key của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
       return NextResponse.json(
-        { valid: false, message: 'Key đã hết hạn sử dụng.' },
+        { valid: false, error: 'LICENSE_EXPIRED', message: 'Mã bản quyền của bạn đã hết hạn sử dụng. Vui lòng gia hạn hoặc liên hệ quản trị viên.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.totalCredits !== -1 && keyRecord.usedCredits >= keyRecord.totalCredits) {
       return NextResponse.json(
-        { valid: false, message: 'Key đã sử dụng hết lượt.' },
+        { valid: false, error: 'LICENSE_LIMIT_REACHED', message: 'Mã bản quyền của bạn đã sử dụng hết số lượt tạo hình cho phép.' },
         { status: 403 }
       );
     }

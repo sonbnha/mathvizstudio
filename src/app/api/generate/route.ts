@@ -50,8 +50,11 @@ export async function POST(req: NextRequest) {
     const licenseKey = req.headers.get('x-license-key') || req.headers.get('X-License-Key');
     if (!licenseKey) {
       return NextResponse.json(
-        { error: 'Thiếu License Key trong Header X-License-Key.' },
-        { status: 403 }
+        {
+          error: 'MISSING_LICENSE',
+          message: 'Vui lòng nhập License Key để tiếp tục sử dụng.',
+        },
+        { status: 401 }
       );
     }
 
@@ -61,28 +64,40 @@ export async function POST(req: NextRequest) {
 
     if (!keyRecord) {
       return NextResponse.json(
-        { error: 'License key không tồn tại.' },
-        { status: 403 }
+        {
+          error: 'INVALID_LICENSE',
+          message: 'Mã License Key không hợp lệ hoặc không tồn tại trên hệ thống.',
+        },
+        { status: 401 }
       );
     }
 
     if (!keyRecord.isActive) {
       return NextResponse.json(
-        { error: 'License key đã bị vô hiệu hóa.' },
+        {
+          error: 'LICENSE_DISABLED',
+          message: 'Mã License Key của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.',
+        },
         { status: 403 }
       );
     }
 
     if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
       return NextResponse.json(
-        { error: 'License key đã hết hạn sử dụng.' },
+        {
+          error: 'LICENSE_EXPIRED',
+          message: 'Mã bản quyền của bạn đã hết hạn sử dụng. Vui lòng gia hạn hoặc liên hệ quản trị viên.',
+        },
         { status: 403 }
       );
     }
 
     if (keyRecord.totalCredits !== -1 && keyRecord.usedCredits >= keyRecord.totalCredits) {
       return NextResponse.json(
-        { error: 'License key đã hết lượt sử dụng.' },
+        {
+          error: 'LICENSE_LIMIT_REACHED',
+          message: 'Mã bản quyền của bạn đã sử dụng hết số lượt tạo hình cho phép.',
+        },
         { status: 403 }
       );
     }
@@ -117,7 +132,11 @@ export async function POST(req: NextRequest) {
     if (!apiKey) {
       console.error('[Gemini API] Thiếu cấu hình API Key: Cả key người dùng và GEMINI_API_KEY đều trống.');
       return NextResponse.json(
-        { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
+        {
+          error: 'AI_KEY_MISSING',
+          message: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.',
+          isAiKeyError: true,
+        },
         { status: 400 }
       );
     }
@@ -300,10 +319,11 @@ QUY TẮC BỐ CỤC & TỌA ĐỘ:
       return NextResponse.json(
         {
           success: false,
-          error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
+          error: 'AI_QUOTA_EXCEEDED',
+          message: 'Hệ thống AI đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
           code: 'RATE_LIMIT_EXCEEDED',
-          isQuotaError: true,
-          isKeyError: true,
+          isAiQuotaError: true,
+          isAiKeyError: true,
           details: error?.message,
         },
         { status: 429 }
@@ -314,9 +334,10 @@ QUY TẮC BỐ CỤC & TỌA ĐỘ:
       return NextResponse.json(
         {
           success: false,
-          error: 'Gemini API Key không hợp lệ hoặc không có quyền truy cập.',
+          error: 'INVALID_AI_KEY',
+          message: 'Gemini API Key không hợp lệ hoặc không có quyền truy cập.',
           code: 'INVALID_API_KEY',
-          isKeyError: true,
+          isAiKeyError: true,
           details: error?.message,
         },
         { status: 400 }
@@ -326,7 +347,8 @@ QUY TẮC BỐ CỤC & TỌA ĐỘ:
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
+        error: 'GENERATE_FAILED',
+        message: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
         details: error?.message,
       },
       { status: errorStatus && errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500 }
