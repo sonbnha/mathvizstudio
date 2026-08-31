@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { prisma } from './prisma';
 
-const JWT_SECRET = process.env.JWT_SECRET || process.env.ADMIN_SECRET_KEY || 'mathviz-secure-jwt-secret-key-2026';
+const JWT_SECRET = process.env.JWT_SECRET || 'mathviz-secure-jwt-secret-key-2026';
 
 export interface TokenPayload {
   userId: string;
@@ -32,16 +32,6 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
     if (authHeader && authHeader.startsWith('Bearer ')) {
       token = authHeader.substring(7).trim();
     }
-  }
-
-  // 3. Fallback to legacy X-Admin-Secret Header for backwards-compatibility or scripts
-  const adminSecret = req.headers.get('x-admin-secret') || req.headers.get('X-Admin-Secret');
-  if (!token && adminSecret && process.env.ADMIN_SECRET_KEY && adminSecret === process.env.ADMIN_SECRET_KEY) {
-    // Find or return default admin
-    const adminUser = await prisma.user.findFirst({
-      where: { role: 'ADMIN', isActive: true },
-    });
-    if (adminUser) return adminUser;
   }
 
   if (!token) return null;
