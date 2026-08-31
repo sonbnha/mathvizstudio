@@ -1610,190 +1610,191 @@ export default function UnifiedAdminPage() {
 
           {/* TAB 1: License Keys Management */}
           {activeTab === 'keys' && (
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
-            {/* Create Key Form (4 Cols on xl, full on lg) */}
-            <div className="xl:col-span-4 bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col gap-4 transition-colors">
-              <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-3">
-                <PlusCircle className="w-4 h-4 text-cyan-600 dark:text-cyan-400" /> Tạo License Key Mới
-              </h2>
-
-              <form onSubmit={handleCreateKey} className="flex flex-col gap-4">
-                {/* Customer Name */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                    Tên Khách Hàng / Học Sinh
-                  </label>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Ví dụ: Nguyễn Văn A hoặc THCS Lê Lợi"
-                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
-                    required
-                  />
+            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start w-full">
+              {/* Create Key Form (5 Cols on xl, 4 on 2xl, full on mobile/tablet) */}
+              <div className="xl:col-span-5 2xl:col-span-4 bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col gap-5 transition-colors">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
+                      <PlusCircle className="w-4 h-4" />
+                    </div>
+                    <span>Tạo License Key Mới</span>
+                  </h2>
+                  <span className="text-[11px] font-mono text-slate-400">Cấp mã trực tuyến</span>
                 </div>
 
-                {/* Credit Quota Selection with Toggle & Quick Chips */}
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
+                <form onSubmit={handleCreateKey} className="flex flex-col gap-4.5">
+                  {/* Customer Name */}
+                  <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <CreditCard className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                      <span>Số Lượt Dùng</span>
+                      <User className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span>Tên Khách Hàng / Học Sinh</span>
                     </label>
-
-                    {/* Toggle Switch Không giới hạn */}
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isUnlimitedCredits}
-                        onChange={(e) => setIsUnlimitedCredits(e.target.checked)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-7 h-4 rounded-full transition-colors relative flex items-center p-0.5 ${
-                          isUnlimitedCredits ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
-                        }`}
-                      >
-                        <div
-                          className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                            isUnlimitedCredits ? 'translate-x-3' : 'translate-x-0'
-                          }`}
-                        />
-                      </div>
-                      <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                        ∞ Không giới hạn
-                      </span>
-                    </label>
-                  </div>
-
-                  {isUnlimitedCredits ? (
-                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300 font-semibold text-xs flex items-center justify-between">
-                      <span className="flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                        Gói VIP - Không giới hạn lượt tạo
-                      </span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 font-bold font-mono">
-                        ∞ Vô hạn
-                      </span>
-                    </div>
-                  ) : (
                     <input
-                      type="number"
-                      min={1}
-                      max={99999}
-                      value={customCreditCount}
-                      onChange={(e) => setCustomCreditCount(Math.max(1, Number(e.target.value)))}
-                      placeholder="Nhập số lượt (vd: 30, 50, 100...)"
-                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-medium"
+                      type="text"
+                      value={customerName}
+                      onChange={(e) => setCustomerName(e.target.value)}
+                      placeholder="Ví dụ: Nguyễn Văn A hoặc THCS Lê Lợi"
+                      className="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-medium"
                       required
                     />
+                  </div>
+
+                  {/* Credit Quota Selection with Toggle & Quick Chips */}
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <CreditCard className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                        <span>Số Lượt Tạo Hình</span>
+                      </label>
+
+                      {/* Toggle Switch Không giới hạn */}
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isUnlimitedCredits}
+                          onChange={(e) => setIsUnlimitedCredits(e.target.checked)}
+                          className="sr-only"
+                        />
+                        <div
+                          className={`w-7 h-4 rounded-full transition-colors relative flex items-center p-0.5 ${
+                            isUnlimitedCredits ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
+                          }`}
+                        >
+                          <div
+                            className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                              isUnlimitedCredits ? 'translate-x-3' : 'translate-x-0'
+                            }`}
+                          />
+                        </div>
+                        <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                          ∞ Không giới hạn
+                        </span>
+                      </label>
+                    </div>
+
+                    {isUnlimitedCredits ? (
+                      <div className="h-10 px-3.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300 font-semibold text-xs flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                          Gói VIP - Không giới hạn
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 font-bold font-mono">
+                          ∞ Vô hạn
+                        </span>
+                      </div>
+                    ) : (
+                      <>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99999}
+                          value={customCreditCount}
+                          onChange={(e) => setCustomCreditCount(Math.max(1, Number(e.target.value)))}
+                          placeholder="Nhập số lượt (vd: 30, 50, 100...)"
+                          className="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-medium"
+                          required
+                        />
+
+                        {/* Quick Preset Chips 4 Columns */}
+                        <div className="grid grid-cols-4 gap-2 mt-0.5">
+                          {[30, 50, 100, 200].map((count) => (
+                            <button
+                              key={count}
+                              type="button"
+                              onClick={() => {
+                                setIsUnlimitedCredits(false);
+                                setCustomCreditCount(count);
+                              }}
+                              className={`py-1.5 px-2 rounded-lg text-xs font-medium border text-center transition ${
+                                !isUnlimitedCredits && customCreditCount === count
+                                  ? 'bg-cyan-500/15 border-cyan-500 text-cyan-700 dark:text-cyan-300 font-bold shadow-xs'
+                                  : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                              }`}
+                            >
+                              {count} lượt
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Duration Selection (Segmented 3 columns) */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                      <span>Thời Hạn Sử Dụng</span>
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {[
+                        { label: 'Vĩnh viễn', value: 0 },
+                        { label: '30 Ngày', value: 30 },
+                        { label: '1 Năm (365N)', value: 365 },
+                      ].map((dur) => (
+                        <button
+                          key={dur.value}
+                          type="button"
+                          onClick={() => setDurationDays(dur.value)}
+                          className={`py-2 px-2 rounded-xl text-xs font-medium border text-center transition ${
+                            durationDays === dur.value
+                              ? 'bg-indigo-500/15 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-bold shadow-xs'
+                              : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
+                          }`}
+                        >
+                          {dur.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Optional Note */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-slate-400" />
+                        <span>Ghi Chú Bổ Sung</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal">(Tùy chọn)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={keyNote}
+                      onChange={(e) => setKeyNote(e.target.value)}
+                      placeholder="Ví dụ: Lớp 9A2, Khách Zalo, Khóa học..."
+                      className="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-medium"
+                    />
+                  </div>
+
+                  {keyActionError && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+                      <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                      <span>{keyActionError}</span>
+                    </div>
                   )}
 
-                  {/* Quick Preset Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    <span className="text-[10px] text-slate-400 font-medium">Chọn nhanh:</span>
-                    {[30, 50, 100, 200].map((count) => (
-                      <button
-                        key={count}
-                        type="button"
-                        onClick={() => {
-                          setIsUnlimitedCredits(false);
-                          setCustomCreditCount(count);
-                        }}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition ${
-                          !isUnlimitedCredits && customCreditCount === count
-                            ? 'bg-cyan-500/15 border-cyan-500 text-cyan-700 dark:text-cyan-300 font-bold'
-                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
-                      >
-                        +{count} lượt
-                      </button>
-                    ))}
+                  <button
+                    type="submit"
+                    disabled={createKeyLoading || (isStaff && !isStaffUnlimited && staffCreatedCount >= (staffMaxCredits || 50))}
+                    className="mt-1 w-full h-11 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-semibold text-xs transition shadow-md shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {createKeyLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Đang sinh mã Key...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-4 h-4" />
+                        <span>Tạo License Key Mới</span>
+                      </>
+                    )}
+                  </button>
+                </form>
+              </div>
 
-                    <button
-                      type="button"
-                      onClick={() => setIsUnlimitedCredits(true)}
-                      className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition ${
-                        isUnlimitedCredits
-                          ? 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300 shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400 hover:border-purple-400'
-                      }`}
-                    >
-                      ∞ Vô hạn
-                    </button>
-                  </div>
-                </div>
-
-                {/* Duration Selection */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" /> Thời Hạn Sử Dụng
-                  </label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { label: 'Vĩnh viễn', value: 0 },
-                      { label: '30 Ngày', value: 30 },
-                      { label: '1 Năm', value: 365 },
-                    ].map((dur) => (
-                      <button
-                        key={dur.value}
-                        type="button"
-                        onClick={() => setDurationDays(dur.value)}
-                        className={`py-2 px-2 rounded-xl text-xs font-medium border transition ${
-                          durationDays === dur.value
-                            ? 'bg-indigo-500/15 border-indigo-500 text-indigo-700 dark:text-indigo-300 font-semibold'
-                            : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-700'
-                        }`}
-                      >
-                        {dur.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Optional Note */}
-                <div className="flex flex-col gap-1.5">
-                  <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                    <span>Ghi Chú Bổ Sung</span>
-                    <span className="text-[10px] text-slate-400 font-normal">(Tùy chọn)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={keyNote}
-                    onChange={(e) => setKeyNote(e.target.value)}
-                    placeholder="ví dụ: Lớp 9A2, Khách Zalo, v.v."
-                    className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
-                  />
-                </div>
-
-                {keyActionError && (
-                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs">
-                    {keyActionError}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={createKeyLoading || (isStaff && !isStaffUnlimited && staffCreatedCount >= (staffMaxCredits || 50))}
-                  className="mt-2 w-full py-3 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-semibold text-xs transition shadow-md shadow-cyan-950/40 disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {createKeyLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin text-white" />
-                      <span>Đang sinh mã Key...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Tạo License Key Mới</span>
-                    </>
-                  )}
-                </button>
-              </form>
-            </div>
-
-            {/* Keys Table List (8 Cols on xl, full on lg) */}
-            <div className="xl:col-span-8 bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 sm:p-5 shadow-sm dark:shadow-lg flex flex-col gap-4 transition-colors overflow-hidden">
+              {/* Keys Table List (7 Cols on xl, 8 on 2xl, full on mobile/tablet) */}
+              <div className="xl:col-span-7 2xl:col-span-8 bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col gap-4 transition-colors min-w-0">
               <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-3">
                 <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <KeyRound className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
