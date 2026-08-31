@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
-import { GeoEngine } from '@/lib/geoEngine';
-import { GEOMETRY_PROMPT } from '@/lib/gemini';
+import { GeoSolver } from '@/lib/geometrySolver';
+import { GEOSOLVER_PROMPT } from '@/lib/gemini';
 import { renderStructuredMathToSvg, MathSpec } from '@/lib/svg-generator';
 
 // Helper function to sanitize and extract/execute ONLY valid, clean SVG content
 function extractSvgCode(rawText: string): string {
   let clean = rawText.trim();
 
-  // 1. If text is a GeoEngine JavaScript snippet, execute it on GeoEngine
+  // 1. If text is a GeoSolver JavaScript snippet
   if (
+    clean.includes('solver.') ||
+    clean.includes('GeoSolver') ||
     clean.includes('geo.defPoint') ||
     clean.includes('geo.draw') ||
     clean.includes('GeoEngine') ||
-    clean.includes('GeoCanvas') ||
-    (clean.includes('geo.') && clean.includes('const '))
+    (clean.includes('const ') && (clean.includes('solver') || clean.includes('geo')))
   ) {
     try {
-      const svg = GeoEngine.execute(clean);
+      const svg = GeoSolver.execute(clean);
       if (svg && svg.includes('<svg')) {
         return svg;
       }
     } catch (e) {
-      console.warn('[extractSvgCode] GeoEngine execution fallback:', e);
+      console.warn('[extractSvgCode] GeoSolver execution fallback:', e);
     }
   }
 
@@ -183,7 +184,7 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const systemInstruction = GEOMETRY_PROMPT;
+    const systemInstruction = GEOSOLVER_PROMPT;
 
     const contents: any[] = [];
 
@@ -199,8 +200,8 @@ export async function POST(req: NextRequest) {
     }
 
     const userPrompt = promptText
-      ? `Hãy viết mã JavaScript GeoEngine để dựng hình cho bài toán sau:\n\n${promptText}`
-      : 'Hãy đọc đề bài toán trong ảnh và viết mã JavaScript GeoEngine để dựng hình chính xác.';
+      ? `Hãy viết mã JavaScript GeoSolver để dựng hình cho bài toán sau:\n\n${promptText}`
+      : 'Hãy đọc đề bài toán trong ảnh và viết mã JavaScript GeoSolver để dựng hình chính xác.';
 
     contents.push(userPrompt);
 

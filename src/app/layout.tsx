@@ -31,7 +31,6 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col font-sans bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
         {children}
-        <Script src="https://www.geogebra.org/apps/deployggb.js" strategy="afterInteractive" />
       </body>
     </html>
   );

@@ -39,7 +39,7 @@ import {
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
-import { GeoGebraViewer, GeoGebraViewerRef } from '@/components/GeoGebraViewer';
+import { GeoCanvasViewer } from '@/components/GeoCanvasViewer';
 
 const PRESETS = [
   {
@@ -161,10 +161,6 @@ export default function HomePage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
-
-  // GeoGebra Applet State
-  const [ggbCommands, setGgbCommands] = useState<string[]>([]);
-  const ggbViewerRef = useRef<GeoGebraViewerRef>(null);
 
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -680,15 +676,9 @@ export default function HomePage() {
         throw new Error(data.message || data.error || 'Đã có lỗi xảy ra khi tạo hình.');
       }
 
-      if (data.commands && Array.isArray(data.commands) && data.commands.length > 0) {
-        setGgbCommands(data.commands);
-      }
-
       if (data.svg && typeof data.svg === 'string' && data.svg.includes('<svg')) {
         setSvgOutput(data.svg);
         saveToHistory(data.svg, activePrompt);
-      } else if (data.commands && data.commands.length > 0) {
-        setSvgOutput(data.commands.join('\n'));
       } else {
         throw new Error(
           'Không nhận được dữ liệu vẽ hình học hợp lệ từ mô hình. Vui lòng thử lại với đề bài rõ ràng hơn.'
@@ -1511,35 +1501,8 @@ export default function HomePage() {
                 </div>
               )}
 
-              {ggbCommands.length > 0 ? (
-                <div className="w-full h-full flex items-center justify-center min-h-[360px]">
-                  <GeoGebraViewer
-                    ref={ggbViewerRef}
-                    commands={ggbCommands}
-                    onSVGExported={(svg) => saveToHistory(svg, prompt)}
-                  />
-                </div>
-              ) : svgOutput ? (
-                svgOutput.includes('<svg') ? (
-                  <div
-                    id="svgMount"
-                    className={`w-full h-full flex items-center justify-center min-h-[300px] max-h-[420px] [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:object-contain ${
-                      isEditMode
-                        ? '[&_path]:pointer-events-none [&_line]:pointer-events-none [&_polyline]:pointer-events-none [&_polygon]:pointer-events-none [&_rect]:pointer-events-none [&_circle]:pointer-events-none [&_image]:pointer-events-none [&_text]:pointer-events-auto [&_text]:cursor-grab [&_text:active]:cursor-grabbing [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_text]:select-none'
-                        : ''
-                    }`}
-                    dangerouslySetInnerHTML={{ __html: svgOutput }}
-                  />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center p-2 min-h-[300px]">
-                    <canvas ref={canvasRef} className="max-w-full max-h-[380px] rounded-xl shadow-xs" />
-                    {renderError && (
-                      <p className="text-xs text-rose-500 font-medium mt-2">
-                        {renderError}
-                      </p>
-                    )}
-                  </div>
-                )
+              {svgOutput ? (
+                <GeoCanvasViewer svg={svgOutput} isEditMode={isEditMode} />
               ) : (
                 <div className="text-center p-8 flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
                   <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-sm">
