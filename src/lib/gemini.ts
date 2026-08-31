@@ -1,17 +1,16 @@
 import { GoogleGenAI } from '@google/genai';
 
 /**
- * Standard Stable Gemini Models
+ * Gemini Model Configuration
  */
-export const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-export const FALLBACK_MODEL = 'gemini-1.5-flash';
-export const DEFAULT_GEMINI_MODEL = PRIMARY_MODEL;
+export const GEMINI_MODEL = 'gemini-3.6-flash';
+export const DEFAULT_GEMINI_MODEL = GEMINI_MODEL;
 
 /**
  * Returns the configured Gemini Model name
  */
 export function getGeminiModelName(): string {
-  return PRIMARY_MODEL;
+  return GEMINI_MODEL;
 }
 
 /**

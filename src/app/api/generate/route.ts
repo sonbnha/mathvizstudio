@@ -181,64 +181,21 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
 
     contents.push(userPrompt);
 
-    // List of models in order of priority (Primary: gemini-2.0-flash, Fallback: gemini-1.5-flash)
-    const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-    const FALLBACK_MODEL = 'gemini-1.5-flash';
-    const MODELS = [
-      PRIMARY_MODEL,
-      ...(PRIMARY_MODEL !== FALLBACK_MODEL ? [FALLBACK_MODEL] : []),
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-pro',
-    ];
+    const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
-    let response: any = null;
-    let lastError: any = null;
-
-    for (let i = 0; i < MODELS.length; i++) {
-      const currentModel = MODELS[i];
-      try {
-        console.info(`[Gemini API] Đang thử model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
-        const result = await ai.models.generateContent({
-          model: currentModel,
-          contents,
-          config: {
-            systemInstruction,
-            temperature: 0.1,
-            maxOutputTokens: 4096,
-          },
-        });
-
-        if (result && result.text) {
-          response = result;
-          console.info(`[Gemini API] Model ${currentModel} đã phản hồi thành công!`);
-          break;
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
-        
-        const errorStatus = err?.status || err?.statusCode;
-        const errorMsg = String(err?.message || '').toLowerCase();
-        const isRetryable =
-          errorStatus === 503 ||
-          errorStatus === 429 ||
-          errorStatus === 500 ||
-          errorStatus === 404 ||
-          errorMsg.includes('not found') ||
-          errorMsg.includes('overloaded') ||
-          errorMsg.includes('high demand') ||
-          errorMsg.includes('resource exhausted');
-
-        if (i < MODELS.length - 1 && isRetryable) {
-          console.info(`[Gemini API] Chờ 1.2s và tự động fallback sang model ${MODELS[i + 1]}...`);
-          await new Promise((resolve) => setTimeout(resolve, 1200));
-          continue;
-        }
-      }
-    }
+    console.info(`[Gemini API] Đang gửi yêu cầu tới model: ${GEMINI_MODEL}...`);
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents,
+      config: {
+        systemInstruction,
+        temperature: 0.1,
+        maxOutputTokens: 4096,
+      },
+    });
 
     if (!response || !response.text) {
-      throw lastError || new Error('Tất cả các model trong danh sách fallback đều không thể phản hồi.');
+      throw new Error('Mô hình Gemini không trả về dữ liệu văn bản.');
     }
 
     const rawText = response.text || '';

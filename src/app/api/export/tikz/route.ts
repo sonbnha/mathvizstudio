@@ -102,43 +102,19 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
       svg ? `Mã SVG:\n${svg}\n` : ''
     }${prompt ? `Đề bài:\n${prompt}` : ''}`;
 
-    const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
-    const FALLBACK_MODEL = 'gemini-1.5-flash';
-    const MODELS = [
-      PRIMARY_MODEL,
-      ...(PRIMARY_MODEL !== FALLBACK_MODEL ? [FALLBACK_MODEL] : []),
-      'gemini-2.0-flash-lite',
-      'gemini-1.5-pro',
-    ];
+    const GEMINI_MODEL = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
 
-    let response: any = null;
-    let lastError: any = null;
-
-    for (let i = 0; i < MODELS.length; i++) {
-      const currentModel = MODELS[i];
-      try {
-        response = await ai.models.generateContent({
-          model: currentModel,
-          contents: [userPrompt],
-          config: {
-            systemInstruction,
-          },
-        });
-        if (response?.text) {
-          break;
-        }
-      } catch (err: any) {
-        lastError = err;
-        console.warn(`[TikZ API] Model ${currentModel} error:`, err?.message || err);
-        if (i < MODELS.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1200));
-          continue;
-        }
-      }
-    }
+    console.info(`[TikZ API] Đang gửi yêu cầu tới model: ${GEMINI_MODEL}...`);
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [userPrompt],
+      config: {
+        systemInstruction,
+      },
+    });
 
     if (!response || !response.text) {
-      throw lastError || new Error('Không thể sinh mã TikZ vào lúc này.');
+      throw new Error('Không thể sinh mã TikZ vào lúc này.');
     }
 
     const rawTikz = response.text || '';
