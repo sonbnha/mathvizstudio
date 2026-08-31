@@ -181,27 +181,36 @@ export default function HomePage() {
   const [tikzCopied, setTikzCopied] = useState(false);
   const [tikzError, setTikzError] = useState<string | null>(null);
 
-  // Dynamic Loading Message Steps for Canvas Overlay
-  const [loadingStepIndex, setLoadingStepIndex] = useState(0);
-  const loadingSteps = [
-    'Đang phân tích dữ liệu & cấu trúc bài toán...',
-    'Đang tính toán vector tọa độ & góc hình học...',
-    'Đang tối ưu hóa nhãn số đo & căn chỉnh tỷ lệ...',
-    'Đang hoàn thiện và dựng hình trực quan...'
-  ];
-
+  // Canvas Loading Progress State (0 - 100)
+  const [progress, setProgress] = useState(0);
   const isGenerating = loading || refineLoading;
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let progressTimer: NodeJS.Timeout;
     if (isGenerating) {
-      setLoadingStepIndex(0);
-      interval = setInterval(() => {
-        setLoadingStepIndex((prev) => (prev + 1) % loadingSteps.length);
-      }, 1600);
+      setProgress(0);
+      const startTime = Date.now();
+      progressTimer = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        setProgress((prev) => {
+          if (prev >= 92) return 92;
+          if (elapsed < 500) {
+            // Rapid rise up to 30% in first 500ms
+            return Math.min(30, prev + 6);
+          } else if (prev < 60) {
+            return prev + 3;
+          } else if (prev < 80) {
+            return prev + 1.5;
+          } else {
+            return prev + 0.5;
+          }
+        });
+      }, 100);
+    } else {
+      setProgress(0);
     }
     return () => {
-      if (interval) clearInterval(interval);
+      if (progressTimer) clearInterval(progressTimer);
     };
   }, [isGenerating]);
 
@@ -464,6 +473,10 @@ export default function HomePage() {
       setSvgOutput(data.svg);
       saveToHistory(data.svg, activePrompt);
 
+      // Hit 100% on success and delay 200ms so user clearly sees completion
+      setProgress(100);
+      await new Promise((resolve) => setTimeout(resolve, 200));
+
       if (isRefinement) {
         setRefineInput('');
       }
@@ -471,6 +484,7 @@ export default function HomePage() {
       checkLicenseKey();
     } catch (err: any) {
       setErrorMsg(err.message || 'Lỗi kết nối tới máy chủ.');
+      setProgress(0);
     } finally {
       setLoading(false);
       setRefineLoading(false);
@@ -1181,11 +1195,11 @@ export default function HomePage() {
                   : 'bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-inner'
               }`}
             >
-              {/* High-Tech Mathematical Loading Animation Overlay */}
+              {/* High-Tech Mathematical Loading Animation Overlay with Progress Bar */}
               {isGenerating && (
-                <div className="absolute inset-0 z-30 backdrop-blur-md bg-white/85 dark:bg-slate-950/90 flex flex-col items-center justify-center p-6 gap-5 animate-in fade-in duration-200">
+                <div className="absolute inset-0 z-30 backdrop-blur-md bg-white/90 dark:bg-slate-950/90 flex flex-col items-center justify-center p-6 gap-4 animate-in fade-in duration-200">
                   {/* Glowing Geometric Spinner */}
-                  <div className="relative flex items-center justify-center w-24 h-24">
+                  <div className="relative flex items-center justify-center w-20 h-20">
                     {/* Outer ambient glow */}
                     <div className="absolute inset-0 rounded-full bg-cyan-500/20 dark:bg-cyan-500/30 blur-xl animate-pulse" />
 
@@ -1193,34 +1207,58 @@ export default function HomePage() {
                     <div className="absolute w-20 h-20 rounded-full border-2 border-dashed border-cyan-500/40 dark:border-cyan-400/50 animate-[spin_8s_linear_infinite]" />
 
                     {/* Middle counter-rotating gradient ring */}
-                    <div className="absolute w-16 h-16 rounded-full border-2 border-transparent border-t-indigo-500 border-r-cyan-400 dark:border-t-indigo-400 dark:border-r-cyan-300 animate-[spin_2.5s_linear_infinite_reverse]" />
+                    <div className="absolute w-14 h-14 rounded-full border-2 border-transparent border-t-indigo-500 border-r-cyan-400 dark:border-t-indigo-400 dark:border-r-cyan-300 animate-[spin_2.5s_linear_infinite_reverse]" />
 
                     {/* Inner high-speed spinner */}
-                    <div className="absolute w-12 h-12 rounded-full border-2 border-cyan-500/20 border-b-cyan-500 animate-spin" />
+                    <div className="absolute w-10 h-10 rounded-full border-2 border-cyan-500/20 border-b-cyan-500 animate-spin" />
 
                     {/* Center Pulsing Sparkle / Math Icon */}
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 dark:shadow-cyan-500/50 animate-pulse">
-                      <Sparkles className="w-5 h-5 animate-bounce text-white" />
+                    <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30 dark:shadow-cyan-500/50 animate-pulse">
+                      <Sparkles className="w-4 h-4 text-white" />
                     </div>
                   </div>
 
-                  {/* Status Texts with Glow & Animation */}
-                  <div className="flex flex-col items-center text-center gap-1.5 max-w-sm">
-                    <h3 className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                      <span className="inline-block w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
-                      <span>{refineLoading ? 'Đang tinh chỉnh mô hình...' : 'Đang tính toán và dựng hình trực quan...'}</span>
-                    </h3>
-                    <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium min-h-[18px] transition-all duration-300">
-                      {loadingSteps[loadingStepIndex]}
+                  {/* Status Texts & Percentage */}
+                  <div className="flex flex-col items-center text-center gap-2 max-w-sm w-full">
+                    <div className="flex items-center justify-between w-full max-w-[280px] sm:max-w-[320px] px-1 text-xs">
+                      <span className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                        <span className="inline-block w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
+                        {progress >= 100
+                          ? 'Hoàn tất!'
+                          : refineLoading
+                          ? 'Đang tinh chỉnh...'
+                          : 'Đang dựng hình...'}
+                      </span>
+                      <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400 text-sm">
+                        {Math.round(progress)}%
+                      </span>
+                    </div>
+
+                    {/* Sleek Gradient Progress Bar */}
+                    <div className="w-full max-w-[280px] sm:max-w-[320px] h-2.5 bg-slate-200/80 dark:bg-slate-800/80 rounded-full overflow-hidden p-0.5 border border-slate-300/60 dark:border-slate-700/60 shadow-inner">
+                      <div
+                        className="h-full bg-gradient-to-r from-blue-500 via-cyan-500 to-indigo-600 rounded-full transition-all duration-300 ease-out shadow-sm shadow-cyan-500/40 relative"
+                        style={{ width: `${progress}%` }}
+                      >
+                        {/* Shimmer light effect inside progress bar */}
+                        <div className="absolute inset-0 bg-white/25 animate-[pulse_1s_ease-in-out_infinite] rounded-full" />
+                      </div>
+                    </div>
+
+                    {/* Dynamic stage message based on % */}
+                    <p className="text-xs font-medium text-slate-700 dark:text-slate-200 min-h-[18px] transition-all duration-200 mt-0.5">
+                      {progress >= 100
+                        ? '✨ Hoàn tất! Đang hiển thị mô hình...'
+                        : progress > 80
+                        ? '⚙️ Đang hoàn tất khung vẽ...'
+                        : progress > 40
+                        ? '📐 Đang tạo tọa độ & hình học...'
+                        : '🔍 Đang phân tích dữ liệu toán học...'}
                     </p>
+
                     <p className="text-[11px] text-slate-400 dark:text-slate-500">
                       Mô hình vector SVG chuẩn sư phạm đang được xử lý theo thời gian thực.
                     </p>
-                  </div>
-
-                  {/* High-tech pulsing progress bar */}
-                  <div className="w-48 h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500 via-blue-500 to-indigo-500 rounded-full animate-[pulse_1.5s_ease-in-out_infinite]" />
                   </div>
                 </div>
               )}
