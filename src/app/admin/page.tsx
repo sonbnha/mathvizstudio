@@ -38,6 +38,7 @@ import {
   Zap,
   ExternalLink,
   History,
+  Share2,
   Tag,
   Calendar,
   Eye,
@@ -1388,7 +1389,13 @@ export default function UnifiedAdminPage() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 w-full max-w-7xl mx-auto min-w-0">
+        <main
+          className={`flex-1 min-h-0 w-full max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 min-w-0 ${
+            activeTab === 'keys'
+              ? 'flex flex-col overflow-y-auto xl:overflow-hidden'
+              : 'space-y-6 overflow-y-auto'
+          }`}
+        >
           {/* TAB 0: TỔNG QUAN (DASHBOARD OVERVIEW) */}
           {activeTab === 'overview' && (
             <div className="flex flex-col gap-6">
@@ -1650,12 +1657,12 @@ export default function UnifiedAdminPage() {
             </div>
           )}
 
-          {/* TAB 1: License Keys Management */}
+          {/* TAB 1: License Keys Management (Fixed Height & Internal Scroll Layout) */}
           {activeTab === 'keys' && (
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start w-full">
-              {/* Create Key Form (5 Cols on xl, 4 on 2xl, full on mobile/tablet) */}
-              <div className="xl:col-span-5 2xl:col-span-4 bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col gap-5 transition-colors">
-                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5">
+            <div className="flex-1 min-h-0 grid grid-cols-1 xl:grid-cols-12 gap-6 items-start xl:h-full w-full">
+              {/* Create Key Form (5 Cols on xl, 4 on 2xl, Sticky on desktop) */}
+              <div className="xl:col-span-5 2xl:col-span-4 bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col gap-4.5 transition-colors xl:sticky xl:top-0 xl:overflow-y-auto xl:max-h-full flex-shrink-0">
+                <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3.5 flex-shrink-0">
                   <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2.5">
                     <div className="w-7 h-7 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
                       <PlusCircle className="w-4 h-4" />
@@ -1835,219 +1842,231 @@ export default function UnifiedAdminPage() {
                 </form>
               </div>
 
-              {/* Keys Table List (7 Cols on xl, 8 on 2xl, full on mobile/tablet) */}
-              <div className="xl:col-span-7 2xl:col-span-8 bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 sm:p-6 shadow-xs flex flex-col gap-4 transition-colors min-w-0">
-              <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3 gap-3">
-                <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-                  <span>{isStaff ? 'License Keys Của Tôi' : 'Tất Cả License Keys'}</span>
-                  <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
-                    {filteredKeys.length} keys
-                  </span>
-                </h2>
+              {/* Keys Table List (7 Cols on xl, 8 on 2xl, Internal Scroll) */}
+              <div className="xl:col-span-7 2xl:col-span-8 bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xs flex flex-col transition-colors min-w-0 xl:h-full xl:min-h-0 overflow-hidden">
+                {/* Header Filter / Search */}
+                <div className="p-4 sm:p-5 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+                  <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <KeyRound className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                    <span>{isStaff ? 'License Keys Của Tôi' : 'Tất Cả License Keys'}</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 font-mono">
+                      {filteredKeys.length} keys
+                    </span>
+                  </h2>
 
-                <div className="flex flex-wrap items-center gap-2">
-                  {/* Creator Filter Dropdown for ADMIN */}
-                  {!isStaff && (
-                    <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs">
-                      <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <select
-                        value={creatorFilter}
-                        onChange={(e) => setCreatorFilter(e.target.value)}
-                        className="bg-transparent text-slate-800 dark:text-slate-200 outline-none text-xs cursor-pointer font-medium"
-                      >
-                        <option value="ALL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                          Tất cả người tạo
-                        </option>
-                        <option value="ADMIN" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                          Chỉ key của Admin
-                        </option>
-                        <option value="SYSTEM" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
-                          Key Hệ thống (Cũ)
-                        </option>
-                        {ctvUsers.map((ctv) => (
-                          <option
-                            key={ctv.id}
-                            value={ctv.id}
-                            className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
-                          >
-                            CTV: {ctv.name} ({ctv.username})
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Creator Filter Dropdown for ADMIN */}
+                    {!isStaff && (
+                      <div className="flex items-center gap-1.5 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-2.5 py-1 text-xs">
+                        <Filter className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <select
+                          value={creatorFilter}
+                          onChange={(e) => setCreatorFilter(e.target.value)}
+                          className="bg-transparent text-slate-800 dark:text-slate-200 outline-none text-xs cursor-pointer font-medium"
+                        >
+                          <option value="ALL" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                            Tất cả người tạo
                           </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+                          <option value="ADMIN" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                            Chỉ key của Admin
+                          </option>
+                          <option value="SYSTEM" className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100">
+                            Key Hệ thống (Cũ)
+                          </option>
+                          {ctvUsers.map((ctv) => (
+                            <option
+                              key={ctv.id}
+                              value={ctv.id}
+                              className="bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100"
+                            >
+                              CTV: {ctv.name} ({ctv.username})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
-                  {/* Search Input */}
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={keySearch}
-                      onChange={(e) => setKeySearch(e.target.value)}
-                      placeholder="Tìm theo mã key / tên..."
-                      className="pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-cyan-500 transition w-36 sm:w-48"
-                    />
+                    {/* Search Input */}
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                      <input
+                        type="text"
+                        value={keySearch}
+                        onChange={(e) => setKeySearch(e.target.value)}
+                        placeholder="Tìm theo mã key / tên..."
+                        className="pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-cyan-500 transition w-36 sm:w-48"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              <div className="overflow-x-auto w-full rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-                <table className="w-full min-w-[720px] table-auto border-collapse text-left text-xs">
-                  <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
-                      <th className="py-2.5 px-3">Khách hàng</th>
-                      <th className="py-2.5 px-2">Mã Key</th>
-                      <th className="py-2.5 px-2">Người Tạo</th>
-                      <th className="py-2.5 px-2 text-center">Lượt Dùng</th>
-                      <th className="py-2.5 px-2 text-center">Hạn Dùng</th>
-                      <th className="py-2.5 px-2 text-center">Trạng Thái</th>
-                      <th className="py-2.5 px-3 text-right">Thao Tác</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-200/80 dark:divide-slate-800/60">
-                    {filteredKeys.length === 0 ? (
+                {/* Table Scrollable Body (Independent scroll) */}
+                <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto w-full">
+                  <table className="w-full min-w-[720px] table-auto border-collapse text-left text-xs">
+                    <thead className="sticky top-0 z-10 bg-slate-50/95 dark:bg-[#151c2c]/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] shadow-xs">
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-500">
-                          {keySearch || creatorFilter !== 'ALL'
-                            ? 'Không tìm thấy kết quả phù hợp.'
-                            : 'Chưa có License Key nào.'}
-                        </td>
+                        <th className="py-3 px-3.5">Khách hàng</th>
+                        <th className="py-3 px-2.5">Mã Key</th>
+                        <th className="py-3 px-2.5">Người Tạo</th>
+                        <th className="py-3 px-2.5 text-center">Lượt Dùng</th>
+                        <th className="py-3 px-2.5 text-center">Hạn Dùng</th>
+                        <th className="py-3 px-2.5 text-center">Trạng Thái</th>
+                        <th className="py-3 px-3.5 text-right">Thao Tác</th>
                       </tr>
-                    ) : (
-                      filteredKeys.map((k) => (
-                        <tr key={k.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
-                          {/* 1. Khách hàng */}
-                          <td className="px-3 py-3 font-medium text-slate-900 dark:text-slate-200">
-                            <span className="block max-w-[110px] sm:max-w-[140px] truncate" title={k.customerName || 'N/A'}>
-                              {k.customerName || 'N/A'}
-                            </span>
-                          </td>
-
-                          {/* 2. Mã Key */}
-                          <td className="px-2 py-3 whitespace-nowrap">
-                            <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
-                              <span
-                                className="font-mono text-xs font-bold px-2 py-1 rounded-md tracking-wider bg-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-sm dark:bg-indigo-950/70 dark:text-cyan-300 dark:border-indigo-500/50 dark:shadow-[0_0_8px_rgba(99,102,241,0.25)] select-all"
-                                title={`Mã Key đầy đủ: ${k.key}`}
-                              >
-                                ...{k.key.slice(-4)}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleCopyKey(k.key, k.id)}
-                                title="Sao chép toàn bộ mã key"
-                                className="p-1 text-slate-400 hover:text-indigo-600 dark:hover:text-cyan-300 rounded transition hover:bg-slate-100 dark:hover:bg-slate-800"
-                              >
-                                {copiedKeyId === k.id ? (
-                                  <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                                ) : (
-                                  <Copy className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-                            </div>
-                          </td>
-
-                          {/* 3. Người Tạo */}
-                          <td className="px-2 py-3">
-                            {k.createdBy ? (
-                              <div className="flex flex-col">
-                                <span className="font-semibold text-slate-800 dark:text-slate-200 text-xs flex items-center gap-1">
-                                  <span className="truncate max-w-[85px]">{k.createdBy.name}</span>
-                                  <span
-                                    className={`text-[8px] px-1 py-0.2 rounded font-bold uppercase ${
-                                      k.createdBy.role === 'ADMIN'
-                                        ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                                        : 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
-                                    }`}
-                                  >
-                                    {k.createdBy.role === 'ADMIN' ? 'ADMIN' : 'CTV'}
-                                  </span>
-                                </span>
-                              </div>
-                            ) : (
-                              <span className="text-slate-400 dark:text-slate-500 italic text-[11px]">
-                                Hệ thống
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 4. Lượt Dùng */}
-                          <td className="px-2 py-3 text-center">
-                            {k.totalCredits === -1 ? (
-                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-200 dark:bg-indigo-950/50 dark:text-indigo-300 dark:border-indigo-800/50 whitespace-nowrap">
-                                ∞ Vô hạn
-                              </span>
-                            ) : (
-                              <span className="text-slate-700 dark:text-slate-300 font-medium text-xs whitespace-nowrap">
-                                {k.usedCredits} / {k.totalCredits}
-                              </span>
-                            )}
-                          </td>
-
-                          {/* 5. Hạn Dùng */}
-                          <td className="px-2 py-3 text-center text-xs text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                            {k.expiresAt
-                              ? new Date(k.expiresAt).toLocaleDateString('vi-VN')
-                              : 'Vĩnh viễn'}
-                          </td>
-
-                          {/* 6. Trạng Thái */}
-                          <td className="px-2 py-3 text-center">
-                            <span
-                              className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                k.isActive
-                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
-                              }`}
-                            >
-                              {k.isActive ? 'Hoạt động' : 'Đang khóa'}
-                            </span>
-                          </td>
-
-                          {/* 7. Thao Tác (Actions) */}
-                          <td className="px-3 py-3 text-right whitespace-nowrap">
-                            <div className="inline-flex items-center justify-end gap-1.5">
-                              {/* Nút 1: Sao chép tin nhắn gửi khách */}
-                              <button
-                                type="button"
-                                onClick={() => handleCopyKeyCustomerMessage(k)}
-                                title="Sao chép tin nhắn gửi khách"
-                                className="p-1.5 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                              >
-                                {copiedCustomerKeyId === k.id ? (
-                                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                                ) : (
-                                  <Send className="w-4 h-4" />
-                                )}
-                              </button>
-
-                              {/* Nút 2: Khóa / Mở khóa key */}
-                              <button
-                                type="button"
-                                onClick={() => handleToggleKeyActive(k.id, k.isActive)}
-                                title={k.isActive ? 'Khóa License Key' : 'Mở khóa License Key'}
-                                className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                              >
-                                {k.isActive ? (
-                                  <ToggleRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400 hover:text-emerald-500" />
-                                ) : (
-                                  <ToggleLeft className="w-5 h-5 text-slate-400 dark:text-slate-600 hover:text-slate-500" />
-                                )}
-                              </button>
-
-                              {/* Nút 3: Xóa key */}
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteKey(k.id)}
-                                title="Xóa Key"
-                                className="p-1.5 text-rose-500 hover:text-rose-700 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-950/40 transition"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200/80 dark:divide-slate-800/60">
+                      {filteredKeys.length === 0 ? (
+                        <tr>
+                          <td colSpan={7} className="py-8 text-center text-slate-500">
+                            {keySearch || creatorFilter !== 'ALL'
+                              ? 'Không tìm thấy kết quả phù hợp.'
+                              : 'Chưa có License Key nào.'}
                           </td>
                         </tr>
+                      ) : (
+                        filteredKeys.map((k) => (
+                          <tr key={k.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
+                            {/* 1. Khách hàng */}
+                            <td className="px-3.5 py-3 font-medium text-slate-900 dark:text-slate-200">
+                              <span className="block max-w-[110px] sm:max-w-[140px] truncate" title={k.customerName || 'N/A'}>
+                                {k.customerName || 'N/A'}
+                              </span>
+                            </td>
+
+                            {/* 2. Mã Key */}
+                            <td className="px-2.5 py-3 whitespace-nowrap">
+                              <div className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span
+                                  className="font-mono font-bold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20 select-all cursor-pointer"
+                                  onClick={() => handleCopyKey(k.key, k.id)}
+                                  title="Click để copy key"
+                                >
+                                  {k.key}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyKey(k.key, k.id)}
+                                  className="p-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                                  title="Copy mã key"
+                                >
+                                  {copiedKeyId === k.id ? (
+                                    <Check className="w-3.5 h-3.5 text-emerald-500" />
+                                  ) : (
+                                    <Copy className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+
+                            {/* 3. Người Tạo */}
+                            <td className="px-2.5 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                              {k.createdBy ? (
+                                <span
+                                  className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                                    k.createdBy.role === 'ADMIN'
+                                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                                  }`}
+                                >
+                                  {k.createdBy.name}
+                                </span>
+                              ) : (
+                                <span className="text-[11px] text-slate-400 italic">Hệ thống</span>
+                              )}
+                            </td>
+
+                            {/* 4. Lượt Dùng */}
+                            <td className="px-2.5 py-3 text-center whitespace-nowrap">
+                              <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+                                {k.usedCredits}
+                              </span>
+                              <span className="text-slate-400 font-mono"> / </span>
+                              <span className="font-mono text-slate-500">
+                                {k.totalCredits === -1 ? '∞' : k.totalCredits}
+                              </span>
+                            </td>
+
+                            {/* 5. Hạn Dùng */}
+                            <td className="px-2.5 py-3 text-center whitespace-nowrap text-slate-600 dark:text-slate-400 font-mono">
+                              {k.expiresAt ? formatDateVN(k.expiresAt) : 'Vĩnh viễn'}
+                            </td>
+
+                            {/* 6. Trạng Thái */}
+                            <td className="px-2.5 py-3 text-center whitespace-nowrap">
+                              <span
+                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
+                                  k.isActive
+                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
+                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
+                                }`}
+                              >
+                                {k.isActive ? (
+                                  <>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                    <span>Hoạt Động</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                    <span>Đã Khóa</span>
+                                  </>
+                                )}
+                              </span>
+                            </td>
+
+                            {/* 7. Thao Tác */}
+                            <td className="px-3.5 py-3 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* Copy Customer Handover Message Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleCopyKeyCustomerMessage(k)}
+                                  className="px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-[11px] font-medium transition flex items-center gap-1 border border-indigo-200 dark:border-indigo-500/30"
+                                  title="Copy toàn bộ thông tin tài khoản định dạng sẵn để gửi khách"
+                                >
+                                  {copiedCustomerKeyId === k.id ? (
+                                    <>
+                                      <Check className="w-3 h-3 text-emerald-500" />
+                                      <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đã copy</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Share2 className="w-3 h-3" />
+                                      <span>Copy tin nhắn</span>
+                                    </>
+                                  )}
+                                </button>
+
+                                {/* Toggle Active / Block Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleKeyActive(k.id, k.isActive)}
+                                  className={`p-1.5 rounded-lg border transition ${
+                                    k.isActive
+                                      ? 'hover:bg-amber-50 dark:hover:bg-amber-500/10 text-slate-400 hover:text-amber-600 dark:hover:text-amber-400 border-transparent hover:border-amber-200 dark:hover:border-amber-500/30'
+                                      : 'hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 border-transparent hover:border-emerald-200 dark:hover:border-emerald-500/30'
+                                  }`}
+                                  title={k.isActive ? 'Tạm khóa key này' : 'Mở khóa key này'}
+                                >
+                                  {k.isActive ? (
+                                    <EyeOff className="w-3.5 h-3.5" />
+                                  ) : (
+                                    <Eye className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+
+                                {/* Delete Key Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteKey(k.id)}
+                                  className="p-1.5 rounded-lg hover:bg-rose-50 dark:hover:bg-rose-500/10 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 border border-transparent hover:border-rose-200 dark:hover:border-rose-500/30 transition"
+                                  title="Xóa Key vĩnh viễn"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
                       ))
                     )}
                   </tbody>
