@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState, useImperativeHandle, forwardRef } from "react";
-import { Download, FileCode, FileImage, Copy, Check, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Download, FileCode, FileImage, Check, RotateCcw } from "lucide-react";
 
 export interface GeoGebraViewerRef {
   exportSVG: () => string | null;
@@ -36,11 +36,12 @@ export const GeoGebraViewer = forwardRef<GeoGebraViewerRef, GeoGebraViewerProps>
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [appletApi, setAppletApi] = useState<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [appletId] = useState(() => `ggb_${Math.random().toString(36).slice(2, 9)}`);
 
-  // Expose methods via Ref
+  // Expose export methods via Ref
   useImperativeHandle(ref, () => ({
     exportSVG: () => {
       if (!appletApi) return null;
@@ -85,80 +86,112 @@ export const GeoGebraViewer = forwardRef<GeoGebraViewerRef, GeoGebraViewerProps>
   }));
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let isMounted = true;
+    setLoading(true);
+    setError(null);
 
-    const initGgb = () => {
-      if (typeof window === "undefined" || !window.GGBApplet || !containerRef.current) {
-        timer = setTimeout(initGgb, 300);
-        return;
-      }
+    const cmdList = Array.isArray(commands)
+      ? commands
+      : commands.split("\n").map((c) => c.trim()).filter(Boolean);
 
-      const cmdList = Array.isArray(commands)
-        ? commands
-        : commands.split("\n").map((c) => c.trim()).filter(Boolean);
-
-      containerRef.current.innerHTML = "";
-
-      const params = {
-        id: appletId,
-        appName: "geometry",
-        width: width,
-        height: height,
-        showToolBar: false,
-        showAlgebraInput: false,
-        showMenuBar: false,
-        showResetIcon: false,
-        enableLabelDrags: true,
-        enableShiftDragZoom: true,
-        enableRightClick: false,
-        showToolBarHelp: false,
-        errorDialogsActive: false,
-        useBrowserForJS: false,
-        appletOnLoad: (api: any) => {
-          try {
-            api.reset();
-            // Thực thi từng lệnh GeoGebra
-            cmdList.forEach((cmd) => {
-              const cleanCmd = cmd.trim();
-              if (cleanCmd && !cleanCmd.startsWith("//") && !cleanCmd.startsWith("#")) {
-                api.evalCommand(cleanCmd);
-              }
-            });
-
-            // Tự động căn khung hình vừa vặn
-            api.evalCommand("ZoomIn()");
-            setAppletApi(api);
-            setIsLoaded(true);
-
-            if (onAppletReady) {
-              onAppletReady(api);
-            }
-
-            // Export initial SVG if callback provided
-            if (onSVGExported && typeof api.exportSVG === "function") {
-              try {
-                const svg = api.exportSVG();
-                if (svg) onSVGExported(svg);
-              } catch (e) {}
-            }
-          } catch (err) {
-            console.warn("[GeoGebra Applet Load Error]:", err);
-          }
-        },
-      };
+    const initApplet = () => {
+      if (!window.GGBApplet || !containerRef.current) return;
 
       try {
+        containerRef.current.innerHTML = "";
+        const params = {
+          id: appletId,
+          appName: "geometry",
+          width: width,
+          height: height,
+          showToolBar: false,
+          showAlgebraInput: false,
+          showMenuBar: false,
+          showResetIcon: false,
+          enableLabelDrags: true,
+          enableShiftDragZoom: true,
+          enableRightClick: false,
+          showToolBarHelp: false,
+          errorDialogsActive: false,
+          useBrowserForJS: false,
+          appletOnLoad: (api: any) => {
+            if (!isMounted) return;
+            try {
+              api.reset();
+              cmdList.forEach((cmd) => {
+                const cleanCmd = cmd.trim();
+                if (cleanCmd && !cleanCmd.startsWith("//") && !cleanCmd.startsWith("#")) {
+                  api.evalCommand(cleanCmd);
+                }
+              });
+              api.evalCommand("ZoomIn()");
+              setAppletApi(api);
+              if (onAppletReady) onAppletReady(api);
+              if (onSVGExported && typeof api.exportSVG === "function") {
+                try {
+                  const svg = api.exportSVG();
+                  if (svg) onSVGExported(svg);
+                } catch (e) {}
+              }
+            } catch (e) {
+              console.error("Lỗi thực thi lệnh GeoGebra:", e);
+            } finally {
+              if (isMounted) setLoading(false);
+            }
+          },
+        };
+
         const applet = new window.GGBApplet(params, true);
         applet.inject(containerRef.current);
-      } catch (err) {
-        console.error("[GeoGebra Injection Error]:", err);
+      } catch (err: any) {
+        if (isMounted) {
+          setError(err?.message || "Không thể khởi tạo GeoGebra");
+          setLoading(false);
+        }
       }
     };
 
-    initGgb();
+    // Tự động tải script nếu chưa có
+    if (typeof window !== "undefined") {
+      if (!window.GGBApplet) {
+        const existingScript = document.querySelector('script[src*="deployggb.js"]');
+        if (!existingScript) {
+          const script = document.createElement("script");
+          script.src = "https://www.geogebra.org/apps/deployggb.js";
+          script.async = true;
+          script.onload = () => {
+            if (isMounted) initApplet();
+          };
+          script.onerror = () => {
+            if (isMounted) {
+              setError("Không thể tải thư viện GeoGebra từ CDN");
+              setLoading(false);
+            }
+          };
+          document.body.appendChild(script);
+        } else {
+          const checkTimer = setInterval(() => {
+            if (window.GGBApplet) {
+              clearInterval(checkTimer);
+              if (isMounted) initApplet();
+            }
+          }, 200);
+        }
+      } else {
+        initApplet();
+      }
+    }
+
+    // Timeout bảo vệ 10s
+    const timeoutId = setTimeout(() => {
+      if (isMounted && loading) {
+        setLoading(false);
+      }
+    }, 10000);
 
     return () => {
-      if (timer) clearTimeout(timer);
+      isMounted = false;
+      clearTimeout(timeoutId);
     };
   }, [commands, width, height, appletId, onAppletReady, onSVGExported]);
 
@@ -216,10 +249,10 @@ export const GeoGebraViewer = forwardRef<GeoGebraViewerRef, GeoGebraViewerProps>
   };
 
   return (
-    <div className="w-full flex flex-col justify-center items-center rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm relative min-h-[460px]">
-      {/* Top Embedded Controls if enabled */}
-      {showExportToolbar && isLoaded && (
-        <div className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs">
+    <div className="relative w-full flex flex-col justify-center items-center rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm min-h-[500px]">
+      {/* Top Embedded Controls */}
+      {showExportToolbar && !loading && (
+        <div className="w-full px-4 py-2 bg-slate-50 dark:bg-slate-950/80 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2 text-xs z-20">
           <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 font-medium">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>GeoGebra Geometry Interactive</span>
@@ -261,17 +294,22 @@ export const GeoGebraViewer = forwardRef<GeoGebraViewerRef, GeoGebraViewerProps>
         </div>
       )}
 
+      {loading && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/90 dark:bg-slate-900/90 gap-3 text-slate-600 dark:text-slate-300">
+          <div className="w-6 h-6 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+          <span className="font-medium">Đang khởi tạo GeoGebra Engine & dựng hình...</span>
+        </div>
+      )}
+
+      {error && (
+        <div className="absolute inset-0 z-10 flex items-center justify-center text-red-500 font-medium">
+          {error}
+        </div>
+      )}
+
       {/* Applet Viewport */}
       <div className="w-full flex-1 flex justify-center items-center p-2 overflow-auto relative">
         <div ref={containerRef} id={appletId} className="max-w-full flex justify-center items-center" />
-        {!isLoaded && (
-          <div className="absolute inset-0 flex items-center justify-center bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-xs text-xs font-semibold text-slate-500">
-            <div className="flex items-center gap-2">
-              <span className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></span>
-              Đang khởi tạo GeoGebra Engine & dựng hình...
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
