@@ -166,8 +166,6 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
     const MODELS = [
       defaultModel,
       ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
-      'gemini-3.7-flash',
-      'gemini-3.7-pro',
     ];
 
     let response: any = null;
