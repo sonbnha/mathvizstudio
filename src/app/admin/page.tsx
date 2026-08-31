@@ -186,7 +186,14 @@ export default function UnifiedAdminPage() {
   const [clIsPublished, setClIsPublished] = useState<boolean>(true);
   const [clSaveLoading, setClSaveLoading] = useState(false);
   const [clError, setClError] = useState<string | null>(null);
-  const [clToastMsg, setClToastMsg] = useState<string | null>(null);
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+
+  const showToast = useCallback((msg: string, duration = 3000) => {
+    setToastMsg(msg);
+    setTimeout(() => {
+      setToastMsg((current) => (current === msg ? null : current));
+    }, duration);
+  }, []);
 
   // Initialize theme (Default to Light Mode)
   useEffect(() => {
@@ -211,9 +218,11 @@ export default function UnifiedAdminPage() {
     }
   };
 
-  // Check Auth Session
-  const checkAuth = useCallback(async () => {
-    setAuthLoading(true);
+  // Check Auth Session (Only show full screen loading on initial check if currentUser is not yet loaded)
+  const checkAuth = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setAuthLoading(true);
+    }
     try {
       const res = await fetch('/api/auth/me');
       const data = await res.json();
@@ -225,17 +234,21 @@ export default function UnifiedAdminPage() {
     } catch {
       setCurrentUser(null);
     } finally {
-      setAuthLoading(false);
+      if (showLoading) {
+        setAuthLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
-    checkAuth();
+    checkAuth(true);
   }, [checkAuth]);
 
-  // Fetch Keys
-  const fetchKeys = useCallback(async () => {
-    setKeysLoading(true);
+  // Fetch Keys (supports silent refresh)
+  const fetchKeys = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setKeysLoading(true);
+    }
     try {
       const res = await fetch('/api/admin/keys');
       const data = await res.json();
@@ -245,13 +258,17 @@ export default function UnifiedAdminPage() {
     } catch (err) {
       console.error('Lỗi tải keys:', err);
     } finally {
-      setKeysLoading(false);
+      if (showLoading) {
+        setKeysLoading(false);
+      }
     }
   }, []);
 
   // Fetch User Accounts (Admin Only)
-  const fetchUserAccounts = useCallback(async () => {
-    setUserAccountsLoading(true);
+  const fetchUserAccounts = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setUserAccountsLoading(true);
+    }
     try {
       const res = await fetch('/api/admin/users');
       const data = await res.json();
@@ -261,13 +278,17 @@ export default function UnifiedAdminPage() {
     } catch (err) {
       console.error('Lỗi tải danh sách tài khoản:', err);
     } finally {
-      setUserAccountsLoading(false);
+      if (showLoading) {
+        setUserAccountsLoading(false);
+      }
     }
   }, []);
 
   // Fetch Changelogs for Admin
-  const fetchAdminChangelogs = useCallback(async () => {
-    setChangelogsLoading(true);
+  const fetchAdminChangelogs = useCallback(async (showLoading = true) => {
+    if (showLoading) {
+      setChangelogsLoading(true);
+    }
     try {
       const res = await fetch('/api/admin/changelog');
       const data = await res.json();
@@ -277,19 +298,21 @@ export default function UnifiedAdminPage() {
     } catch (err) {
       console.error('Lỗi tải danh sách Changelog:', err);
     } finally {
-      setChangelogsLoading(false);
+      if (showLoading) {
+        setChangelogsLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     if (currentUser) {
-      fetchKeys();
+      fetchKeys(false);
       if (currentUser.role === 'ADMIN') {
-        fetchUserAccounts();
-        fetchAdminChangelogs();
+        fetchUserAccounts(false);
+        fetchAdminChangelogs(false);
       }
     }
-  }, [currentUser, fetchKeys, fetchUserAccounts, fetchAdminChangelogs]);
+  }, [currentUser?.id, currentUser?.role, fetchKeys, fetchUserAccounts, fetchAdminChangelogs]);
 
   // Handle Login Submit
   const handleLogin = async (e: React.FormEvent) => {
@@ -342,6 +365,11 @@ export default function UnifiedAdminPage() {
   // Handle Create License Key
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!customerName.trim()) {
+      setKeyActionError('Vui lòng nhập tên khách hàng / học sinh.');
+      return;
+    }
+
     setKeyActionError(null);
     setCreateKeyLoading(true);
 
@@ -362,21 +390,29 @@ export default function UnifiedAdminPage() {
         throw new Error(data.error || 'Không thể tạo License Key.');
       }
 
-      // Open Success Modal
+      // 1. Optimistic Update: Prepend key directly to state list
+      if (data.key) {
+        setKeys((prev) => [data.key, ...prev.filter((k) => k.id !== data.key.id)]);
+      }
+
+      // 2. Open Success Modal
       setNewlyCreatedKey(data.key);
       setCopiedSuccessKey(false);
       setCopiedCustomerMessage(false);
 
-      // Refresh keys and quota
-      await fetchKeys();
-      await checkAuth();
+      // 3. Trigger Toast Notification
+      showToast('Tạo License Key thành công!');
 
-      // Reset form
+      // 4. Reset form
       setCustomerName('');
       setKeyNote('');
       setIsUnlimitedCredits(false);
       setCustomCreditCount(50);
       setDurationDays(0);
+
+      // 5. Silent background refresh (NO global full-screen spinner, NO page reload)
+      fetchKeys(false);
+      checkAuth(false);
     } catch (err: any) {
       setKeyActionError(err.message);
     } finally {
@@ -389,6 +425,7 @@ export default function UnifiedAdminPage() {
     if (!newlyCreatedKey) return;
     navigator.clipboard.writeText(newlyCreatedKey.key);
     setCopiedSuccessKey(true);
+    showToast('Đã sao chép mã Key!');
     setTimeout(() => setCopiedSuccessKey(false), 2500);
   };
 
@@ -419,6 +456,7 @@ export default function UnifiedAdminPage() {
 
     navigator.clipboard.writeText(message);
     setCopiedCustomerMessage(true);
+    showToast('Đã sao chép tin nhắn bàn giao!');
     setTimeout(() => setCopiedCustomerMessage(false), 2500);
   };
 
@@ -447,6 +485,7 @@ export default function UnifiedAdminPage() {
 
     navigator.clipboard.writeText(message);
     setCopiedCustomerKeyId(keyItem.id);
+    showToast('Đã sao chép tin nhắn bàn giao!');
     setTimeout(() => setCopiedCustomerKeyId(null), 2500);
   };
 
@@ -462,6 +501,7 @@ export default function UnifiedAdminPage() {
         setKeys((prev) =>
           prev.map((k) => (k.id === id ? { ...k, isActive: !currentStatus } : k))
         );
+        showToast(!currentStatus ? 'Đã kích hoạt License Key!' : 'Đã tạm khóa License Key!');
       }
     } catch (err) {
       console.error('Lỗi khi bật/tắt key:', err);
@@ -475,8 +515,9 @@ export default function UnifiedAdminPage() {
       const res = await fetch(`/api/admin/keys/${id}`, { method: 'DELETE' });
       if (res.ok) {
         setKeys((prev) => prev.filter((k) => k.id !== id));
-        await fetchKeys();
-        await checkAuth();
+        fetchKeys(false);
+        checkAuth(false);
+        showToast('Đã xóa License Key thành công!');
       } else {
         const data = await res.json();
         alert(data.error || 'Không thể xóa License Key.');
@@ -513,7 +554,7 @@ export default function UnifiedAdminPage() {
         throw new Error(data.error || 'Không thể tạo tài khoản.');
       }
 
-      await fetchUserAccounts();
+      await fetchUserAccounts(false);
 
       setNewAccName('');
       setNewAccUsername('');
@@ -522,6 +563,7 @@ export default function UnifiedAdminPage() {
       setIsNewAccUnlimitedCredits(false);
       setNewAccMaxCredits(50);
       setIsCreateUserModalOpen(false);
+      showToast('Thêm tài khoản CTV thành công!');
     } catch (err: any) {
       setCreateAccountError(err.message);
     } finally {
@@ -573,8 +615,9 @@ export default function UnifiedAdminPage() {
         throw new Error(data.error || 'Không thể cập nhật tài khoản.');
       }
 
-      await fetchUserAccounts();
+      await fetchUserAccounts(false);
       setIsEditUserModalOpen(false);
+      showToast('Cập nhật tài khoản thành công!');
     } catch (err: any) {
       setEditUserError(err.message);
     } finally {
@@ -594,6 +637,7 @@ export default function UnifiedAdminPage() {
         setUserAccounts((prev) =>
           prev.map((u) => (u.id === id ? { ...u, isActive: !currentStatus } : u))
         );
+        showToast(!currentStatus ? 'Đã kích hoạt tài khoản!' : 'Đã khóa tài khoản!');
       }
     } catch (err) {
       console.error('Lỗi khi bật/tắt trạng thái tài khoản:', err);
@@ -611,6 +655,7 @@ export default function UnifiedAdminPage() {
         return;
       }
       setUserAccounts((prev) => prev.filter((u) => u.id !== id));
+      showToast('Đã xóa tài khoản thành công!');
     } catch (err) {
       console.error('Lỗi khi xóa tài khoản:', err);
     }
@@ -721,10 +766,9 @@ export default function UnifiedAdminPage() {
         throw new Error(data.error || 'Lỗi khi lưu Changelog.');
       }
 
-      await fetchAdminChangelogs();
+      await fetchAdminChangelogs(false);
       setIsChangelogEditModalOpen(false);
-      setClToastMsg(isEditing ? 'Đã cập nhật phiên bản thành công!' : 'Đã thêm phiên bản mới thành công!');
-      setTimeout(() => setClToastMsg(null), 3500);
+      showToast(isEditing ? 'Đã cập nhật phiên bản thành công!' : 'Đã thêm phiên bản mới thành công!');
     } catch (err: any) {
       setClError(err.message);
     } finally {
@@ -743,8 +787,7 @@ export default function UnifiedAdminPage() {
         setChangelogs((prev) =>
           prev.map((c) => (c.id === id ? { ...c, isPublished: !currentStatus } : c))
         );
-        setClToastMsg(!currentStatus ? 'Đã công khai phiên bản!' : 'Đã chuyển phiên bản về bản nháp!');
-        setTimeout(() => setClToastMsg(null), 3000);
+        showToast(!currentStatus ? 'Đã công khai phiên bản!' : 'Đã chuyển phiên bản về bản nháp!');
       }
     } catch (err) {
       console.error('Lỗi khi đổi trạng thái Changelog:', err);
@@ -761,8 +804,7 @@ export default function UnifiedAdminPage() {
         return;
       }
       setChangelogs((prev) => prev.filter((c) => c.id !== id));
-      setClToastMsg(`Đã xóa phiên bản ${version} thành công!`);
-      setTimeout(() => setClToastMsg(null), 3000);
+      showToast(`Đã xóa phiên bản ${version} thành công!`);
     } catch (err) {
       console.error('Lỗi khi xóa Changelog:', err);
     }
@@ -2242,7 +2284,7 @@ export default function UnifiedAdminPage() {
                 {/* Refresh Button */}
                 <button
                   type="button"
-                  onClick={fetchAdminChangelogs}
+                  onClick={() => fetchAdminChangelogs(true)}
                   disabled={changelogsLoading}
                   className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-transparent transition"
                   title="Tải lại danh sách"
@@ -3168,10 +3210,10 @@ export default function UnifiedAdminPage() {
       )}
 
       {/* Toast Notification Banner */}
-      {clToastMsg && (
+      {toastMsg && (
         <div className="fixed bottom-6 right-6 z-50 p-3 px-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-2xl border border-slate-800 dark:border-slate-200 flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-bottom-2 duration-200">
           <CheckCircle2 className="w-4 h-4 text-emerald-400 dark:text-emerald-600" />
-          <span>{clToastMsg}</span>
+          <span>{toastMsg}</span>
         </div>
       )}
 
