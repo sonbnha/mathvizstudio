@@ -34,6 +34,7 @@ import {
   BookmarkCheck,
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
+import { CHANGELOG } from '@/config/changelog';
 
 const PRESETS = [
   {
@@ -181,6 +182,9 @@ export default function HomePage() {
   const [tikzLoading, setTikzLoading] = useState(false);
   const [tikzCopied, setTikzCopied] = useState(false);
   const [tikzError, setTikzError] = useState<string | null>(null);
+
+  // Changelog Modal state
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
   // Canvas Loading Progress State (0 - 100)
   const [progress, setProgress] = useState(0);
@@ -783,9 +787,14 @@ export default function HomePage() {
           <div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-100 dark:to-slate-400 bg-clip-text text-transparent tracking-tight flex items-center gap-2">
               MathViz Studio
-              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 tracking-normal shadow-xs">
-                {APP_VERSION.fullString}
-              </span>
+              <button
+                type="button"
+                onClick={() => setIsChangelogOpen(true)}
+                title="Bấm để xem lịch sử phiên bản (Changelog)"
+                className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 border border-slate-200 dark:border-slate-700 tracking-normal shadow-xs transition flex items-center gap-1 cursor-pointer"
+              >
+                <span>{APP_VERSION.fullString}</span>
+              </button>
               <span className="hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 font-semibold tracking-normal">
                 AI Visualizer
               </span>
@@ -1593,10 +1602,107 @@ export default function HomePage() {
       {/* Footer */}
       <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 flex flex-wrap items-center justify-between gap-2 max-w-7xl mx-auto w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
         <span>MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Toán học</span>
-        <span className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+        <button
+          type="button"
+          onClick={() => setIsChangelogOpen(true)}
+          title="Bấm để xem lịch sử phiên bản (Changelog)"
+          className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+        >
           Phiên bản {APP_VERSION.fullString} ({APP_VERSION.buildDate})
-        </span>
+        </button>
       </footer>
+
+      {/* Changelog / Version History Modal */}
+      {isChangelogOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh] overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100">
+                    Lịch sử Phiên bản
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Nhật ký cập nhật & tính năng mới của MathViz Studio
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsChangelogOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Releases List */}
+            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 text-xs">
+              {CHANGELOG.map((rel, idx) => (
+                <div
+                  key={rel.version}
+                  className="bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
+                        {rel.version}
+                      </span>
+                      {idx === 0 && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                          Mới nhất
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-slate-400 dark:text-slate-500 text-[11px]">
+                      {rel.date}
+                    </span>
+                  </div>
+
+                  <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                    {rel.title}
+                  </h4>
+
+                  <ul className="flex flex-col gap-2 pl-1">
+                    {rel.changes.map((c, cIdx) => (
+                      <li key={cIdx} className="flex items-start gap-2 text-slate-600 dark:text-slate-300 leading-relaxed">
+                        <span
+                          className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
+                            c.type === 'feat'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : c.type === 'fix'
+                              ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
+                          }`}
+                        >
+                          {c.type}
+                        </span>
+                        <span>{c.description}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setIsChangelogOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition"
+              >
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
