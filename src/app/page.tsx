@@ -164,6 +164,44 @@ export default function HomePage() {
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
   const svgContainerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [renderError, setRenderError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!svgOutput) return;
+
+    // If svgOutput is JavaScript Canvas code
+    if (!svgOutput.includes('<svg') && (svgOutput.includes('ctx.') || svgOutput.includes('canvas'))) {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.parentElement?.getBoundingClientRect();
+      const width = rect && rect.width > 0 ? rect.width : 600;
+      const height = rect && rect.height > 0 ? rect.height : 450;
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = theme === 'dark' ? '#0f172a' : '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      try {
+        setRenderError(null);
+        let code = svgOutput.trim();
+        code = code.replace(/^```(?:javascript|js|tsx|jsx|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+        const renderFn = new Function('ctx', 'canvas', 'width', 'height', code);
+        renderFn(ctx, canvas, canvas.width, canvas.height);
+      } catch (renderErr: any) {
+        console.error('Lỗi khi thực thi code vẽ Canvas:', renderErr);
+        setRenderError(renderErr?.message || 'Lỗi thực thi vẽ hình');
+        ctx.fillStyle = '#ef4444';
+        ctx.font = '14px sans-serif';
+        ctx.fillText('Lỗi thực thi vẽ hình: ' + (renderErr as Error).message, 20, 40);
+      }
+    }
+  }, [svgOutput, theme]);
+
   const draggingElementRef = useRef<{
     element: SVGElement;
     startX: number;
@@ -1463,15 +1501,26 @@ export default function HomePage() {
               )}
 
               {svgOutput ? (
-                <div
-                  id="svgMount"
-                  className={`w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:w-auto [&>svg]:h-auto ${
-                    isEditMode
-                      ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500'
-                      : ''
-                  }`}
-                  dangerouslySetInnerHTML={{ __html: svgOutput }}
-                />
+                svgOutput.includes('<svg') ? (
+                  <div
+                    id="svgMount"
+                    className={`w-full h-full flex items-center justify-center min-h-[300px] max-h-[420px] [&>svg]:w-full [&>svg]:h-full [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:object-contain ${
+                      isEditMode
+                        ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500'
+                        : ''
+                    }`}
+                    dangerouslySetInnerHTML={{ __html: svgOutput }}
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center p-2 min-h-[300px]">
+                    <canvas ref={canvasRef} className="max-w-full max-h-[380px] rounded-xl shadow-xs" />
+                    {renderError && (
+                      <p className="text-xs text-rose-500 font-medium mt-2">
+                        {renderError}
+                      </p>
+                    )}
+                  </div>
+                )
               ) : (
                 <div className="text-center p-8 flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
                   <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-sm">

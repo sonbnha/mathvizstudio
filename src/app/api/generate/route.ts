@@ -8,15 +8,34 @@ function sanitizeSvg(svgString: string): string {
 
   // Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
   if (clean.startsWith('```')) {
-    clean = clean.replace(/^```(?:xml|svg|html|javascript|js|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    clean = clean.replace(/^```(?:xml|svg|html|javascript|js|tsx|jsx|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
   }
 
   // 1. Trích xuất đúng khối <svg>...</svg>
   const match = clean.match(/<svg[\s\S]*?<\/svg>/i);
   if (match) {
     clean = match[0];
+  } else if (!clean.includes('<svg') && (clean.includes('ctx.') || clean.includes('canvas'))) {
+    // If JS canvas code was generated, return as-is for canvas execution
+    return clean;
   } else {
     clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
+  }
+
+  // Ensure essential SVG attributes exist so it never collapses to 0x0
+  if (clean.includes('<svg')) {
+    if (!clean.includes('xmlns=')) {
+      clean = clean.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+    if (!clean.includes('viewBox=')) {
+      clean = clean.replace(/<svg/i, '<svg viewBox="0 0 600 450"');
+    }
+    if (!clean.includes('width=')) {
+      clean = clean.replace(/<svg/i, '<svg width="100%"');
+    }
+    if (!clean.includes('height=')) {
+      clean = clean.replace(/<svg/i, '<svg height="100%"');
+    }
   }
 
   // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
@@ -120,25 +139,26 @@ export async function POST(req: NextRequest) {
 4. Chữ tên đỉnh (A, B, C...): Màu fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
 5. Ký hiệu góc & số đo góc: Đồng nhất màu stroke="#d97706" và fill="#d97706" (Amber 600) cho toàn bộ các góc (KHÔNG dùng mỗi góc một màu khác nhau).`;
 
-    const systemInstruction = `Bạn là một trình biên dịch đồ họa vector. Nhiệm vụ duy nhất: Đọc đề bài toán (từ văn bản hoặc tự động đọc nội dung đề bài trong ảnh OCR nếu có) và xuất ra MÃ SVG HỢP LỆ.
+    const systemInstruction = `Bạn là một chuyên gia đồ họa vector và hình học toán học. Nhiệm vụ duy nhất: Đọc đề bài toán (từ văn bản hoặc ảnh OCR) và xuất ra MÃ SVG CHUẨN XÁC, CÂN ĐỐI để hiển thị trên Canvas / Web.
 
 NGHIÊM CẤM: Không viết lời mở đầu, không tóm tắt đề bài, không giải thích các bước giải, không viết chữ markdown ngoài thẻ <svg>.
-BẮT BUỘC: Đầu ra phải bắt đầu chính xác bằng '<svg' và kết thúc chính xác bằng '</svg>'.
+BẮT BUỘC:
+1. Đầu ra phải bắt đầu chính xác bằng '<svg' và kết thúc chính xác bằng '</svg>'.
+2. Bắt buộc có các thuộc tính: viewBox="0 0 600 450" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg".
+3. Tự động căn giữa toàn bộ mô hình hình học theo tọa độ tâm (width/2 = 300, height/2 = 225) và để lề an toàn tối thiểu 40px xung quanh để không bị lệch hay cắt viền.
 
 ${colorPaletteInstruction}
 
-QUY TẮC NỘI DUNG CHỮ TRONG SVG:
-+ TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa nội dung đề bài, tóm tắt đề, công thức tính toán hoặc các bước giải bài toán.
+QUY TẮC NỘI DUNG CHỮ TRONG HÌNH:
++ TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa đề bài, tóm tắt, lời giải hoặc đoạn văn dài hơn 20 ký tự.
 + CHỈ ĐƯỢC PHÉP dùng thẻ <text> cho 3 mục đích duy nhất:
-  1. Tên điểm đỉnh hình học (ngắn gọn từ 1 đến 3 ký tự, ví dụ: 'A', 'B', 'C', 'H', 'A'', 'S_1').
+  1. Tên điểm đỉnh hình học (ngắn gọn từ 1 đến 3 ký tự, ví dụ: 'A', 'B', 'C', 'H', 'S', 'O').
   2. Số đo góc (ví dụ: '60°', '30°', '45°', 'α', 'β').
   3. Độ dài kích thước cạnh / chiều cao ngắn (ví dụ: '4m', '38m', 'h = ?', 'x', '10 cm').
-+ Tất cả các thẻ <text> chứa đoạn văn giải thích dài hơn 20 ký tự đều bị cấm triệt để.
++ Tất cả các thẻ <text> phải có font-family="sans-serif", font-weight="bold", font-size="15".
 
 QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
-+ Sử dụng viewBox="0 0 600 450" chuẩn tỷ lệ 4:3.
-+ Để lề (padding) an toàn tối thiểu 40px xung quanh hình để chữ không bị cắt viền.
-+ Hình vẽ phải cân đối, rõ ràng, các nét vẽ không chồng chéo làm biến dạng hình ảnh.
++ Nét vẽ rõ ràng, độ tương phản cao, nổi bật trên nền trắng (#ffffff).
 + Đánh dấu góc vuông: Sử dụng thẻ <path> hoặc <rect> nhỏ (kích thước cạnh khoảng 12px) để thể hiện ký hiệu góc vuông chuẩn toán học.
 + Đánh dấu cung góc: Sử dụng thẻ <path> hình cung (arc) kèm nhãn số đo góc bên cạnh.`;
 
