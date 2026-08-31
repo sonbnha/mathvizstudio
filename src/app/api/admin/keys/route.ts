@@ -133,53 +133,6 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// PATCH: Toggle active status
-export async function PATCH(req: NextRequest) {
-  const user = await getCurrentUserFromRequest(req);
-  if (!user) {
-    return NextResponse.json(
-      { error: 'Chưa đăng nhập hoặc phiên làm việc đã hết hạn.' },
-      { status: 401 }
-    );
-  }
-
-  try {
-    const body = await req.json();
-    const { id, isActive } = body;
-
-    if (!id || typeof isActive !== 'boolean') {
-      return NextResponse.json(
-        { error: 'Thiếu thông tin cập nhật (id, isActive).' },
-        { status: 400 }
-      );
-    }
-
-    // Check ownership if STAFF
-    if (user.role !== 'ADMIN') {
-      const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
-      if (!keyRecord || keyRecord.createdById !== user.id) {
-        return NextResponse.json(
-          { error: 'Bạn không có quyền chỉnh sửa License Key này.' },
-          { status: 403 }
-        );
-      }
-    }
-
-    const updatedKey = await prisma.licenseKey.update({
-      where: { id },
-      data: { isActive },
-    });
-
-    return NextResponse.json({ success: true, key: updatedKey });
-  } catch (error: any) {
-    console.error('Error updating key:', error);
-    return NextResponse.json(
-      { error: 'Lỗi khi cập nhật trạng thái Key.' },
-      { status: 500 }
-    );
-  }
-}
-
 // DELETE: Delete key
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);

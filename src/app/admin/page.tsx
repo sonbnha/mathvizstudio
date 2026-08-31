@@ -503,25 +503,6 @@ export default function UnifiedAdminPage() {
     setTimeout(() => setCopiedCustomerKeyId(null), 2500);
   };
 
-  // Handle Toggle Key Active Status
-  const handleToggleKeyActive = async (id: string, currentStatus: boolean) => {
-    try {
-      const res = await fetch(`/api/admin/keys/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentStatus }),
-      });
-      if (res.ok) {
-        setKeys((prev) =>
-          prev.map((k) => (k.id === id ? { ...k, isActive: !currentStatus } : k))
-        );
-        showToast(!currentStatus ? 'Đã kích hoạt License Key!' : 'Đã tạm khóa License Key!');
-      }
-    } catch (err) {
-      console.error('Lỗi khi bật/tắt key:', err);
-    }
-  };
-
   // Handle Delete Key
   const handleDeleteKey = async (id: string) => {
     if (!window.confirm('Bạn có chắc chắn muốn xóa License Key này?')) return;
@@ -951,8 +932,30 @@ export default function UnifiedAdminPage() {
   // ----------------------------------------------------
   // SCREEN 3: Unified Dashboard (When currentUser !== null)
   // ----------------------------------------------------
+  const getKeyStatus = (k: { expiresAt: string | null; totalCredits: number; usedCredits: number }) => {
+    if (k.expiresAt && new Date(k.expiresAt).getTime() < Date.now()) {
+      return {
+        label: 'Hết Hạn',
+        className: 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400',
+        dotClass: 'bg-amber-500',
+      };
+    }
+    if (k.totalCredits !== -1 && k.usedCredits >= k.totalCredits) {
+      return {
+        label: 'Hết Lượt',
+        className: 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400',
+        dotClass: 'bg-rose-500',
+      };
+    }
+    return {
+      label: 'Hoạt Động',
+      className: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
+      dotClass: 'bg-emerald-500 animate-pulse',
+    };
+  };
+
   const totalKeys = keys.length;
-  const activeKeysCount = keys.filter((k) => k.isActive).length;
+  const activeKeysCount = keys.filter((k) => getKeyStatus(k).label === 'Hoạt Động').length;
   const totalGenerations = keys.reduce((acc, k) => acc + k.usedCredits, 0);
 
   const isStaff = currentUser.role === 'STAFF';
@@ -1670,15 +1673,17 @@ export default function UnifiedAdminPage() {
                               {k.expiresAt ? formatDateVN(k.expiresAt) : 'Vĩnh viễn'}
                             </td>
                             <td className="py-2.5 px-4">
-                              <span
-                                className={`px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  k.isActive
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
-                                }`}
-                              >
-                                {k.isActive ? 'Hoạt Động' : 'Đã Khóa'}
-                              </span>
+                              {(() => {
+                                const status = getKeyStatus(k);
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${status.className}`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                                    <span>{status.label}</span>
+                                  </span>
+                                );
+                              })()}
                             </td>
                           </tr>
                         ))
@@ -1944,7 +1949,7 @@ export default function UnifiedAdminPage() {
                         <th className="py-3 px-2.5 text-center">Lượt Dùng</th>
                         <th className="py-3 px-2.5 text-center">Hạn Dùng</th>
                         <th className="py-3 px-2.5 text-center">Trạng Thái</th>
-                        <th className="py-3 px-3 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-32 min-w-[125px]">
+                        <th className="py-3 px-3 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-24 min-w-[90px]">
                           Thao Tác
                         </th>
                       </tr>
@@ -2040,30 +2045,22 @@ export default function UnifiedAdminPage() {
 
                             {/* 6. Trạng Thái */}
                             <td className="px-2.5 py-3 text-center whitespace-nowrap">
-                              <span
-                                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${
-                                  k.isActive
-                                    ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400'
-                                    : 'bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400'
-                                }`}
-                              >
-                                {k.isActive ? (
-                                  <>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span>Hoạt Động</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                    <span>Đã Khóa</span>
-                                  </>
-                                )}
-                              </span>
+                              {(() => {
+                                const status = getKeyStatus(k);
+                                return (
+                                  <span
+                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${status.className}`}
+                                  >
+                                    <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
+                                    <span>{status.label}</span>
+                                  </span>
+                                );
+                              })()}
                             </td>
 
                             {/* 7. Thao Tác (Ghim cố định bên phải - Sticky Right) */}
-                            <td className="px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-32 min-w-[125px] transition-colors">
-                              <div className="flex items-center justify-center gap-1.5">
+                            <td className="px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-24 min-w-[90px] transition-colors">
+                              <div className="flex items-center justify-center gap-2">
                                 {/* Copy Customer Handover Message Button */}
                                 <button
                                   type="button"
@@ -2075,24 +2072,6 @@ export default function UnifiedAdminPage() {
                                     <Check className="w-3.5 h-3.5 text-emerald-500" />
                                   ) : (
                                     <Share2 className="w-3.5 h-3.5" />
-                                  )}
-                                </button>
-
-                                {/* Toggle Active / Block Button */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleKeyActive(k.id, k.isActive)}
-                                  className={`p-1.5 rounded-lg border transition shadow-2xs ${
-                                    k.isActive
-                                      ? 'bg-amber-50 hover:bg-amber-100 dark:bg-amber-500/15 dark:hover:bg-amber-500/25 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30'
-                                      : 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-500/15 dark:hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-500/30'
-                                  }`}
-                                  title={k.isActive ? 'Tạm khóa key này' : 'Mở khóa key này'}
-                                >
-                                  {k.isActive ? (
-                                    <EyeOff className="w-3.5 h-3.5" />
-                                  ) : (
-                                    <Eye className="w-3.5 h-3.5" />
                                   )}
                                 </button>
 
