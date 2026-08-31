@@ -13,3 +13,74 @@ html.dark {
 html:not(.dark) {
   color-scheme: light;
 }
+
+/* Dark mode SVG Canvas adaptive styling */
+.dark #svgMount svg rect[fill="#ffffff"],
+.dark #svgMount svg rect[fill="white"],
+.dark #svgMount svg rect[fill="#fff"],
+.dark #previewContainer svg rect[fill="#ffffff"],
+.dark #previewContainer svg rect[fill="white"],
+.dark #previewContainer svg rect[fill="#fff"],
+.dark .svg-history-preview svg rect[fill="#ffffff"],
+.dark .svg-history-preview svg rect[fill="white"],
+.dark .svg-history-preview svg rect[fill="#fff"] {
+  fill: #020617 !important;
+}
+
+.dark #svgMount svg text[fill="#000000"],
+.dark #svgMount svg text[fill="#0f172a"],
+.dark #svgMount svg text[fill="#1e293b"],
+.dark #svgMount svg text[fill="black"],
+.dark #previewContainer svg text[fill="#000000"],
+.dark #previewContainer svg text[fill="#0f172a"],
+.dark #previewContainer svg text[fill="#1e293b"],
+.dark #previewContainer svg text[fill="black"],
+.dark .svg-history-preview svg text[fill="#000000"],
+.dark .svg-history-preview svg text[fill="#0f172a"],
+.dark .svg-history-preview svg text[fill="#1e293b"],
+.dark .svg-history-preview svg text[fill="black"] {
+  fill: #f8fafc !important;
+}
+
+.dark #svgMount svg text[stroke="#ffffff"],
+.dark #svgMount svg text[stroke="white"],
+.dark #svgMount svg text[stroke="#fff"],
+.dark #previewContainer svg text[stroke="#ffffff"],
+.dark #previewContainer svg text[stroke="white"],
+.dark #previewContainer svg text[stroke="#fff"],
+.dark .svg-history-preview svg text[stroke="#ffffff"],
+.dark .svg-history-preview svg text[stroke="white"] {
+  stroke: #020617 !important;
+}
+
+.dark #svgMount svg path[stroke="#000000"],
+.dark #svgMount svg path[stroke="#0f172a"],
+.dark #svgMount svg path[stroke="#1e293b"],
+.dark #svgMount svg path[stroke="black"],
+.dark #svgMount svg line[stroke="#000000"],
+.dark #svgMount svg line[stroke="#0f172a"],
+.dark #svgMount svg line[stroke="#1e293b"],
+.dark #svgMount svg line[stroke="black"],
+.dark #svgMount svg polyline[stroke="#000000"],
+.dark #svgMount svg polygon[stroke="#000000"],
+.dark #previewContainer svg path[stroke="#000000"],
+.dark #previewContainer svg path[stroke="#0f172a"],
+.dark #previewContainer svg line[stroke="#000000"],
+.dark #previewContainer svg line[stroke="#0f172a"],
+.dark #previewContainer svg polygon[stroke="#000000"],
+.dark .svg-history-preview svg path[stroke="#000000"],
+.dark .svg-history-preview svg line[stroke="#000000"] {
+  stroke: #cbd5e1 !important;
+}
+
+.dark #svgMount svg circle[fill="#000000"],
+.dark #svgMount svg circle[fill="#1e293b"],
+.dark #svgMount svg circle[fill="#0f172a"],
+.dark #svgMount svg circle[fill="black"],
+.dark #previewContainer svg circle[fill="#000000"],
+.dark #previewContainer svg circle[fill="#1e293b"],
+.dark #previewContainer svg circle[fill="#0f172a"],
+.dark .svg-history-preview svg circle[fill="#000000"],
+.dark .svg-history-preview svg circle[fill="#1e293b"] {
+  fill: #f8fafc !important;
+}

@@ -526,8 +526,9 @@ export default function HomePage() {
       if (ctx) {
         ctx.scale(scale, scale);
 
-        // Nền trắng tinh khiết
-        ctx.fillStyle = '#ffffff';
+        // Nền canvas theo chế độ sáng tối hoặc theo yêu cầu
+        const isDark = document.documentElement.classList.contains('dark');
+        ctx.fillStyle = isDark ? '#0f172a' : '#ffffff';
         ctx.fillRect(0, 0, width, height);
 
         // Vẽ toàn bộ SVG lên Canvas
@@ -1147,11 +1148,11 @@ export default function HomePage() {
               </div>
             </div>
 
-            {/* Display Canvas Screen (Always White Background for optimal contrast) */}
+            {/* Display Canvas Screen */}
             <div
               id="previewContainer"
               ref={svgContainerRef}
-              className="flex-1 w-full bg-white rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center p-4 min-h-[320px] relative overflow-hidden shadow-inner select-none"
+              className="flex-1 w-full bg-white dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-center p-4 min-h-[320px] relative overflow-hidden shadow-inner select-none transition-colors"
             >
               {svgOutput ? (
                 <div
@@ -1164,15 +1165,15 @@ export default function HomePage() {
                   dangerouslySetInnerHTML={{ __html: svgOutput }}
                 />
               ) : (
-                <div className="text-center p-8 flex flex-col items-center gap-3 text-slate-400">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-                    <Compass className="w-8 h-8 text-slate-400" />
+                <div className="text-center p-8 flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 flex items-center justify-center text-slate-400 dark:text-slate-500">
+                    <Compass className="w-8 h-8 text-slate-400 dark:text-slate-500" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-slate-600">
+                    <p className="text-sm font-semibold text-slate-600 dark:text-slate-300">
                       Chưa có hình minh họa
                     </p>
-                    <p className="text-xs text-slate-400 max-w-xs mt-1">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 max-w-xs mt-1">
                       Nhập đề bài hoặc chọn bài toán mẫu ở cột bên trái để AI tổng hợp mô hình toán học chuẩn SVG.
                     </p>
                   </div>
@@ -1409,7 +1410,7 @@ export default function HomePage() {
                       className="group bg-slate-50 dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 rounded-2xl p-3 flex flex-col gap-2.5 transition shadow-sm hover:shadow-md"
                     >
                       {/* SVG Thumbnail Container */}
-                      <div className="w-full h-36 bg-white rounded-xl border border-slate-200 dark:border-slate-800/80 p-2 flex items-center justify-center overflow-hidden relative shadow-inner">
+                      <div className="w-full h-36 bg-white dark:bg-slate-950 svg-history-preview rounded-xl border border-slate-200 dark:border-slate-800/80 p-2 flex items-center justify-center overflow-hidden relative shadow-inner transition-colors">
                         <div
                           className="w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-auto [&>svg]:h-auto pointer-events-none"
                           dangerouslySetInnerHTML={{ __html: item.svgCode }}
