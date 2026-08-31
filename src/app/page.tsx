@@ -32,6 +32,10 @@ import {
   Layers,
   ArrowUpRight,
   BookmarkCheck,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Zap,
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
@@ -182,6 +186,106 @@ export default function HomePage() {
   const [tikzLoading, setTikzLoading] = useState(false);
   const [tikzCopied, setTikzCopied] = useState(false);
   const [tikzError, setTikzError] = useState<string | null>(null);
+
+  // BYOK (Bring Your Own Key) Gemini API Key State
+  const [customApiKey, setCustomApiKey] = useState('');
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [showApiKeyText, setShowApiKeyText] = useState(false);
+  const [isTestingApiKey, setIsTestingApiKey] = useState(false);
+  const [apiKeyTestResult, setApiKeyTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  // Quota / Rate Limit Fallback Modal State
+  const [isQuotaModalOpen, setIsQuotaModalOpen] = useState(false);
+  const [quotaKeyInput, setQuotaKeyInput] = useState('');
+  const [showQuotaKeyText, setShowQuotaKeyText] = useState(false);
+  const pendingGenerationRef = useRef<{ promptText: string; isRefinement: boolean } | null>(null);
+
+  // Load Custom API Key from localStorage on Mount
+  useEffect(() => {
+    try {
+      const savedApiKey = localStorage.getItem('user_gemini_api_key');
+      if (savedApiKey) {
+        setCustomApiKey(savedApiKey);
+        setApiKeyInput(savedApiKey);
+      }
+    } catch (e) {
+      console.warn('Lỗi khi đọc Gemini API Key từ localStorage:', e);
+    }
+  }, []);
+
+  const handleSaveApiKey = () => {
+    const trimmed = apiKeyInput.trim();
+    if (!trimmed) {
+      localStorage.removeItem('user_gemini_api_key');
+      setCustomApiKey('');
+      setApiKeyTestResult({ success: true, message: 'Đã xóa Key cá nhân. Hệ thống sẽ sử dụng key mặc định.' });
+      return;
+    }
+    localStorage.setItem('user_gemini_api_key', trimmed);
+    setCustomApiKey(trimmed);
+    setApiKeyTestResult({ success: true, message: 'Đã lưu Gemini API Key cá nhân thành công!' });
+    setTimeout(() => {
+      setIsApiKeyModalOpen(false);
+      setApiKeyTestResult(null);
+    }, 1200);
+  };
+
+  const handleClearApiKey = () => {
+    localStorage.removeItem('user_gemini_api_key');
+    setCustomApiKey('');
+    setApiKeyInput('');
+    setApiKeyTestResult({ success: true, message: 'Đã quay về dùng key mặc định của hệ thống.' });
+  };
+
+  const handleTestApiKey = async (keyToTest?: string) => {
+    const targetKey = (keyToTest || apiKeyInput).trim();
+    if (!targetKey) {
+      setApiKeyTestResult({ success: false, message: 'Vui lòng nhập API Key trước khi kiểm tra.' });
+      return;
+    }
+    setIsTestingApiKey(true);
+    setApiKeyTestResult(null);
+    try {
+      const res = await fetch('/api/validate-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: targetKey }),
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setApiKeyTestResult({ success: true, message: 'Kết nối API Key thành công! Key hoạt động tốt.' });
+      } else {
+        setApiKeyTestResult({
+          success: false,
+          message: data.error || 'API Key không hợp lệ hoặc đã hết hạn mức.',
+        });
+      }
+    } catch (err: any) {
+      setApiKeyTestResult({ success: false, message: 'Lỗi kết nối máy chủ khi kiểm tra key.' });
+    } finally {
+      setIsTestingApiKey(false);
+    }
+  };
+
+  const handleSaveQuotaKeyAndRetry = () => {
+    const trimmed = quotaKeyInput.trim();
+    if (!trimmed) {
+      setErrorMsg('Vui lòng nhập Gemini API Key để tiếp tục.');
+      return;
+    }
+    localStorage.setItem('user_gemini_api_key', trimmed);
+    setCustomApiKey(trimmed);
+    setIsQuotaModalOpen(false);
+    setQuotaKeyInput('');
+
+    // Re-trigger pending generation
+    if (pendingGenerationRef.current) {
+      const { promptText, isRefinement } = pendingGenerationRef.current;
+      handleGenerate(promptText, isRefinement, trimmed);
+      pendingGenerationRef.current = null;
+    }
+  };
 
   // Changelog Dynamic State
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -444,7 +548,11 @@ export default function HomePage() {
   };
 
   // Call API generate
-  const handleGenerate = async (overridePrompt?: string, isRefinement = false) => {
+  const handleGenerate = async (
+    overridePrompt?: string,
+    isRefinement = false,
+    keyOverride?: string
+  ) => {
     const activePrompt = overridePrompt !== undefined ? overridePrompt : prompt;
     if (!activePrompt.trim() && !imagePreview) {
       setErrorMsg('Vui lòng nhập nội dung đề bài hoặc tải lên ảnh bài toán.');
@@ -463,13 +571,23 @@ export default function HomePage() {
       setLoading(true);
     }
 
+    const currentKey =
+      keyOverride ||
+      customApiKey ||
+      (typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') || '' : '');
+
     try {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-License-Key': licenseKey.trim(),
+      };
+      if (currentKey) {
+        headers['x-custom-api-key'] = currentKey;
+      }
+
       const res = await fetch('/api/generate', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-License-Key': licenseKey.trim(),
-        },
+        headers,
         body: JSON.stringify({
           prompt: activePrompt,
           imageBase64: imagePreview || undefined,
@@ -481,6 +599,12 @@ export default function HomePage() {
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 429 || data.isQuotaError || data.code === 'RATE_LIMIT_EXCEEDED') {
+          pendingGenerationRef.current = { promptText: activePrompt, isRefinement };
+          setQuotaKeyInput(currentKey);
+          setIsQuotaModalOpen(true);
+          throw new Error('Hệ thống đang quá tải lượt dùng miễn phí. Vui lòng thêm Gemini API Key cá nhân để tiếp tục ngay!');
+        }
         throw new Error(data.error || 'Đã có lỗi xảy ra khi tạo hình.');
       }
 
@@ -613,12 +737,20 @@ export default function HomePage() {
     setTikzCode('');
 
     try {
+      const currentKey =
+        customApiKey ||
+        (typeof window !== 'undefined' ? localStorage.getItem('user_gemini_api_key') || '' : '');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-License-Key': licenseKey.trim(),
+      };
+      if (currentKey) {
+        headers['x-custom-api-key'] = currentKey;
+      }
+
       const res = await fetch('/api/export/tikz', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-License-Key': licenseKey.trim(),
-        },
+        headers,
         body: JSON.stringify({
           svg: svgOutput || undefined,
           prompt: prompt.trim() || undefined,
@@ -888,6 +1020,34 @@ export default function HomePage() {
               </div>
             )}
           </div>
+
+          {/* Custom Gemini API Key (BYOK) Button */}
+          <button
+            type="button"
+            onClick={() => {
+              setApiKeyInput(customApiKey);
+              setApiKeyTestResult(null);
+              setIsApiKeyModalOpen(true);
+            }}
+            className={`p-2 sm:px-3 sm:py-2 rounded-xl border transition shadow-xs flex items-center gap-1.5 cursor-pointer text-xs font-semibold ${
+              customApiKey
+                ? 'bg-gradient-to-r from-purple-500/15 via-indigo-500/15 to-cyan-500/15 border-purple-500/40 text-purple-700 dark:text-purple-300'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200'
+            }`}
+            title="Cấu hình Gemini API Key cá nhân (Bring Your Own Key)"
+          >
+            <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400 shrink-0" />
+            <span className="hidden sm:inline">
+              {customApiKey ? 'Key cá nhân' : 'Gemini Key'}
+            </span>
+            {customApiKey ? (
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse hidden sm:inline-block" />
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-slate-200 dark:bg-slate-800 text-slate-500 hidden md:inline">
+                Auto
+              </span>
+            )}
+          </button>
 
           {/* History Library Drawer Button */}
           <button
@@ -1721,6 +1881,351 @@ export default function HomePage() {
                 className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold transition"
               >
                 Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Gemini API Key (BYOK) Settings Modal */}
+      {isApiKeyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-500/20 via-indigo-500/20 to-cyan-500/20 border border-purple-500/30 flex items-center justify-center text-purple-600 dark:text-purple-400">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <span>Cấu hình Gemini API Key</span>
+                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/30 text-purple-700 dark:text-purple-300">
+                      BYOK
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Sử dụng API Key cá nhân để chủ động hạn mức và tạo hình tốc độ cao
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsApiKeyModalOpen(false);
+                  setApiKeyTestResult(null);
+                }}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Current Active Status Banner */}
+            <div
+              className={`p-3.5 rounded-2xl border text-xs flex items-start gap-2.5 transition-colors ${
+                customApiKey
+                  ? 'bg-purple-50/80 dark:bg-purple-950/30 border-purple-200 dark:border-purple-800/60 text-purple-900 dark:text-purple-200'
+                  : 'bg-slate-50 dark:bg-slate-950/60 border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              <Zap
+                className={`w-4 h-4 shrink-0 mt-0.5 ${
+                  customApiKey ? 'text-purple-600 dark:text-purple-400' : 'text-slate-400'
+                }`}
+              />
+              <div className="flex-1 leading-relaxed">
+                {customApiKey ? (
+                  <div>
+                    <span className="font-semibold text-purple-700 dark:text-purple-300">
+                      Đang bật Key cá nhân:{' '}
+                    </span>
+                    <code className="font-mono bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.5 rounded text-[11px]">
+                      ...{customApiKey.slice(-6)}
+                    </code>
+                    <p className="text-[11px] text-purple-600 dark:text-purple-400 mt-0.5">
+                      Mọi yêu cầu tạo hình và xuất TikZ sẽ được gửi trực tiếp bằng API Key riêng của bạn.
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <span className="font-semibold">Đang dùng Key mặc định: </span>
+                    <span>
+                      Hệ thống tự động sử dụng máy chủ chung. Khi quá tải, bạn có thể nhập key cá nhân bên
+                      dưới để tiếp tục ngay.
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Input Field */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                <span>Gemini API Key của bạn</span>
+                <a
+                  href="https://aistudio.google.com/app/apikey"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-cyan-600 dark:text-cyan-400 hover:underline flex items-center gap-1 font-normal text-[11px]"
+                >
+                  <span>Lấy key miễn phí tại Google AI Studio</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              </label>
+
+              <div className="relative">
+                <input
+                  type={showApiKeyText ? 'text' : 'password'}
+                  value={apiKeyInput}
+                  onChange={(e) => {
+                    setApiKeyInput(e.target.value);
+                    setApiKeyTestResult(null);
+                  }}
+                  placeholder="Dán Gemini API Key (vd: AIzaSy...)"
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 pr-20 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 transition"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowApiKeyText(!showApiKeyText)}
+                    className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                    title={showApiKeyText ? 'Ẩn mã key' : 'Xem mã key'}
+                  >
+                    {showApiKeyText ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                  </button>
+                  {apiKeyInput && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setApiKeyInput('');
+                        setApiKeyTestResult(null);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-rose-500 transition"
+                      title="Xóa ô nhập"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                🔒 Key của bạn được lưu an toàn cục bộ trong trình duyệt (localStorage) và không chia sẻ cho bên thứ ba.
+              </p>
+            </div>
+
+            {/* Test Connection Result Alert */}
+            {apiKeyTestResult && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center gap-2 animate-in fade-in duration-150 ${
+                  apiKeyTestResult.success
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-rose-50 dark:bg-rose-950/40 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300'
+                }`}
+              >
+                {apiKeyTestResult.success ? (
+                  <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400 shrink-0" />
+                )}
+                <span>{apiKeyTestResult.message}</span>
+              </div>
+            )}
+
+            {/* Guide Step Box */}
+            <div className="p-3.5 rounded-2xl bg-slate-50 dark:bg-slate-950/50 border border-slate-200 dark:border-slate-800 text-xs text-slate-600 dark:text-slate-400 flex flex-col gap-2">
+              <div className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                <span>💡 Cách lấy Gemini API Key miễn phí (10 giây):</span>
+              </div>
+              <ol className="list-decimal list-inside space-y-1 text-[11px] text-slate-500 dark:text-slate-400">
+                <li>
+                  Truy cập{' '}
+                  <a
+                    href="https://aistudio.google.com/app/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-cyan-600 dark:text-cyan-400 font-semibold hover:underline"
+                  >
+                    Google AI Studio ↗
+                  </a>{' '}
+                  và đăng nhập bằng tài khoản Google.
+                </li>
+                <li>
+                  Bấm <strong>Create API key</strong> và sao chép chuỗi mã bắt đầu bằng <code>AIzaSy...</code>.
+                </li>
+                <li>
+                  Dán vào ô ở trên và bấm <strong>Lưu Key</strong> để hoàn tất.
+                </li>
+              </ol>
+            </div>
+
+            {/* Modal Footer Actions */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleTestApiKey()}
+                  disabled={isTestingApiKey || !apiKeyInput.trim()}
+                  className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-semibold border border-slate-200 dark:border-slate-700 transition flex items-center gap-1.5 disabled:opacity-50"
+                >
+                  {isTestingApiKey ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600 dark:text-purple-400" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
+                  )}
+                  <span>Kiểm tra kết nối</span>
+                </button>
+
+                {customApiKey && (
+                  <button
+                    type="button"
+                    onClick={handleClearApiKey}
+                    className="px-3 py-2 rounded-xl text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:bg-rose-950/30 text-xs font-medium transition"
+                  >
+                    Dùng key mặc định
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsApiKeyModalOpen(false);
+                    setApiKeyTestResult(null);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition"
+                >
+                  Đóng
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveApiKey}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-semibold shadow-md shadow-purple-500/20 transition"
+                >
+                  Lưu Key
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Smart Fallback Quota / Rate Limit Modal */}
+      {isQuotaModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto">
+            {/* Header */}
+            <div className="flex items-start justify-between pb-3.5 border-b border-slate-200 dark:border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-600 dark:text-amber-400 shrink-0">
+                  <Zap className="w-6 h-6 animate-pulse" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    ⚡ Hệ thống đang quá tải lượt dùng!
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    Tài khoản dùng thử chung tạm thời hết hạn mức. Hãy dùng key riêng để tiếp tục ngay.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsQuotaModalOpen(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* 3-Step Guide Card */}
+            <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col gap-3">
+              <div className="text-xs font-bold text-amber-800 dark:text-amber-300">
+                🚀 3 Bước đơn giản để tiếp tục tạo hình (Hoàn toàn miễn phí):
+              </div>
+              <div className="flex flex-col gap-2 text-xs text-slate-700 dark:text-slate-300">
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                    1
+                  </span>
+                  <div>
+                    Bấm vào liên kết{' '}
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-cyan-600 dark:text-cyan-400 font-bold underline inline-flex items-center gap-0.5"
+                    >
+                      Tạo Gemini API Key miễn phí tại Google AI Studio
+                      <ExternalLink className="w-3 h-3" />
+                    </a>{' '}
+                    (mất khoảng 10 giây, không cần thẻ tín dụng).
+                  </div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                    2
+                  </span>
+                  <div>Sao chép mã Key và dán vào ô bên dưới.</div>
+                </div>
+
+                <div className="flex items-start gap-2.5">
+                  <span className="w-5 h-5 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+                    3
+                  </span>
+                  <div>
+                    Bấm <strong>"Lưu & Tiếp Tục"</strong> để hệ thống tự động hoàn thành yêu cầu vẽ hình vừa rồi của bạn!
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Key Input */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                Dán Gemini API Key của bạn vào đây:
+              </label>
+              <div className="relative">
+                <input
+                  type={showQuotaKeyText ? 'text' : 'password'}
+                  value={quotaKeyInput}
+                  onChange={(e) => setQuotaKeyInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSaveQuotaKeyAndRetry()}
+                  placeholder="AIzaSy..."
+                  className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl px-3.5 py-2.5 pr-12 text-xs font-mono text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowQuotaKeyText(!showQuotaKeyText)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                >
+                  {showQuotaKeyText ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Footer Actions */}
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsQuotaModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition"
+              >
+                Để sau / Đóng
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveQuotaKeyAndRetry}
+                disabled={!quotaKeyInput.trim()}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 via-orange-500 to-indigo-600 hover:from-amber-400 hover:to-indigo-500 text-white text-xs font-bold shadow-md shadow-amber-500/20 transition flex items-center gap-1.5 disabled:opacity-50"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Lưu & Tiếp Tục Tạo Hình</span>
               </button>
             </div>
           </div>

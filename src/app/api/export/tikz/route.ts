@@ -55,11 +55,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Gemini API setup
-    const apiKey = process.env.GEMINI_API_KEY;
+    // 3. Gemini API setup (Priority 1: User custom BYOK key, Priority 2: System GEMINI_API_KEY)
+    const customApiKey = req.headers.get('x-custom-api-key')?.trim();
+    const apiKey = customApiKey || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Server chưa thiết lập GEMINI_API_KEY trong môi trường.' },
+        { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
         { status: 500 }
       );
     }

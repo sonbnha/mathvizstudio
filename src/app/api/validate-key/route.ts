@@ -1,0 +1,94 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { GoogleGenAI } from '@google/genai';
+
+// POST /api/validate-key
+export async function POST(req: NextRequest) {
+  try {
+    let body: { apiKey?: string } = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
+    const apiKey =
+      body.apiKey?.trim() ||
+      req.headers.get('x-custom-api-key')?.trim() ||
+      process.env.GEMINI_API_KEY;
+
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Vui lòng cung cấp Gemini API Key để kiểm tra.' },
+        { status: 400 }
+      );
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Lightweight verification call
+    const result = await ai.models.generateContent({
+      model: 'gemini-2.5-flash',
+      contents: 'Ping test. Reply with OK.',
+      config: {
+        maxOutputTokens: 5,
+        temperature: 0,
+      },
+    });
+
+    if (result && result.text) {
+      return NextResponse.json({
+        success: true,
+        message: 'Kết nối Gemini API Key thành công!',
+      });
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Kết nối API Key thành công!',
+    });
+  } catch (error: any) {
+    console.error('Error validating Gemini API key:', error);
+    const errorMsg = String(error?.message || '').toLowerCase();
+    const errorStatus = error?.status || error?.statusCode;
+
+    if (
+      errorStatus === 429 ||
+      errorMsg.includes('429') ||
+      errorMsg.includes('quota') ||
+      errorMsg.includes('rate limit') ||
+      errorMsg.includes('resource_exhausted')
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'API Key này đã tạm thời hết hạn mức quota hoặc bị giới hạn tốc độ (Rate Limit).',
+        },
+        { status: 429 }
+      );
+    }
+
+    if (
+      errorStatus === 400 ||
+      errorStatus === 403 ||
+      errorMsg.includes('api_key_invalid') ||
+      errorMsg.includes('invalid api key') ||
+      errorMsg.includes('permission_denied')
+    ) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'API Key không hợp lệ hoặc không có quyền truy cập Gemini API.',
+        },
+        { status: 400 }
+      );
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: error?.message || 'Không thể kết nối đến máy chủ Gemini.',
+      },
+      { status: 500 }
+    );
+  }
+}

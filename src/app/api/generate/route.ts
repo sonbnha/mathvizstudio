@@ -77,11 +77,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Gemini API setup
-    const apiKey = process.env.GEMINI_API_KEY;
+    // 3. Gemini API setup (Priority 1: User custom BYOK key, Priority 2: System GEMINI_API_KEY)
+    const customApiKey = req.headers.get('x-custom-api-key')?.trim();
+    const apiKey = customApiKey || process.env.GEMINI_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: 'Server chưa thiết lập GEMINI_API_KEY trong môi trường.' },
+        { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
         { status: 500 }
       );
     }
@@ -113,52 +114,45 @@ ${colorPaletteInstruction}
 QUY TẮC NỘI DUNG CHỮ TRONG SVG:
 + TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa nội dung đề bài, tóm tắt đề, công thức tính toán hoặc các bước giải bài toán.
 + CHỈ ĐƯỢC PHÉP dùng thẻ <text> cho 3 mục đích duy nhất:
-  1. Tên điểm hình học (ví dụ: A, B, C, H).
-  2. Số đo góc (ví dụ: 60°, 45°, α).
-  3. Nhãn kích thước ngắn cạnh đối tượng (ví dụ: 5m, 12cm, h = ?, x).
-+ Toàn bộ khung canvas SVG chỉ tập trung vào hình vẽ đối tượng thực tế và mô hình hình học.
+  1. Tên điểm đỉnh hình học (ngắn gọn từ 1 đến 3 ký tự, ví dụ: 'A', 'B', 'C', 'H', 'A'', 'S_1').
+  2. Số đo góc (ví dụ: '60°', '30°', '45°', 'α', 'β').
+  3. Độ dài kích thước cạnh / chiều cao ngắn (ví dụ: '4m', '38m', 'h = ?', 'x', '10 cm').
++ Tất cả các thẻ <text> chứa đoạn văn giải thích dài hơn 20 ký tự đều bị cấm triệt để.
 
-QUY TẮC BẢO VỆ NHÃN SỐ ĐO (CHỐNG ĐÈ LÊN ĐƯỜNG KẺ 100%):
-1. Kỹ thuật Text-Halo (Mặt nạ nền chữ): Mọi thẻ <text> hiển thị số đo (ví dụ: "3,5", "1,5m", "x") BẮT BUỘC phải kèm thuộc tính viền trắng dày để tự động xóa đường kẻ chạy ngang qua:
-   paint-order="stroke fill" stroke="#ffffff" stroke-width="6" stroke-linejoin="round"
-2. Tọa độ nhãn:
-   - Cạnh đứng: Dịch sang trái hoặc phải đoạn thẳng ít nhất 16px.
-   - Cạnh ngang: Dịch lên trên hoặc xuống dưới đoạn thẳng ít nhất 16px.
-   - Cạnh xiên: Đặt nhãn tại trung điểm nhưng dịch theo vector pháp tuyến (vuông góc) ra phía ngoài ít nhất 18px.
-3. Vị trí tên điểm (A, B, C...):
-   - Đặt lệch ra ngoài đỉnh ít nhất 12px, không để chấm tròn đỉnh (dot) che khuất chữ.
-4. Vị trí nhãn góc (như góc B, góc C):
-   - Nhãn chữ/số đo góc phải nằm hẳn vào trong lòng cung tròn hoặc nằm gọn bên trong miền tam giác, không dính vào đường cung góc.
-5. Thứ tự layer trong SVG:
-   - Toàn bộ các thẻ <text> phải luôn được đặt ở cuối cùng trong file SVG (ngay trước thẻ đóng </svg>) để layer chữ luôn nổi lên trên cùng của hình vẽ.
+QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
++ Sử dụng viewBox="0 0 600 450" chuẩn tỷ lệ 4:3.
++ Để lề (padding) an toàn tối thiểu 40px xung quanh hình để chữ không bị cắt viền.
++ Hình vẽ phải cân đối, rõ ràng, các nét vẽ không chồng chéo làm biến dạng hình ảnh.
++ Đánh dấu góc vuông: Sử dụng thẻ <path> hoặc <rect> nhỏ (kích thước cạnh khoảng 12px) để thể hiện ký hiệu góc vuông chuẩn toán học.
++ Đánh dấu cung góc: Sử dụng thẻ <path> hình cung (arc) kèm nhãn số đo góc bên cạnh.`;
 
-Yêu cầu kỹ thuật đồ họa SVG:
-1. Khung hình (viewBox): viewBox="0 0 650 420"
-2. Phong cách: Trực quan, hiện đại, phối màu sư phạm rõ ràng (stroke/fill tương phản tốt).
-3. Góc vuông: Ký hiệu góc vuông chính xác tại các giao điểm vuông góc.`;
+    const contents: any[] = [];
 
-    const contents: Array<string | { inlineData: { data: string; mimeType: string } }> = [];
-
-    if (promptText) {
-      contents.push(promptText);
-    }
-
+    // Attach image if provided
     if (imageBase64) {
       const cleanBase64 = imageBase64.replace(/^data:image\/\w+;base64,/, '');
       contents.push({
         inlineData: {
-          data: cleanBase64,
           mimeType,
+          data: cleanBase64,
         },
       });
     }
 
-    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const userPrompt = promptText
+      ? `Hãy vẽ mô hình hình học SVG cho bài toán sau:\n\n${promptText}`
+      : 'Hãy đọc đề bài toán trong ảnh và vẽ mô hình hình học SVG chính xác.';
+
+    contents.push(userPrompt);
+
+    // List of models in order of priority
+    const defaultModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
     const MODELS = [
       defaultModel,
-      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
+      ...(defaultModel !== 'gemini-2.5-flash' ? ['gemini-2.5-flash'] : []),
       'gemini-3.7-flash',
       'gemini-3.7-pro',
+      'gemini-2.5-pro',
     ];
 
     let response: any = null;
@@ -167,35 +161,37 @@ Yêu cầu kỹ thuật đồ họa SVG:
     for (let i = 0; i < MODELS.length; i++) {
       const currentModel = MODELS[i];
       try {
-        response = await ai.models.generateContent({
+        console.info(`[Gemini API] Đang thử model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
+        const result = await ai.models.generateContent({
           model: currentModel,
           contents,
           config: {
             systemInstruction,
+            temperature: 0.1,
+            maxOutputTokens: 4096,
           },
         });
-        if (response?.text) {
+
+        if (result && result.text) {
+          response = result;
+          console.info(`[Gemini API] Model ${currentModel} đã phản hồi thành công!`);
           break;
         }
       } catch (err: any) {
         lastError = err;
         console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
-
+        
         const errorStatus = err?.status || err?.statusCode;
         const errorMsg = String(err?.message || '').toLowerCase();
         const isRetryable =
           errorStatus === 503 ||
           errorStatus === 429 ||
           errorStatus === 500 ||
-          errorMsg.includes('503') ||
-          errorMsg.includes('429') ||
           errorMsg.includes('overloaded') ||
           errorMsg.includes('high demand') ||
-          errorMsg.includes('rate limit') ||
           errorMsg.includes('resource exhausted');
 
-        if (i < MODELS.length - 1 && (isRetryable || true)) {
-          console.info(`[Gemini API] Chờ 1.5s và tự động fallback sang model ${MODELS[i + 1]}...`);
+        if (i < MODELS.length - 1 && isRetryable) {
           await new Promise((resolve) => setTimeout(resolve, 1500));
           continue;
         }
@@ -229,6 +225,45 @@ Yêu cầu kỹ thuật đồ họa SVG:
     });
   } catch (error: any) {
     console.error('Error generating math SVG:', error);
+    const errorMsg = String(error?.message || '').toLowerCase();
+    const errorStatus = error?.status || error?.statusCode;
+
+    const isQuotaOrRateLimit =
+      errorStatus === 429 ||
+      errorMsg.includes('429') ||
+      errorMsg.includes('quota') ||
+      errorMsg.includes('rate limit') ||
+      errorMsg.includes('resource_exhausted') ||
+      errorMsg.includes('resource exhausted') ||
+      errorMsg.includes('overloaded');
+
+    if (isQuotaOrRateLimit) {
+      return NextResponse.json(
+        {
+          error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí.',
+          code: 'RATE_LIMIT_EXCEEDED',
+          isQuotaError: true,
+        },
+        { status: 429 }
+      );
+    }
+
+    const isInvalidKey =
+      errorStatus === 400 &&
+      (errorMsg.includes('api_key_invalid') ||
+        errorMsg.includes('api key not valid') ||
+        errorMsg.includes('invalid api key'));
+
+    if (isInvalidKey) {
+      return NextResponse.json(
+        {
+          error: 'Gemini API Key không hợp lệ hoặc đã bị vô hiệu hóa.',
+          code: 'INVALID_API_KEY',
+        },
+        { status: 400 }
+      );
+    }
+
     return NextResponse.json(
       { error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.' },
       { status: 500 }
