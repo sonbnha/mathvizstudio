@@ -948,7 +948,7 @@ export default function UnifiedAdminPage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex font-sans transition-colors duration-200">
+    <div className="min-h-screen flex bg-slate-50 dark:bg-[#0B0F17] text-slate-900 dark:text-slate-100 font-sans transition-colors duration-200 antialiased">
       {/* 1. Mobile Sidebar Backdrop */}
       {isMobileSidebarOpen && (
         <div
@@ -957,13 +957,13 @@ export default function UnifiedAdminPage() {
         />
       )}
 
-      {/* 2. Professional Vertical Sidebar */}
+      {/* 2. Mobile Drawer Panel (Slide over from left) */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800/80 flex flex-col justify-between transition-transform duration-300 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 w-72 max-w-[85vw] bg-white dark:bg-[#111622] border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between shadow-2xl transition-transform duration-300 ease-in-out lg:hidden ${
           isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } shadow-xl lg:shadow-none`}
+        }`}
       >
-        {/* Sidebar Header */}
+        {/* Header */}
         <div className="p-5 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20 text-white shrink-0">
@@ -993,15 +993,14 @@ export default function UnifiedAdminPage() {
           <button
             type="button"
             onClick={() => setIsMobileSidebarOpen(false)}
-            className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 lg:hidden"
+            className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition"
           >
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Sidebar Navigation */}
+        {/* Navigation Menu */}
         <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-6 text-xs">
-          {/* Group 1: Bảng điều khiển */}
           <div className="flex flex-col gap-1">
             <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               Bảng Điều Khiển
@@ -1048,7 +1047,6 @@ export default function UnifiedAdminPage() {
             </button>
           </div>
 
-          {/* Group 2: Quản trị hệ thống (Admin only) */}
           {currentUser.role === 'ADMIN' && (
             <div className="flex flex-col gap-1">
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
@@ -1100,10 +1098,9 @@ export default function UnifiedAdminPage() {
           )}
         </div>
 
-        {/* Sidebar Footer Profile */}
+        {/* Footer Profile */}
         <div className="p-3.5 border-t border-slate-200 dark:border-slate-800/80 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-950/40">
-          {/* User info card */}
-          <div className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+          <div className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs">
               {currentUser.name.slice(0, 2).toUpperCase()}
             </div>
@@ -1138,27 +1135,182 @@ export default function UnifiedAdminPage() {
         </div>
       </aside>
 
-      {/* 3. Main Wrapper (Offset for fixed sidebar) */}
-      <div className="flex-1 flex flex-col min-w-0 lg:pl-64">
-        {/* Topbar */}
-        <header className="sticky top-0 z-30 backdrop-blur-md bg-white/85 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800/80 px-4 lg:px-8 py-3 flex items-center justify-between gap-4 shadow-xs transition-colors">
+      {/* 3. Desktop Sticky Sidebar (Flex item, sticky top-0 h-screen) */}
+      <aside className="hidden lg:flex flex-col justify-between w-64 flex-shrink-0 sticky top-0 h-screen overflow-y-auto bg-white dark:bg-[#111622] border-r border-slate-200 dark:border-slate-800/80 z-30">
+        {/* Header */}
+        <div className="p-5 border-b border-slate-200 dark:border-slate-800/80 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md shadow-cyan-500/20 text-white shrink-0">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-sm text-slate-900 dark:text-white tracking-tight">
+                  MathViz
+                </span>
+                <span
+                  className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                    currentUser.role === 'ADMIN'
+                      ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                      : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20'
+                  }`}
+                >
+                  {currentUser.role === 'ADMIN' ? 'Admin' : 'CTV'}
+                </span>
+              </div>
+              <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
+                Quản trị & Phân quyền
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
+        <div className="flex-1 overflow-y-auto p-3.5 flex flex-col gap-6 text-xs">
+          <div className="flex flex-col gap-1">
+            <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Bảng Điều Khiển
+            </span>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
+                activeTab === 'overview'
+                  ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-l-4 border-cyan-600 dark:border-cyan-400 font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className="w-4 h-4" />
+                <span>Tổng Quan</span>
+              </div>
+              <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'overview' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('keys')}
+              className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
+                activeTab === 'keys'
+                  ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-l-4 border-cyan-600 dark:border-cyan-400 font-bold shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <KeyRound className="w-4 h-4" />
+                <span>License Keys</span>
+              </div>
+              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                {keys.length}
+              </span>
+            </button>
+          </div>
+
+          {currentUser.role === 'ADMIN' && (
+            <div className="flex flex-col gap-1">
+              <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                Hệ Thống & Phân Quyền
+              </span>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('users')}
+                className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
+                  activeTab === 'users'
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-l-4 border-rose-600 dark:border-rose-400 font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <Users className="w-4 h-4" />
+                  <span>Tài Khoản (CTV)</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                  {userAccounts.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('changelog')}
+                className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
+                  activeTab === 'changelog'
+                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-l-4 border-indigo-600 dark:border-indigo-400 font-bold shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <History className="w-4 h-4" />
+                  <span>Lịch Sử Phiên Bản</span>
+                </div>
+                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
+                  {changelogs.length}
+                </span>
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Footer Profile */}
+        <div className="p-3.5 border-t border-slate-200 dark:border-slate-800/80 flex flex-col gap-2 bg-slate-50/50 dark:bg-slate-950/40">
+          <div className="flex items-center gap-3 p-2 rounded-xl bg-white dark:bg-[#111622] border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-xs">
+              {currentUser.name.slice(0, 2).toUpperCase()}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                {currentUser.name}
+              </p>
+              <p className="text-[10px] font-mono text-slate-400 truncate">
+                @{currentUser.username}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-1.5 pt-1">
+            <a
+              href="/"
+              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-[11px] font-semibold transition flex items-center justify-center gap-1.5"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Canvas</span>
+            </a>
+
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-semibold transition flex items-center justify-center gap-1.5 border border-rose-500/20"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Thoát</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* 4. Main Content Wrapper (min-w-0 to prevent layout overflow) */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-y-auto">
+        {/* Topbar */}
+        <header className="sticky top-0 z-20 backdrop-blur-md bg-white/85 dark:bg-[#111622]/85 border-b border-slate-200 dark:border-slate-800/80 px-4 sm:px-6 lg:px-8 py-3.5 flex items-center justify-between gap-4 shadow-xs transition-colors">
+          <div className="flex items-center gap-3 min-w-0">
             {/* Mobile Hamburger Toggle */}
             <button
               type="button"
               onClick={() => setIsMobileSidebarOpen(true)}
-              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 lg:hidden"
+              className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 lg:hidden shrink-0"
+              title="Mở menu quản trị"
             >
               <Menu className="w-5 h-5" />
             </button>
 
             {/* Breadcrumb */}
-            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
-              <span className="font-medium text-slate-900 dark:text-slate-200">
+            <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 truncate">
+              <span className="font-medium text-slate-900 dark:text-slate-200 truncate">
                 {currentUser.role === 'ADMIN' ? 'Admin Portal' : 'CTV Portal'}
               </span>
-              <ChevronRight className="w-3.5 h-3.5 text-slate-400" />
-              <span className="font-semibold text-cyan-600 dark:text-cyan-400 capitalize">
+              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="font-semibold text-cyan-600 dark:text-cyan-400 capitalize truncate">
                 {activeTab === 'overview'
                   ? 'Tổng Quan'
                   : activeTab === 'keys'
@@ -1170,7 +1322,7 @@ export default function UnifiedAdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Changelog Version Button */}
             <button
               type="button"
@@ -1194,7 +1346,7 @@ export default function UnifiedAdminPage() {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 lg:p-6 flex flex-col gap-6 max-w-7xl w-full mx-auto">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 w-full max-w-7xl mx-auto min-w-0">
           {/* TAB 0: TỔNG QUAN (DASHBOARD OVERVIEW) */}
           {activeTab === 'overview' && (
             <div className="flex flex-col gap-6">
@@ -1697,10 +1849,10 @@ export default function UnifiedAdminPage() {
                 </div>
               </div>
 
-              <div className="overflow-x-auto w-full">
-                <table className="w-full table-auto border-collapse text-left text-xs">
+              <div className="overflow-x-auto w-full rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+                <table className="w-full min-w-[720px] table-auto border-collapse text-left text-xs">
                   <thead>
-                    <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
+                    <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
                       <th className="py-2.5 px-3">Khách hàng</th>
                       <th className="py-2.5 px-2">Mã Key</th>
                       <th className="py-2.5 px-2">Người Tạo</th>
@@ -1907,10 +2059,10 @@ export default function UnifiedAdminPage() {
             </div>
 
             {/* Accounts Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className="overflow-x-auto w-full rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+              <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                  <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
                     <th className="py-2.5 px-3 whitespace-nowrap">Họ và Tên</th>
                     <th className="py-2.5 px-3 whitespace-nowrap">Tên Đăng Nhập</th>
                     <th className="py-2.5 px-3 whitespace-nowrap">Vai Trò</th>
@@ -2110,8 +2262,8 @@ export default function UnifiedAdminPage() {
             </div>
 
             {/* Table */}
-            <div className="overflow-x-auto rounded-xl border border-slate-200/80 dark:border-slate-800/80">
-              <table className="w-full text-left border-collapse text-xs">
+            <div className="overflow-x-auto w-full rounded-xl border border-slate-200/80 dark:border-slate-800/80">
+              <table className="w-full min-w-[700px] text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                     <th className="py-3 px-4">Phiên Bản</th>
