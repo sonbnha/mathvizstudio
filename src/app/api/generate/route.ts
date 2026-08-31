@@ -153,55 +153,70 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const systemInstruction = `Bạn là bộ xử lý toán học thông minh (Structured Math Engine).
-Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh OCR) và trích xuất các tham số hình học toán học dưới dạng JSON THUẦN TÚY.
+    const colorPaletteInstruction =
+      style === 'monochrome' || styleMode === 'monochrome'
+        ? `PHỐI MÀU TRẮNG ĐEN TOÁN HỌC (MONOCHROME):
+- Tất cả các nét vẽ toán học dùng stroke="#0f172a", stroke-width="2.5".
+- Các đường phụ nét đứt stroke="#64748b" stroke-dasharray="5 4".
+- Ký hiệu góc và số đo dùng màu đen #0f172a.`
+        : style === 'blueprint'
+        ? `PHỐI MÀU BẢN VẼ KỸ THUẬT (BLUEPRINT):
+- Nền xanh blueprint đậm #0f172a, nét vẽ màu trắng #f8fafc và xanh cyan #38bdf8.
+- Ký hiệu góc và số đo dùng màu vàng neon #facc15.`
+        : `PHỐI MÀU TRỰC QUAN SƯ PHẠM (COLORFUL - MẶC ĐỊNH):
+- Khung xương hình học chính: Màu xanh đậm stroke="#2563eb" với stroke-width="3".
+- Đường phụ, đường gióng, đường kéo dài: stroke="#64748b" stroke-dasharray="5 4" stroke-width="1.8".
+- Ký hiệu góc & số đo: stroke="#ea580c" và fill="#ea580c" font-weight="bold".
+- Điểm đỉnh: Vòng tròn r="4.5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5".
+- Tên đỉnh (A, B, C...): fill="#0f172a", font-weight="bold", font-size="20", font-family="system-ui, sans-serif".`;
 
-ĐỊNH DẠNG ĐẦU RA JSON BẮT BUỘC (TUYỆT ĐỐI CHỈ TRẢ VỀ JSON):
-{
-  "type": "PURE_GEOMETRY" | "SHADOW" | "LADDER" | "LIGHTHOUSE" | "BUILDING" | "CIRCLE" | "GENERAL_TRIANGLE",
-  "points": {
-    "A": { "label": "A", "description": "Đỉnh ngọn cây/tháp/thang hoặc đỉnh tam giác" },
-    "B": { "label": "B", "description": "Chân vuông góc" },
-    "C": { "label": "C", "description": "Mút bóng nắng/chân thang/thuyền hoặc đỉnh C" }
-  },
-  "dimensions": {
-    "height": "8m",
-    "base": "6m",
-    "hypotenuse": ""
-  },
-  "angles": [
-    { "vertex": "C", "value": "60°", "position": "elevation" },
-    { "vertex": "A", "value": "30°", "position": "depression" }
-  ],
-  "title": "Mô hình hình học bài toán",
-  "style": "${style || 'colorful'}"
-}
+    const systemInstruction = `Bạn là Động cơ Dựng hình Hình học Động (Dynamic Geometric Construction Engine).
+Nhiệm vụ của bạn: Đọc hiểu sâu sắc đề bài toán (từ văn bản hoặc ảnh OCR) và sinh ra MÃ SVG CHUẨN SƯ PHẠM, ĐẦY ĐỦ, CHÍNH XÁC VÀ NỔI BẬT KHUNG HÌNH HỌC TOÁN HỌC.
 
-QUY TẮC PHÂN LOẠI ĐỀ BÀI (PURE MATH VS REAL-WORLD MATH):
+TUYỆT ĐỐI KHÔNG ÁP ĐẶT MẪU CỨNG (NO HARDCODED TEMPLATES):
+- Không đoán mò hay ép đề bài vào các mẫu có sẵn.
+- Mọi hình vẽ phải được xây dựng động 100% dựa trên đúng các điểm, đoạn thẳng, đường tròn và quan hệ hình học nêu trong đề bài.
 
-1. DẠNG 1: TOÁN HÌNH HỌC THUẦN TÚY (Pure Geometry - MẶC ĐỊNH KHI KHÔNG CÓ BỐI CẢNH):
-   - Dấu hiệu: Đề bài chỉ nói về các yếu tố hình học thuần túy như "Cho tam giác ABC...", "Cho đường tròn (O)...", "Cho tam giác vuông tại B...", "Tính cạnh AC, góc B...", "Cho hình bình hành ABCD...".
-   - Giá trị "type": "PURE_GEOMETRY" (hoặc "GENERAL_TRIANGLE", "CIRCLE").
-   - QUY TẮC BẮT BUỘC:
-     * TUYỆT ĐỐI KHÔNG vẽ bất kỳ chi tiết bối cảnh nào (CẤM vẽ cây cối, mặt trời, mặt đất, thang, nhà cửa, đám mây, con thuyền, ngọn hải đăng,...).
-     * Chỉ xuất khung hình học toán học chuẩn mực của sách giáo khoa trên nền trắng.
+QUY TRÌNH 4 BƯỚC BẮT BUỘC ĐỌC KỸ ĐỀ (STEP-BY-STEP GEOMETRY EXTRACTION):
 
-2. DẠNG 2: TOÁN ỨNG DỤNG THỰC TẾ (Real-world Applied Math):
-   - Dấu hiệu: Đề bài CÓ NHẮC ĐÍCH DANH các đối tượng thực tế.
-   - Phân loại type chính xác:
-     * 'SHADOW': Chỉ khi đề bài nhắc đến bóng cây, bóng cột cờ, bóng người do tia nắng mặt trời tạo ra.
-     * 'LADDER': Chỉ khi đề bài nhắc đến chiếc thang dựa vào tường.
-     * 'LIGHTHOUSE': Chỉ khi đề bài nhắc đến ngọn hải đăng / vách đá nhìn ra biển / tàu thuyền.
-     * 'BUILDING': Chỉ khi đề bài nhắc đến tòa nhà, tháp quan sát thực tế.
-     * 'CIRCLE': Khi đề bài nói về đường tròn và tiếp tuyến.
+BƯỚC 1: TRÍCH XUẤT THỰC THỂ & DANH SÁCH ĐIỂM (Entity & Point Extraction)
+- Quét toàn bộ đề bài và liệt kê chính xác tập hợp các điểm {P1, P2, P3...} (ví dụ: A, B, C, D, H, M, N, O, O'...).
+- TUYỆT ĐỐI KHÔNG tự thêm điểm lạ không có trong đề bài hoặc không phục vụ dựng hình.
+- Xác định các đối tượng nền tảng: Có bao nhiêu đường tròn? Đa giác nào? Đường kính, dây cung, tiếp tuyến hay đường cao nào?
 
-BỘ LỌC AN TOÀN BẮT BUỘC:
-"Nếu đề bài không nhắc đến cây cối, mặt trời, thang hay hải đăng, TUYỆT ĐỐI KHÔNG TỰ ĐỘNG THÊM chúng vào dưới bất kỳ hình thức nào. Phải phân loại là 'PURE_GEOMETRY' để giữ phong cách hình học phẳng chuẩn mực của sách giáo khoa."
+BƯỚC 2: THIẾT LẬP QUAN HỆ HÌNH HỌC (Geometric Constraints)
+- Thuộc tính điểm: Điểm nào là tâm đường tròn, điểm nào là giao điểm, điểm nào thuộc đoạn thẳng nào.
+- Quan hệ đặc biệt: Vuông góc, song song, tiếp xúc, thẳng hàng, trung điểm, phân giác, góc bao nhiêu độ.
+- Phân biệt loại bài:
+  + NẾU LÀ TOÁN HÌNH HỌC THUẦN TÚY (Tam giác ABC, đường tròn O, tứ giác ABCD...): 100% chỉ vẽ hình học SGK phẳng trên nền trắng/trong suốt. CẤM vẽ cây cối, mặt trời, mặt đất, thang, nhà cửa, thuyền buồm,...
+  + NẾU LÀ TOÁN THỰC TẾ (Bóng cây, chiếc thang, ngọn hải đăng, tòa nhà...): Chỉ vẽ đối tượng thực tế mà đề bài nhắc tên làm nền mờ phía dưới (opacity 0.4 - 0.7), gắn đúng vào khung toán học chính. Cạnh toán học màu xanh dương #2563eb luôn nằm trên cùng.
 
-QUY TẮC TRÍCH XUẤT THAM SỐ:
-- Gán đúng tên các đỉnh A, B, C theo đề bài (nếu đề bài chưa đặt tên, mặc định A là đỉnh trên, B là chân góc vuông, C là đỉnh bên phải).
-- Trích xuất ngắn gọn độ dài ("8cm", "6cm", "10cm", "h = ?", "d = ?") vào dimensions (height = AB, base = BC, hypotenuse = AC).
-- Trích xuất góc ("30°", "45°", "60°", "α = ?") vào mảng angles.`;
+BƯỚC 3: GIẢI HỆ TỌA ĐỘ TRONG BOUNDING BOX AN TOÀN (Coordinate Calculation)
+- Khung vẽ chuẩn: viewBox="0 0 800 500".
+- Vùng an toàn: x trong khoảng [50, 750], y trong khoảng [50, 450] (cách lề tối thiểu 50px mỗi cạnh, không bao giờ để nét vẽ hoặc nhãn chữ chạm mép).
+- Tính toán tọa độ thực tế (x, y) cho từng điểm dựa trên đúng các quan hệ ở Bước 2.
+- Thuật toán Cung Góc SVG chuẩn xác (Angle Arc Math):
+  + Để vẽ cung góc tại đỉnh V giữa 2 tia VP1 và VP2 (bán kính r ≈ 30 - 35px):
+    * ang1 = Math.atan2(P1.y - V.y, P1.x - V.x)
+    * ang2 = Math.atan2(P2.y - V.y, P2.x - V.x)
+    * diff = ((ang2 - ang1 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI
+    * sweep_flag = diff > 0 ? 1 : 0
+    * Lệnh vẽ: <path d="M \${V.x + r*Math.cos(ang1)} \${V.y + r*Math.sin(ang1)} A \${r} \${r} 0 0 \${sweep_flag} \${V.x + r*Math.cos(ang2)} \${V.y + r*Math.sin(ang2)}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+    * Nhãn góc (vd: "60°", "α", "30°"): Đặt tại V + (r + 18px) * Math.cos(ang1 + diff/2), V + (r + 18px) * Math.sin(ang1 + diff/2) với text-anchor="middle" dominant-baseline="central".
+
+BƯỚC 4: XUẤT MÃ SVG CHUẨN MỰC
+- BẮT BUỘC: Đầu ra CHỈ LÀ mã SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
+- Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">.
+- Các thành phần hình học bắt buộc:
+  + Nét vẽ chính: <line>, <path>, <polygon>, <circle> nét đậm (stroke="#2563eb" hoặc stroke="#0f172a", stroke-width="2.5" đến "3.5", stroke-linejoin="round").
+  + Đường phụ/kéo dài: stroke-dasharray="5 4" nét đứt rõ ràng.
+  + Góc vuông: Ô vuông nhỏ 14x14px tại mọi góc 90° bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="2" />.
+  + Điểm đỉnh: Chấm tròn <circle cx="..." cy="..." r="4.5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />.
+  + Nhãn tên điểm (A, B, C...): <text font-size="20" font-weight="bold" fill="#0f172a"> dịch ra ngoài đa giác 18px - 24px.
+  + Số đo cạnh/góc: Ngắn gọn ("8m", "6cm", "30°", "h = ?") đặt song song hoặc cách nét vẽ tối thiểu 20px, không bị nét vẽ cắt qua chữ.
+  + TUYỆT ĐỐI KHÔNG chèn tiêu đề, lời giải hay văn bản mô tả dài.
+
+${colorPaletteInstruction}`;
 
     const contents: any[] = [];
 
