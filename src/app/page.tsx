@@ -189,21 +189,24 @@ export default function HomePage() {
     let progressTimer: NodeJS.Timeout;
     if (isGenerating) {
       setProgress(0);
-      const startTime = Date.now();
       progressTimer = setInterval(() => {
-        const elapsed = Date.now() - startTime;
         setProgress((prev) => {
           if (prev >= 92) return 92;
-          if (elapsed < 500) {
-            // Rapid rise up to 30% in first 500ms
-            return Math.min(30, prev + 6);
+          let increment = 1;
+          if (prev < 25) {
+            // 0% -> 25%: Chạy trong 1 - 1.5s đầu (Gửi request và kết nối API)
+            increment = Math.random() * 1.5 + 1.2;
           } else if (prev < 60) {
-            return prev + 3;
-          } else if (prev < 80) {
-            return prev + 1.5;
+            // 25% -> 60%: Tăng đều (AI phân tích và sinh mã hình học)
+            increment = Math.random() * 1.2 + 0.8;
+          } else if (prev < 85) {
+            // 60% -> 85%: Tăng chậm lại tạo độ trễ tự nhiên
+            increment = Math.random() * 0.5 + 0.3;
           } else {
-            return prev + 0.5;
+            // 85% -> 92%: Bước cực nhỏ và không vượt quá 92% khi chưa có response
+            increment = 0.15;
           }
+          return Math.min(prev + increment, 92);
         });
       }, 100);
     } else {
@@ -473,9 +476,9 @@ export default function HomePage() {
       setSvgOutput(data.svg);
       saveToHistory(data.svg, activePrompt);
 
-      // Hit 100% on success and delay 200ms so user clearly sees completion
+      // Hit 100% on success and delay 250ms with smooth completion effect
       setProgress(100);
-      await new Promise((resolve) => setTimeout(resolve, 200));
+      await new Promise((resolve) => setTimeout(resolve, 250));
 
       if (isRefinement) {
         setRefineInput('');
