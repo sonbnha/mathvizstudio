@@ -2391,7 +2391,7 @@ export default function UnifiedAdminPage() {
                               <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-[11px] font-semibold text-slate-700 dark:text-slate-300">
                                 {changesArr.length} mục
                               </span>
-                              {changesArr.slice(0, 2).map((ch, chIdx) => (
+                              {changesArr.map((ch, chIdx) => (
                                 <span
                                   key={chIdx}
                                   className={`text-[9px] uppercase px-1.5 py-0.5 rounded font-bold ${
@@ -2405,9 +2405,6 @@ export default function UnifiedAdminPage() {
                                   {ch.type}
                                 </span>
                               ))}
-                              {changesArr.length > 2 && (
-                                <span className="text-[10px] text-slate-400">+{changesArr.length - 2}</span>
-                              )}
                             </div>
                           </td>
                           <td className="py-3 px-4">

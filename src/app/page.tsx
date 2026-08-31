@@ -1876,7 +1876,7 @@ export default function HomePage() {
       {/* Changelog / Version History Modal */}
       {isChangelogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh] overflow-hidden">
+          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh]">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -1902,10 +1902,10 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Releases List */}
-            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 text-xs">
+            {/* Releases List - Full Scroll View */}
+            <div className="w-full min-h-0 flex-1 overflow-y-auto space-y-4 pr-2 text-xs">
               {changelogLoading && changelogList.length === 0 ? (
-                <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
                   <Loader2 className="w-5 h-5 animate-spin text-cyan-600 dark:text-cyan-400" />
                   <span>Đang tải lịch sử phiên bản...</span>
                 </div>
@@ -1913,11 +1913,11 @@ export default function HomePage() {
                 changelogList.map((rel, idx) => (
                 <div
                   key={rel.version}
-                  className="bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3"
+                  className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex flex-col gap-3 shadow-xs"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
+                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 px-2.5 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
                         {rel.version}
                       </span>
                       {idx === 0 && (
@@ -1926,18 +1926,18 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <span className="text-slate-400 dark:text-slate-500 text-[11px]">
+                    <span className="text-slate-400 dark:text-slate-500 text-xs font-mono">
                       {rel.date}
                     </span>
                   </div>
 
-                  <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
+                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
                     {rel.title}
                   </h4>
 
-                  <ul className="flex flex-col gap-2 pl-1">
+                  <ul className="flex flex-col gap-2 pl-0.5">
                     {rel.changes.map((c, cIdx) => (
-                      <li key={cIdx} className="flex items-start gap-2 text-slate-600 dark:text-slate-300 leading-relaxed">
+                      <li key={cIdx} className="flex items-start gap-2 text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
                         <span
                           className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
                             c.type === 'feat'
@@ -1949,7 +1949,7 @@ export default function HomePage() {
                         >
                           {c.type}
                         </span>
-                        <span>{c.description}</span>
+                        <span className="break-words">{c.description}</span>
                       </li>
                     ))}
                   </ul>

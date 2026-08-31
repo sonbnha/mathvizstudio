@@ -16,14 +16,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    let changelogs = await prisma.changelog.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Auto-seed if empty
-    if (!changelogs || changelogs.length === 0) {
-      for (const item of [...CHANGELOG].reverse()) {
-        try {
+    // Ensure all versions in CHANGELOG config are present in database
+    for (const item of [...CHANGELOG].reverse()) {
+      try {
+        const existing = await prisma.changelog.findUnique({
+          where: { version: item.version },
+        });
+        if (!existing) {
           await prisma.changelog.create({
             data: {
               version: item.version,
@@ -33,13 +32,13 @@ export async function GET(req: NextRequest) {
               isPublished: true,
             },
           });
-        } catch {}
-      }
-
-      changelogs = await prisma.changelog.findMany({
-        orderBy: { createdAt: 'desc' },
-      });
+        }
+      } catch {}
     }
+
+    const changelogs = await prisma.changelog.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
 
     return NextResponse.json({ changelogs });
   } catch (error: any) {
