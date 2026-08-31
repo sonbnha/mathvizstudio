@@ -146,13 +146,12 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
     contents.push(userPrompt);
 
     // List of models in order of priority
-    const defaultModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const MODELS = [
       defaultModel,
-      ...(defaultModel !== 'gemini-2.5-flash' ? ['gemini-2.5-flash'] : []),
+      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
       'gemini-3.7-flash',
       'gemini-3.7-pro',
-      'gemini-2.5-pro',
     ];
 
     let response: any = null;

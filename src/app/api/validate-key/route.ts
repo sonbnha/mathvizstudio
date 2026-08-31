@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
 
     // Lightweight verification call
     const result = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: 'Ping test. Reply with OK.',
       config: {
         maxOutputTokens: 5,
