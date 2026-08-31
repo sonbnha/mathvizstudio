@@ -3,8 +3,8 @@ import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
 // Helper function to sanitize and extract ONLY valid, clean SVG content
-function sanitizeSvg(svgString: string): string {
-  let clean = svgString.trim();
+function extractSvgCode(rawText: string): string {
+  let clean = rawText.trim();
 
   // Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
   if (clean.startsWith('```')) {
@@ -12,9 +12,9 @@ function sanitizeSvg(svgString: string): string {
   }
 
   // 1. Trích xuất đúng khối <svg>...</svg>
-  const match = clean.match(/<svg[\s\S]*?<\/svg>/i);
-  if (match) {
-    clean = match[0];
+  const svgMatch = clean.match(/<svg[\s\S]*?<\/svg>/i);
+  if (svgMatch) {
+    clean = svgMatch[0];
   } else if (!clean.includes('<svg') && (clean.includes('ctx.') || clean.includes('canvas'))) {
     // If JS canvas code was generated, return as-is for canvas execution
     return clean;
@@ -22,13 +22,13 @@ function sanitizeSvg(svgString: string): string {
     clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
   }
 
-  // Ensure essential SVG attributes exist so it never collapses to 0x0
+  // Ensure essential SVG attributes exist so it never collapses or clips
   if (clean.includes('<svg')) {
     if (!clean.includes('xmlns=')) {
       clean = clean.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
     }
     if (!clean.includes('viewBox=')) {
-      clean = clean.replace(/<svg/i, '<svg viewBox="0 0 600 450"');
+      clean = clean.replace(/<svg/i, '<svg viewBox="0 0 800 500"');
     }
     if (!clean.includes('width=')) {
       clean = clean.replace(/<svg/i, '<svg width="100%"');
@@ -37,9 +37,6 @@ function sanitizeSvg(svgString: string): string {
       clean = clean.replace(/<svg/i, '<svg height="100%"');
     }
   }
-
-  // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
-  clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
 
   return clean.trim();
 }
@@ -126,41 +123,56 @@ export async function POST(req: NextRequest) {
 
     const colorPaletteInstruction =
       styleMode === 'monochrome'
-        ? `BẢNG MÀU ĐỀ THI / IN ẤN (MONOCHROME PRINT MODE):
-1. Nền và màu sắc: Nền trắng tinh (#ffffff). Toàn bộ nét vẽ đều màu đen stroke="#000000" với stroke-width="2.2".
-2. Nét phụ / đường gióng / đường cao: stroke="#000000", stroke-dasharray="4 4", stroke-width="1.5".
-3. Điểm đỉnh (Dots): Vòng tròn r="3.5", fill="#000000".
-4. Chữ tên đỉnh và số đo: fill="#000000", font-weight="bold", font-family="sans-serif".
-5. Đối tượng thực tế (mặt đất, bờ tường, cây, thang): Dùng nét vẽ đơn sắc đen trắng, gạch bóng mờ hoặc nét đứt gạch chéo (pattern/hatch), TUYỆT ĐỐI KHÔNG dùng màu xanh, cam, vàng hay các màu sặc sỡ để tối ưu cho việc in đề thi A4.`
-        : `BẢNG MÀU BÀI GIẢNG TRỰC QUAN (COLOR PEDAGOGY MODE):
-1. Nét vẽ hình học chính (các cạnh tam giác, hình chiếu): Đồng nhất 1 màu duy nhất stroke="#2563eb" (Blue 600), độ dày stroke-width="2.5".
-2. Nét phụ / đường gióng / nét đứt: Màu stroke="#94a3b8" (Slate 400), stroke-dasharray="4 4", stroke-width="1.5".
-3. Điểm đỉnh (Dots): Vòng tròn bán kính r="4", fill="#1e293b".
-4. Chữ tên đỉnh (A, B, C...): Màu fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
-5. Ký hiệu góc & số đo góc: Đồng nhất màu stroke="#d97706" và fill="#d97706" (Amber 600) cho toàn bộ các góc (KHÔNG dùng mỗi góc một màu khác nhau).`;
+        ? `CHẾ ĐỘ IN ẤN & ĐỀ THI (MONOCHROME PRINT MODE):
+- Nền: Nền trắng tinh khiết (#ffffff).
+- Toàn bộ đường nét hình học: Màu đen stroke="#000000" với stroke-width="2.5".
+- Đường gióng / đường đứt đoạn / tia sáng: stroke="#000000" stroke-dasharray="5 5" stroke-width="1.8".
+- Điểm đỉnh: Vòng tròn r="4" fill="#000000".
+- Chữ tên đỉnh, số đo, đơn vị: fill="#000000", font-weight="bold", font-family="sans-serif", font-size="16".
+- Đối tượng thực tế (mặt đất, cây, thang, cột): Dùng nét đơn sắc đen trắng, gạch bóng hoặc nét hatch tinh tế, TUYỆT ĐỐI KHÔNG dùng màu mè.`
+        : `CHẾ ĐỘ BÀI GIẢNG TRỰC QUAN (COLOR PEDAGOGY MODE):
+- Nền: Nền trắng (#ffffff).
+- Khung xương hình học chính: Màu xanh đậm stroke="#2563eb" (Blue 600) với stroke-width="3".
+- Tia nắng / tia sáng / đường ngắm: Màu vàng cam stroke="#f59e0b" (Amber 500) hoặc stroke-dasharray="5 5" stroke-width="2".
+- Đối tượng thực tế:
+  + Cây xanh: Tán lá fill="#22c55e" stroke="#16a34a", thân cây fill="#854d0e" stroke="#713f12".
+  + Cột hải đăng / tòa nhà / tường: Phối màu trang nhã (fill="#e2e8f0" stroke="#475569").
+  + Thang / dây neo: stroke="#d97706" hoặc stroke="#64748b" stroke-width="2.5".
+  + Mặt đất: Đường chuẩn nằm ngang stroke="#64748b" stroke-width="2".
+- Điểm đỉnh: Vòng tròn r="4.5" fill="#1e293b".
+- Chữ tên đỉnh (A, B, C...): fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
+- Ký hiệu góc & số đo: stroke="#ea580c" và fill="#ea580c" (Orange 600) font-weight="bold".`;
 
-    const systemInstruction = `Bạn là một chuyên gia đồ họa vector và hình học toán học. Nhiệm vụ duy nhất: Đọc đề bài toán (từ văn bản hoặc ảnh OCR) và xuất ra MÃ SVG CHUẨN XÁC, CÂN ĐỐI để hiển thị trên Canvas / Web.
+    const systemInstruction = `Bạn là chuyên gia hàng đầu về Đồ Họa Vector Toán Học (MathViz Engine).
+Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh OCR) và sinh ra một mô hình hình học toán học ĐẦY ĐỦ, CHÍNH XÁC, ĐẸP MẮT dưới dạng MÃ SVG HỢP LỆ.
 
-NGHIÊM CẤM: Không viết lời mở đầu, không tóm tắt đề bài, không giải thích các bước giải, không viết chữ markdown ngoài thẻ <svg>.
-BẮT BUỘC:
-1. Đầu ra phải bắt đầu chính xác bằng '<svg' và kết thúc chính xác bằng '</svg>'.
-2. Bắt buộc có các thuộc tính: viewBox="0 0 600 450" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg".
-3. Tự động căn giữa toàn bộ mô hình hình học theo tọa độ tâm (width/2 = 300, height/2 = 225) và để lề an toàn tối thiểu 40px xung quanh để không bị lệch hay cắt viền.
+BẮT BUỘC VỀ ĐẦU RA:
+1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích.
+2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">.
 
 ${colorPaletteInstruction}
 
-QUY TẮC NỘI DUNG CHỮ TRONG HÌNH:
-+ TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa đề bài, tóm tắt, lời giải hoặc đoạn văn dài hơn 20 ký tự.
-+ CHỈ ĐƯỢC PHÉP dùng thẻ <text> cho 3 mục đích duy nhất:
-  1. Tên điểm đỉnh hình học (ngắn gọn từ 1 đến 3 ký tự, ví dụ: 'A', 'B', 'C', 'H', 'S', 'O').
-  2. Số đo góc (ví dụ: '60°', '30°', '45°', 'α', 'β').
-  3. Độ dài kích thước cạnh / chiều cao ngắn (ví dụ: '4m', '38m', 'h = ?', 'x', '10 cm').
-+ Tất cả các thẻ <text> phải có font-family="sans-serif", font-weight="bold", font-size="15".
+QUY TẮC MÔ HÌNH HÓA BÀI TOÁN THỰC TẾ (BÓNG NẮNG, HẢI ĐĂNG, CHIỀU CAO, THANG, GÓC NÂNG/HẠ):
+Khi gặp bài toán thực tế (ví dụ: "Cây cao bóng dài", "Ngọn hải đăng nhìn tàu", "Thang dựa vào tường", "Khinh khí cầu", "Tỉ số lượng giác"):
+BẮT BUỘC PHẢI VẼ ĐỦ CẢ 4 LỚP SAU:
+1. Lớp Mặt Đất & Chuẩn Ngang:
+   - Một đường kẻ ngang làm mặt đất rõ ràng (ví dụ: y = 420 từ x=50 đến x=750).
+   - Có nhãn số đo cạnh đáy/bóng (ví dụ: '6m', '20m', 'd = ?') đặt phía dưới đường mặt đất.
+2. Lớp Đối Tượng Thực Tế:
+   - Vẽ hình cách điệu của vật thể (cây xanh, cột hải đăng, tòa nhà, bờ tường...) dựng THẲNG ĐỨNG vuông góc với mặt đất.
+   - Có nhãn chiều cao của vật thể (ví dụ: '8m', 'h = ?', '15m') đặt cạnh thân vật thể.
+3. Lớp Hình Học Tam Giác & Góc:
+   - Nối ngọn vật thể với đầu bóng hoặc điểm quan sát tạo thành tam giác vuông chuẩn toán học.
+   - Ký hiệu góc vuông: Vẽ hình vuông nhỏ (14x14px) tại chân góc vuông bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="1.8" />.
+   - Ký hiệu cung tròn góc & nhãn độ lớn góc: Cung tròn góc tại điểm quan sát/đầu bóng bằng <path d="..." fill="none" stroke="#ea580c" stroke-width="2" /> kèm nhãn số đo (ví dụ: '30°', '45°', 'α', 'β').
+4. Lớp Điểm Đỉnh & Chú Thích:
+   - Đặt tên các đỉnh tam giác: A (ngọn/đỉnh cao), B (gốc/chân vuông góc), C (đầu bóng/điểm quan sát) bằng thẻ <text font-weight="bold" font-size="16">.
+   - Chấm tròn đỉnh: <circle cx="..." cy="..." r="4.5" /> tại mỗi đỉnh A, B, C.
 
-QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
-+ Nét vẽ rõ ràng, độ tương phản cao, nổi bật trên nền trắng (#ffffff).
-+ Đánh dấu góc vuông: Sử dụng thẻ <path> hoặc <rect> nhỏ (kích thước cạnh khoảng 12px) để thể hiện ký hiệu góc vuông chuẩn toán học.
-+ Đánh dấu cung góc: Sử dụng thẻ <path> hình cung (arc) kèm nhãn số đo góc bên cạnh.`;
+QUY TẮC BỐ CỤC & TỌA ĐỘ:
+- Căn giữa toàn bộ mô hình trong khung viewBox="0 0 800 500" (khoảng x từ 80 đến 720, y từ 60 đến 440).
+- Chừa lề an toàn tối thiểu 40px xung quanh để các chữ tên đỉnh và số đo không bị cắt viền.
+- Đảm bảo hình vẽ có chiều sâu, rõ ràng, trực quan chuẩn sư phạm.`;
 
     const contents: any[] = [];
 
@@ -199,7 +211,7 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
     }
 
     const rawText = response.text || '';
-    const cleanedSvg = sanitizeSvg(rawText);
+    const cleanedSvg = extractSvgCode(rawText);
 
     // 4. Update usage credits
     let updatedRecord = keyRecord;
