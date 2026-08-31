@@ -1,13 +1,17 @@
 # MathViz Studio - Rules & Versioning Guidelines
 
-## Application Versioning Rules
-1. Every time a new feature, improvement, or bug fix is implemented and before committing/pushing code:
-   - Check `src/config/version.ts` and `package.json`.
-   - Increment the patch version (e.g., `0.1.0` -> `0.1.1` -> `0.1.2`).
-   - Update `buildDate` in `src/config/version.ts` to the current date (`YYYY-MM-DD`).
-   - Ensure `package.json` `"version"` matches `APP_VERSION.version`.
+## Application Versioning & Release Workflow
+1. Khi có yêu cầu "Nâng phiên bản", "Release", hoặc mỗi lần cập nhật tính năng / fix lỗi nhỏ:
+   - Tự động chạy helper `npm run version:patch` (hoặc `npm run version:minor`) để đồng bộ `package.json` và `src/config/version.ts`.
+   - Thêm bản ghi tóm tắt thay đổi mới nhất vào đầu mảng `CHANGELOG` trong `src/config/changelog.ts` với định dạng ngày chuẩn `dd/MM/yyyy` (ví dụ: `31/08/2026`).
+   - Cập nhật tài liệu `walkthrough.md`.
+   - Tiến hành `git add`, tạo commit với thông điệp rõ ràng và `git push origin main`.
 
-2. Version Stage Progression:
+2. Cấu trúc định dạng ngày tháng:
+   - Toàn bộ hiển thị ngày tháng trên giao diện và file cấu hình PHẢI tuân thủ chuẩn Việt Nam `dd/MM/yyyy` (`31/08/2026`).
+   - Sử dụng hàm tiện ích `formatDateVN()` trong `src/config/version.ts` khi cần format ngày động.
+
+3. Version Stage Progression:
    - `alpha`: Early development, experimental features (`v0.1.x-alpha`).
    - `beta`: Feature complete, testing stability (`v0.2.x-beta`).
    - `rc`: Release candidate ready for public testing (`v0.9.x-rc`).

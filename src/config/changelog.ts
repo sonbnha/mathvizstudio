@@ -10,6 +10,15 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v0.1.2-alpha",
+    date: "31/08/2026",
+    title: "Cập nhật định dạng ngày & Chuẩn hóa Changelog",
+    changes: [
+      { type: "improve", description: "Chuyển đổi toàn bộ định dạng ngày sang chuẩn dd/MM/yyyy" },
+      { type: "feat", description: "Thiết lập cơ chế quản lý và hiển thị lịch sử cập nhật phiên bản" },
+    ],
+  },
+  {
     version: "v0.1.1-alpha",
     date: "31/08/2026",
     title: "Tối ưu hóa tiến trình & Fix kẹt loading",
