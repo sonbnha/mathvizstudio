@@ -22,7 +22,26 @@ function sanitizeSvg(svgString: string): string {
       clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
     }
 
-    // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
+    // 2. Đảm bảo các thuộc tính thiết yếu của thẻ SVG
+    if (clean.includes('<svg')) {
+      if (!clean.includes('xmlns=')) {
+        clean = clean.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
+      }
+      if (!clean.includes('viewBox=')) {
+        clean = clean.replace(/<svg/i, '<svg viewBox="0 0 800 500"');
+      }
+      if (!clean.includes('width=')) {
+        clean = clean.replace(/<svg/i, '<svg width="100%"');
+      }
+      if (!clean.includes('height=')) {
+        clean = clean.replace(/<svg/i, '<svg height="100%"');
+      }
+      if (!clean.includes('overflow=')) {
+        clean = clean.replace(/<svg/i, '<svg overflow="visible"');
+      }
+    }
+
+    // 3. Xóa các thẻ text dài (thường là đề bài hoặc lời giải thừa từ 20 ký tự trở lên)
     clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
 
     return clean.trim();
@@ -85,8 +104,8 @@ export async function POST(req: NextRequest) {
 
     const promptText = body.prompt?.trim() || '';
     const imageBase64 = body.imageBase64;
-    const mimeType = body.mimeType || 'image/jpeg';
-    const styleMode = body.styleMode || 'color';
+    const mimeType = body.mimeType || 'image/png';
+    const styleMode = (body.styleMode || 'color').toLowerCase() === 'monochrome' ? 'monochrome' : 'color';
 
     if (!promptText && !imageBase64) {
       return NextResponse.json(
@@ -114,40 +133,75 @@ export async function POST(req: NextRequest) {
 
     const colorPaletteInstruction =
       styleMode === 'monochrome'
-        ? `BẢNG MÀU ĐỀ THI / IN ẤN (MONOCHROME PRINT MODE):
-1. Nền và màu sắc: Nền trắng tinh (#ffffff). Toàn bộ nét vẽ đều màu đen stroke="#000000" với stroke-width="2.2".
-2. Nét phụ / đường gióng / đường cao: stroke="#000000", stroke-dasharray="4 4", stroke-width="1.5".
-3. Điểm đỉnh (Dots): Vòng tròn r="3.5", fill="#000000".
-4. Chữ tên đỉnh và số đo: fill="#000000", font-weight="bold", font-family="sans-serif".
-5. Đối tượng thực tế (mặt đất, bờ tường, cây, thang): Dùng nét vẽ đơn sắc đen trắng, gạch bóng mờ hoặc nét đứt gạch chéo (pattern/hatch), TUYỆT ĐỐI KHÔNG dùng màu xanh, cam, vàng hay các màu sặc sỡ để tối ưu cho việc in đề thi A4.`
-        : `BẢNG MÀU BÀI GIẢNG TRỰC QUAN (COLOR PEDAGOGY MODE):
-1. Nét vẽ hình học chính (các cạnh tam giác, hình chiếu): Đồng nhất 1 màu duy nhất stroke="#2563eb" (Blue 600), độ dày stroke-width="2.5".
-2. Nét phụ / đường gióng / nét đứt: Màu stroke="#94a3b8" (Slate 400), stroke-dasharray="4 4", stroke-width="1.5".
-3. Điểm đỉnh (Dots): Vòng tròn bán kính r="4", fill="#1e293b".
-4. Chữ tên đỉnh (A, B, C...): Màu fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
-5. Ký hiệu góc & số đo góc: Đồng nhất màu stroke="#d97706" và fill="#d97706" (Amber 600) cho toàn bộ các góc (KHÔNG dùng mỗi góc một màu khác nhau).`;
+        ? `CHẾ ĐỘ IN ẤN & ĐỀ THI (MONOCHROME PRINT MODE):
+- Nền: Nền trắng tinh khiết (#ffffff).
+- Toàn bộ đường nét hình học: Màu đen stroke="#000000" với stroke-width="2.5".
+- Đường gióng / đường đứt đoạn / tia sáng: stroke="#000000" stroke-dasharray="5 5" stroke-width="1.8".
+- Điểm đỉnh: Vòng tròn r="4" fill="#000000".
+- Chữ tên đỉnh, số đo, đơn vị: fill="#000000", font-weight="bold", font-family="sans-serif", font-size="16".
+- Đối tượng thực tế (mặt đất, cây, thang, cột): Dùng nét đơn sắc đen trắng, gạch bóng hoặc nét hatch tinh tế, TUYỆT ĐỐI KHÔNG dùng màu mè.`
+        : `CHẾ ĐỘ BÀI GIẢNG TRỰC QUAN (COLOR PEDAGOGY MODE):
+- Nền: Nền trắng (#ffffff).
+- Khung xương hình học chính: Màu xanh đậm stroke="#2563eb" (Blue 600) với stroke-width="3".
+- Tia nắng / tia sáng / đường ngắm: Màu vàng cam stroke="#f59e0b" (Amber 500) hoặc stroke-dasharray="5 5" stroke-width="2".
+- Đối tượng thực tế:
+  + Cây xanh: Tán lá fill="#22c55e" stroke="#16a34a" fill-opacity="0.25", thân cây fill="#854d0e" stroke="#713f12".
+  + Cột hải đăng / tòa nhà / tường: Phối màu trang nhã (fill="#f8fafc" stroke="#94a3b8").
+  + Thang: Gióng thang màu cam gỗ stroke="#d97706" stroke-width="3.5", các bậc thang stroke="#b45309" stroke-width="2.5".
+  + Thuyền buồm: Thân thuyền màu gỗ fill="#854d0e", cánh buồm trắng fill="#f8fafc" stroke="#64748b".
+  + Mặt đất: Đường chuẩn nằm ngang stroke="#64748b" stroke-width="2.5".
+- Điểm đỉnh: Vòng tròn r="4.5" fill="#1e293b".
+- Chữ tên đỉnh (A, B, C...): fill="#0f172a", font-weight="bold", font-size="18", font-family="sans-serif".
+- Ký hiệu góc & số đo: stroke="#ea580c" và fill="#ea580c" (Orange 600) font-weight="bold".`;
 
-    const systemInstruction = `Bạn là một trình biên dịch đồ họa vector. Nhiệm vụ duy nhất: Đọc đề bài toán (từ văn bản hoặc tự động đọc nội dung đề bài trong ảnh OCR nếu có) và xuất ra MÃ SVG HỢP LỆ.
+    const systemInstruction = `Bạn là chuyên gia hàng đầu về Đồ Họa Vector Toán Học Sư Phạm (MathViz Engine).
+Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh OCR) và sinh ra MÃ SVG CHUẨN SƯ PHẠM, ĐẸP MẮT, NỔI BẬT KHUNG HÌNH HỌC TOÁN HỌC.
 
-NGHIÊM CẤM: Không viết lời mở đầu, không tóm tắt đề bài, không giải thích các bước giải, không viết chữ markdown ngoài thẻ <svg>.
-BẮT BUỘC: Đầu ra phải bắt đầu chính xác bằng '<svg' và kết thúc chính xác bằng '</svg>'.
+CHỈ THỊ CỐT LÕI QUAN TRỌNG NHẤT:
+"Mục tiêu cao nhất của hình vẽ là PHỤC VỤ GIẢI TOÁN HÌNH HỌC. Khung hình học cốt lõi (tam giác vuông, đa giác, các cạnh, góc vuông, tên đỉnh A-B-C, số đo) PHẢI LUÔN NẰM Ở VỊ TRÍ NỔI BẬT VÀ SẮC NÉT NHẤT trên bản vẽ."
+
+BẮT BUỘC VỀ ĐẦU RA:
+1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
+2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">.
+
+KIẾN TRÚC PHÂN LỚP SVG (2-LAYER ARCHITECTURE):
+
+LỚP 1: HÌNH HỌC TOÁN HỌC CỐT LÕI (NẰM TRÊN CÙNG - VẼ NÉT ĐẬM, NỔI BẬT NHẤT):
+1. Khung tam giác/đa giác chính (Main Geometry Lines):
+   - Nét vẽ chính stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round".
+   - Nối trọn vẹn các đỉnh mô hình hóa bài toán:
+     * Bài toán cái thang: Tam giác ABC vuông tại chân tường B (A là đỉnh thang trên tường, C là chân thang trên mặt đất, AC là cạnh thang).
+     * Bài toán bóng cây: Tam giác ABC vuông tại gốc cây B (A là ngọn cây, C là mút bóng nắng, AC là phương tia nắng).
+     * Bài toán hải đăng: Tam giác ABC vuông tại chân hải đăng B (A là ngọn hải đăng, C là vị trí thuyền, AC là tia ngắm).
+2. Ký hiệu góc vuông và cung đo góc:
+   - Ký hiệu góc vuông: Luôn vẽ ô vuông chuẩn 14x14px tại mọi vị trí vuông góc (chân tường, chân cây, chân hải đăng).
+   - Ký hiệu cung góc: Cung tròn cong mượt mà bằng thẻ <path d="M ... A ..." fill="none" stroke="#ea580c" stroke-width="2.2" /> kèm nhãn số đo góc bên cạnh (ví dụ: '30°', '60°', 'α').
+3. Điểm đỉnh và Nhãn kích thước:
+   - Điểm đỉnh: <circle cx="..." cy="..." r="4.5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" /> tại mỗi đỉnh A, B, C...
+   - Tên đỉnh: <text font-size="20" font-weight="bold" fill="#0f172a"> đặt ngoài hình cách đỉnh 15px.
+   - Nhãn kích thước ngắn gọn: '4m', 'h = ?', 'd = ?', '8m' nằm song song với cạnh tương ứng.
+
+LỚP 2: ĐỒ HỌA MINH HỌA TOÁN THỰC TẾ (NẰM DƯỚI LÀM NỀN TRỰC QUAN):
+- BÀI TOÁN CÁI THANG:
+  + Vẽ bức tường đứng có họa tiết gạch nhẹ nhàng bên cạnh cạnh AB.
+  + Vẽ chiếc thang với 2 thanh gióng màu cam gỗ và 4-6 bậc thang vuông góc với thân thang dọc theo cạnh AC.
+- BÀI TOÁN BÓNG NẮNG & MẶT TRỜI:
+  + Vẽ cây xanh hoặc cột cờ tại cạnh AB (thân nâu, tán lá xanh tự nhiên).
+  + TÂM MẶT TRỜI S(x_S, y_S) BẮT BUỘC NẰM TRÊN ĐƯỜNG THẲNG KÉO DÀI TỪ C QUA A (x_S = x_A + (x_A - x_C)*0.4, y_S = y_A + (y_A - y_C)*0.4, y_S ≥ 70).
+  + Tia nắng nối dài: <line x1="x_S" y1="y_S" x2="x_C" y2="y_C" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6 4" />.
+  + Icon Mặt Trời: Vòng tròn vàng r=20 kèm các tia nắng phát quang tại tâm S.
+- BÀI TOÁN NGỌN HẢI ĐĂNG / THUYỀN BIỂN:
+  + Tháp hải đăng đỏ trắng tại cạnh AB, thuyền buồm tại điểm C trên mặt biển.
+  + Vẽ đường ngắm nằm ngang nét đứt từ A và cung góc hạ nếu đề bài cho.
+- TOÁN HÌNH HỌC THUẦN TÚY (Tam giác, đường tròn, tứ giác):
+  + Vẽ 100% hình học chuẩn SGK trên nền trắng, không vẽ thêm chi tiết đời sống không liên quan.
+
+QUY TẮC BỐ CỤC & TỌA ĐỘ AN TOÀN:
+- Căn giữa toàn bộ mô hình trong khung viewBox="0 0 800 500" (tọa độ x: 80 - 720, y: 70 - 430).
+- Chừa lề an toàn tối thiểu 40px xung quanh để chữ tên đỉnh và Mặt Trời không bị cắt viền.
 
 ${colorPaletteInstruction}
-
-QUY TẮC NỘI DUNG CHỮ TRONG SVG:
-+ TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa nội dung đề bài, tóm tắt đề, công thức tính toán hoặc các bước giải bài toán.
-+ CHỈ ĐƯỢC PHÉP dùng thẻ <text> cho 3 mục đích duy nhất:
-  1. Tên điểm đỉnh hình học (ngắn gọn từ 1 đến 3 ký tự, ví dụ: 'A', 'B', 'C', 'H', 'A'', 'S_1').
-  2. Số đo góc (ví dụ: '60°', '30°', '45°', 'α', 'β').
-  3. Độ dài kích thước cạnh / chiều cao ngắn (ví dụ: '4m', '38m', 'h = ?', 'x', '10 cm').
-+ Tất cả các thẻ <text> chứa đoạn văn giải thích dài hơn 20 ký tự đều bị cấm triệt để.
-
-QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
-+ Sử dụng viewBox="0 0 600 450" chuẩn tỷ lệ 4:3.
-+ Để lề (padding) an toàn tối thiểu 40px xung quanh hình để chữ không bị cắt viền.
-+ Hình vẽ phải cân đối, rõ ràng, các nét vẽ không chồng chéo làm biến dạng hình ảnh.
-+ Đánh dấu góc vuông: Sử dụng thẻ <path> hoặc <rect> nhỏ (kích thước cạnh khoảng 12px) để thể hiện ký hiệu góc vuông chuẩn toán học.
-+ Đánh dấu cung góc: Sử dụng thẻ <path> hình cung (arc) kèm nhãn số đo góc bên cạnh.`;
+`;
 
     const contents: any[] = [];
 
@@ -168,7 +222,7 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
 
     contents.push(userPrompt);
 
-    // List of models in order of priority
+    // Priority model fallback chain
     const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const MODELS = [
       defaultModel,
@@ -184,31 +238,30 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
     for (let i = 0; i < MODELS.length; i++) {
       const currentModel = MODELS[i];
       try {
-        console.info(`[Gemini API] Đang thử model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
+        console.info(`[Gemini API] Đang gửi yêu cầu tới model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
         const result = await ai.models.generateContent({
           model: currentModel,
           contents,
           config: {
             systemInstruction,
             temperature: 0.1,
-            maxOutputTokens: 4096,
+            maxOutputTokens: 6144,
           },
         });
 
         if (result && result.text) {
-          response = result;
-          console.info(`[Gemini API] Model ${currentModel} đã phản hồi thành công!`);
-          break;
+          const testClean = sanitizeSvg(result.text);
+          if (testClean && testClean.includes('<svg')) {
+            response = result;
+            console.info(`[Gemini API] Model ${currentModel} đã sinh SVG thành công (${testClean.length} bytes)!`);
+            break;
+          }
         }
       } catch (err: any) {
         lastError = err;
         console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
-        
-        const errorStatus = err?.status || err?.statusCode;
-        const isRetryable = errorStatus === 503 || errorStatus === 429 || errorStatus === 500;
-
-        if (i < MODELS.length - 1 && isRetryable) {
-          await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (i < MODELS.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
           continue;
         }
       }
@@ -236,6 +289,7 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
         : Math.max(0, updatedRecord.totalCredits - updatedRecord.usedCredits);
 
     return NextResponse.json({
+      success: true,
       svg: cleanedSvg,
       remainingCredits,
     });
