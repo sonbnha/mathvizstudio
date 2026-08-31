@@ -10,6 +10,16 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v0.1.4-alpha",
+    date: "31/08/2026",
+    title: "Hỗ trợ Gemini API Key cá nhân (BYOK) & Nâng cấp Model",
+    changes: [
+      { type: "feat", description: "Bổ sung tính năng tự cấu hình Gemini API Key cá nhân (BYOK) trên giao diện" },
+      { type: "feat", description: "Tự động hiển thị pop-up hướng dẫn lấy key miễn phí khi hệ thống gặp lỗi quá tải" },
+      { type: "fix", description: "Cập nhật model Gemini API mới nhất tương thích hệ thống (gemini-3.6-flash)" },
+    ],
+  },
+  {
     version: "v0.1.3-alpha",
     date: "31/08/2026",
     title: "Tối ưu Quản lý License Keys & Nâng cấp Giao diện Admin",
