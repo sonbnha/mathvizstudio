@@ -10,6 +10,18 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v0.1.5-alpha",
+    date: "31/08/2026",
+    title: "Chuẩn hóa Hình học Toán học SVG & Tối ưu AI Engine",
+    changes: [
+      { type: "feat", description: "Ra mắt Kiến trúc phân lớp SVG (SVG Layering): Đặt khung hình học toán học làm trọng tâm hàng đầu" },
+      { type: "fix", description: "Chuẩn hóa vị trí Mặt Trời thẳng hàng (Collinear Sun Position) với tia sáng trong bài toán bóng nắng" },
+      { type: "improve", description: "Tối ưu System Prompt và bộ lọc loại bỏ 100% chữ thừa, tiêu đề, và ghi chú mô tả trong SVG" },
+      { type: "feat", description: "Tích hợp Gemini 3.5 Flash siêu tốc kèm cơ chế tự động Fallback đa tầng chống nghẽn mạng" },
+      { type: "fix", description: "Phân biệt rõ ràng lỗi License Key hết hạn/hết lượt với lỗi quá tải AI Quota (ngăn chặn popup BYOK nhầm)" },
+    ],
+  },
+  {
     version: "v0.1.4-alpha",
     date: "31/08/2026",
     title: "Hỗ trợ Gemini API Key cá nhân (BYOK) & Nâng cấp Model",
