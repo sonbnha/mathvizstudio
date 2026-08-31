@@ -1,27 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
-import { GeoCanvas } from '@/lib/geoEngine';
+import { GeoEngine } from '@/lib/geoEngine';
+import { GEOMETRY_PROMPT } from '@/lib/gemini';
 import { renderStructuredMathToSvg, MathSpec } from '@/lib/svg-generator';
 
 // Helper function to sanitize and extract/execute ONLY valid, clean SVG content
 function extractSvgCode(rawText: string): string {
   let clean = rawText.trim();
 
-  // 1. If text is a GeoEngine JavaScript snippet, execute it on GeoCanvas
+  // 1. If text is a GeoEngine JavaScript snippet, execute it on GeoEngine
   if (
     clean.includes('geo.defPoint') ||
     clean.includes('geo.draw') ||
+    clean.includes('GeoEngine') ||
     clean.includes('GeoCanvas') ||
     (clean.includes('geo.') && clean.includes('const '))
   ) {
     try {
-      const svg = GeoCanvas.execute(clean);
+      const svg = GeoEngine.execute(clean);
       if (svg && svg.includes('<svg')) {
         return svg;
       }
     } catch (e) {
-      console.warn('[extractSvgCode] GeoCanvas execution fallback:', e);
+      console.warn('[extractSvgCode] GeoEngine execution fallback:', e);
     }
   }
 
@@ -170,34 +172,7 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const systemInstruction = `Bạn là chuyên gia hình học toán học và lập trình viên đồ họa cấp cao (Geometry Computation Engine).
-Nhiệm vụ của bạn: Đọc hiểu sâu sắc đề bài toán (từ văn bản hoặc ảnh OCR) và VIẾT MÃ JAVASCRIPT THỰC THI trên đối tượng \`geo\` (instance của GeoCanvas) để dựng hình học chính xác 100%.
-
-CÁC PHƯƠNG THỨC CÓ SẴN CỦA ĐỐI TƯỢNG \`geo\`:
-1. Định nghĩa và tính toán điểm hình học:
-   - \`geo.defPoint(name, x, y)\`: Định nghĩa điểm với tọa độ (x, y).
-   - \`geo.midpoint(name, p1, p2)\`: Tính trung điểm của đoạn thẳng p1p2.
-   - \`geo.reflect(name, p, center)\`: Điểm đối xứng của p qua tâm center.
-   - \`geo.homothety(name, origin, p, k)\`: Phép vị tự tâm origin tỉ số k (kéo dài vector).
-   - \`geo.projectPointOnLine(name, p, l1, l2)\`: Hình chiếu vuông góc của điểm p lên đường thẳng l1l2.
-   - \`geo.intersectLines(name, p1, p2, p3, p4)\`: Giao điểm của 2 đường thẳng p1p2 và p3p4.
-   - \`geo.intersectLineCircleOther(name, p1, p2, center, r)\`: Giao điểm thứ 2 của đường thẳng p1p2 với đường tròn (center; r).
-   - \`geo.tangentPoints(name1, name2, from, center, r)\`: Hai tiếp điểm từ điểm ngoài from đến đường tròn (center; r).
-
-2. Vẽ các phần tử hình học:
-   - \`geo.drawSegment(p1, p2, { stroke: '#2563eb', width: 2.5, dashed: false })\`: Vẽ đoạn thẳng (dashed: true cho nét đứt).
-   - \`geo.drawPolygon([p1, p2, p3, ...], { stroke: '#2563eb', fill: 'none', width: 2.5 })\`: Vẽ đa giác/tam giác.
-   - \`geo.drawCircle(center, radius, { stroke: '#2563eb', fill: 'none', width: 2, dashed: false })\`: Vẽ đường tròn.
-   - \`geo.drawRightAngle(p1, vertex, p2, size = 14)\`: Vẽ ô vuông góc vuông 90° tại đỉnh vertex.
-   - \`geo.drawAngleArc(p1, vertex, p2, label = '60°', r = 32)\`: Vẽ cung tròn góc phồng lồi chuẩn toán học kèm nhãn độ.
-   - \`geo.drawText(text, x, y, { fill: '#2563eb', size: 18, anchor: 'middle' })\`: Vẽ nhãn số đo/kích thước.
-   - \`geo.addRawElement('<path ... />')\`: Thêm nét vẽ minh họa tự do nếu là toán thực tế (bóng nắng, cái thang...).
-
-QUY TẮC BẮT BUỘC:
-- Khung hình chuẩn: 800 x 500. Tất cả các điểm phải nằm trong vùng an toàn x: 60 - 740, y: 60 - 440 (cách mép tối thiểu 50px).
-- NẾU LÀ TOÁN HÌNH HỌC THUẦN TÚY (Tam giác ABC, đường tròn O, tứ giác ABCD...): Chỉ dùng các hàm vẽ hình học phẳng chuẩn mực SGK, CẤM vẽ cây cối, mặt trời, mặt đất.
-- NẾU LÀ TOÁN THỰC TẾ: Dựng đúng khung tam giác vuông toán học chính lên trên cùng, minh họa phụ làm mờ bên dưới.
-- ĐẦU RA BẮT BUỘC: CHỈ XUẤT DUY NHẤT mã JavaScript bên trong khối \`\`\`javascript ... \`\`\`. Không viết bất kỳ lời giải thích ngoài code.`;
+    const systemInstruction = GEOMETRY_PROMPT;
 
     const contents: any[] = [];
 
