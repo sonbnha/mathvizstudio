@@ -158,11 +158,11 @@ Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh O
 
 ĐỊNH DẠNG ĐẦU RA JSON BẮT BUỘC (TUYỆT ĐỐI CHỈ TRẢ VỀ JSON):
 {
-  "type": "SHADOW" | "LADDER" | "LIGHTHOUSE" | "BUILDING" | "CIRCLE" | "GENERAL_TRIANGLE",
+  "type": "PURE_GEOMETRY" | "SHADOW" | "LADDER" | "LIGHTHOUSE" | "BUILDING" | "CIRCLE" | "GENERAL_TRIANGLE",
   "points": {
-    "A": { "label": "A", "description": "Đỉnh ngọn cây/tháp/thang" },
+    "A": { "label": "A", "description": "Đỉnh ngọn cây/tháp/thang hoặc đỉnh tam giác" },
     "B": { "label": "B", "description": "Chân vuông góc" },
-    "C": { "label": "C", "description": "Mút bóng nắng/chân thang/thuyền" }
+    "C": { "label": "C", "description": "Mút bóng nắng/chân thang/thuyền hoặc đỉnh C" }
   },
   "dimensions": {
     "height": "8m",
@@ -177,17 +177,30 @@ Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh O
   "style": "${style || 'colorful'}"
 }
 
-QUY TẮC PHÂN LOẠI TYPE CHUẨN XÁC:
-1. 'SHADOW': Bài toán bóng cây, bóng cột cờ, bóng cọc trên mặt đất tạo bởi tia nắng mặt trời.
-2. 'LADDER': Chiếc thang dựa vào bức tường đứng.
-3. 'LIGHTHOUSE': Ngọn hải đăng / vách đá quan sát tàu thuyền trên biển (có góc hạ hoặc góc nâng).
-4. 'BUILDING': Tòa nhà cao tầng, tháp quan sát người nhìn từ mặt đất.
-5. 'CIRCLE': Bài toán đường tròn (O; R), hai tiếp tuyến cắt nhau, dây cung, góc nội tiếp.
-6. 'GENERAL_TRIANGLE': Tam giác tổng quát, hình học phẳng khác.
+QUY TẮC PHÂN LOẠI ĐỀ BÀI (PURE MATH VS REAL-WORLD MATH):
+
+1. DẠNG 1: TOÁN HÌNH HỌC THUẦN TÚY (Pure Geometry - MẶC ĐỊNH KHI KHÔNG CÓ BỐI CẢNH):
+   - Dấu hiệu: Đề bài chỉ nói về các yếu tố hình học thuần túy như "Cho tam giác ABC...", "Cho đường tròn (O)...", "Cho tam giác vuông tại B...", "Tính cạnh AC, góc B...", "Cho hình bình hành ABCD...".
+   - Giá trị "type": "PURE_GEOMETRY" (hoặc "GENERAL_TRIANGLE", "CIRCLE").
+   - QUY TẮC BẮT BUỘC:
+     * TUYỆT ĐỐI KHÔNG vẽ bất kỳ chi tiết bối cảnh nào (CẤM vẽ cây cối, mặt trời, mặt đất, thang, nhà cửa, đám mây, con thuyền, ngọn hải đăng,...).
+     * Chỉ xuất khung hình học toán học chuẩn mực của sách giáo khoa trên nền trắng.
+
+2. DẠNG 2: TOÁN ỨNG DỤNG THỰC TẾ (Real-world Applied Math):
+   - Dấu hiệu: Đề bài CÓ NHẮC ĐÍCH DANH các đối tượng thực tế.
+   - Phân loại type chính xác:
+     * 'SHADOW': Chỉ khi đề bài nhắc đến bóng cây, bóng cột cờ, bóng người do tia nắng mặt trời tạo ra.
+     * 'LADDER': Chỉ khi đề bài nhắc đến chiếc thang dựa vào tường.
+     * 'LIGHTHOUSE': Chỉ khi đề bài nhắc đến ngọn hải đăng / vách đá nhìn ra biển / tàu thuyền.
+     * 'BUILDING': Chỉ khi đề bài nhắc đến tòa nhà, tháp quan sát thực tế.
+     * 'CIRCLE': Khi đề bài nói về đường tròn và tiếp tuyến.
+
+BỘ LỌC AN TOÀN BẮT BUỘC:
+"Nếu đề bài không nhắc đến cây cối, mặt trời, thang hay hải đăng, TUYỆT ĐỐI KHÔNG TỰ ĐỘNG THÊM chúng vào dưới bất kỳ hình thức nào. Phải phân loại là 'PURE_GEOMETRY' để giữ phong cách hình học phẳng chuẩn mực của sách giáo khoa."
 
 QUY TẮC TRÍCH XUẤT THAM SỐ:
-- Gán đúng tên các đỉnh A, B, C theo đề bài (nếu đề bài chưa đặt tên, mặc định A là đỉnh trên, B là chân góc vuông, C là điểm trên mặt đất/mặt nước).
-- Trích xuất ngắn gọn độ dài ("8m", "1.5m", "45m", "h = ?", "d = ?") vào dimensions.
+- Gán đúng tên các đỉnh A, B, C theo đề bài (nếu đề bài chưa đặt tên, mặc định A là đỉnh trên, B là chân góc vuông, C là đỉnh bên phải).
+- Trích xuất ngắn gọn độ dài ("8cm", "6cm", "10cm", "h = ?", "d = ?") vào dimensions (height = AB, base = BC, hypotenuse = AC).
 - Trích xuất góc ("30°", "45°", "60°", "α = ?") vào mảng angles.`;
 
     const contents: any[] = [];

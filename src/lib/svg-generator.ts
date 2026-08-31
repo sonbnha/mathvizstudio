@@ -580,10 +580,86 @@ function renderCircleSvg(spec: MathSpec): string {
     <text x="${xO - 20}" y="${yO + 8}" text-anchor="end">${pO}</text>
     <text x="${xM + 18}" y="${yM + 8}" text-anchor="start">${pM}</text>
     <text x="${xA}" y="${yA - 16}" text-anchor="middle">${pA}</text>
-    <text x="${xB}" y="${yB + 30}" text-anchor="middle">${pB}</text>
     <text x="${xH + 14}" y="${yH - 12}" text-anchor="start">${pH}</text>
     <text x="${(xO + xA) / 2 - 12}" y="${(yO + yA) / 2}" font-size="18" fill="#2563eb" font-style="italic" font-weight="normal">R</text>
   </g>
+</svg>`;
+}
+
+/**
+ * Render a Pure Math Geometry Triangle to SVG (Clean textbook style, NO real-world clipart)
+ */
+function renderPureGeometryTriangleSvg(spec: MathSpec): string {
+  const pA = getPointLabel(spec.points, 'A', 'A');
+  const pB = getPointLabel(spec.points, 'B', 'B');
+  const pC = getPointLabel(spec.points, 'C', 'C');
+
+  const dimHeight = spec.dimensions?.height || '';
+  const dimBase = spec.dimensions?.base || '';
+  const dimHypo = spec.dimensions?.hypotenuse || '';
+
+  // Triangle coordinates centered in 800x500 box
+  const xA = 240;
+  const yA = 120;
+  const xB = 240;
+  const yB = 400;
+  const xC = 600;
+  const yC = 400;
+
+  const rArc = 35;
+  const alphaRad = Math.atan2(yB - yA, xC - xB);
+  const arcStartX = xC - rArc;
+  const arcStartY = yC;
+  const arcEndX = Math.round(xC - rArc * Math.cos(alphaRad));
+  const arcEndY = Math.round(yC - rArc * Math.sin(alphaRad));
+
+  const labelAngleX = Math.round(xC - (rArc + 20) * Math.cos(alphaRad / 2));
+  const labelAngleY = Math.round(yC - (rArc + 20) * Math.sin(alphaRad / 2) - 2);
+
+  const angleC = spec.angles?.find((a) => a.vertex === 'C' || a.position === 'elevation')?.value || '';
+  const angleA = spec.angles?.find((a) => a.vertex === 'A' || a.position === 'depression')?.value || '';
+
+  return `<svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <filter id="textGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1" stdDeviation="1.5" flood-color="#ffffff" flood-opacity="0.9" />
+    </filter>
+  </defs>
+
+  <!-- Khung tam giác toán học chuẩn mực ABC -->
+  <polygon points="${xA},${yA} ${xB},${yB} ${xC},${yC}" fill="none" stroke="#2563eb" stroke-width="3.5" stroke-linejoin="round" />
+
+  <!-- Ký hiệu góc vuông tại B -->
+  <path d="M ${xB} ${yB - 18} L ${xB + 18} ${yB - 18} L ${xB + 18} ${yB}" fill="none" stroke="#2563eb" stroke-width="2.5" />
+
+  ${angleC ? `<!-- Cung tròn góc tại C (sweep-flag = 0) -->
+  <path d="M ${arcStartX} ${arcStartY} A ${rArc} ${rArc} 0 0 0 ${arcEndX} ${arcEndY}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+  <text x="${labelAngleX}" y="${labelAngleY}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleC}</text>` : ''}
+
+  ${angleA ? `<!-- Cung tròn góc tại A -->
+  <path d="M ${xA} ${yA + rArc} A ${rArc} ${rArc} 0 0 0 ${Math.round(xA + rArc * Math.cos(Math.PI/2 - alphaRad))} ${Math.round(yA + rArc * Math.sin(Math.PI/2 - alphaRad))}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+  <text x="${xA + 25}" y="${yA + 45}" text-anchor="start" font-family="system-ui, -apple-system, sans-serif" font-size="18" font-weight="bold" fill="#ea580c" filter="url(#textGlow)">${angleA}</text>` : ''}
+
+  <!-- Các điểm đỉnh -->
+  <circle cx="${xA}" cy="${yA}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="${xB}" cy="${yB}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
+  <circle cx="${xC}" cy="${yC}" r="5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />
+
+  <!-- Nhãn tên đỉnh (A, B, C) -->
+  <g font-family="system-ui, -apple-system, sans-serif" font-size="22" font-weight="bold" fill="#0f172a" filter="url(#textGlow)">
+    <text x="${xA}" y="${yA - 18}" text-anchor="middle">${pA}</text>
+    <text x="${xB - 22}" y="${yB + 20}" text-anchor="end">${pB}</text>
+    <text x="${xC + 22}" y="${yC + 20}" text-anchor="start">${pC}</text>
+  </g>
+
+  <!-- Số đo cạnh AB -->
+  ${dimHeight ? `<text x="${xB - 25}" y="${(yA + yB) / 2 + 6}" text-anchor="end" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#2563eb" filter="url(#textGlow)">${dimHeight}</text>` : ''}
+
+  <!-- Số đo cạnh BC -->
+  ${dimBase ? `<text x="${(xB + xC) / 2}" y="${yB + 28}" text-anchor="middle" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#2563eb" filter="url(#textGlow)">${dimBase}</text>` : ''}
+
+  <!-- Số đo cạnh AC -->
+  ${dimHypo ? `<text x="${(xA + xC) / 2 + 20}" y="${(yA + yC) / 2 - 10}" text-anchor="start" font-family="system-ui, -apple-system, sans-serif" font-size="20" font-weight="bold" fill="#2563eb" filter="url(#textGlow)">${dimHypo}</text>` : ''}
 </svg>`;
 }
 
@@ -617,6 +693,11 @@ export function renderStructuredMathToSvg(spec: MathSpec): string {
     return renderCircleSvg(spec);
   }
 
-  // Default to general right triangle / shadow model
-  return renderShadowSvg(spec);
+  if (type.includes('PURE') || type.includes('TRIANGLE') || type.includes('TAM_GIAC') || type.includes('GENERAL')) {
+    return renderPureGeometryTriangleSvg(spec);
+  }
+
+  // Default to pure geometry triangle (NO clipart, NO trees, NO sun)
+  return renderPureGeometryTriangleSvg(spec);
 }
+
