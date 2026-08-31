@@ -36,6 +36,9 @@ function extractSvgCode(rawText: string): string {
     if (!clean.includes('height=')) {
       clean = clean.replace(/<svg/i, '<svg height="100%"');
     }
+    if (!clean.includes('overflow=')) {
+      clean = clean.replace(/<svg/i, '<svg overflow="visible"');
+    }
   }
 
   // 2. Xóa triệt để các thẻ text dài (tiêu đề, lời giải, ghi chú mô tả thừa từ 15 ký tự trở lên)
@@ -173,18 +176,25 @@ CHỈ THỊ CỐT LÕI QUAN TRỌNG NHẤT:
 
 BẮT BUỘC VỀ ĐẦU RA:
 1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
-2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">.
+2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">.
+
+QUY TẮC VÙNG ĐỆM AN TOÀN & CHỐNG CẮT MẶT TRỜI / ĐỈNH HÌNH (SAFE BOUNDING BOX & PADDING):
+- Toàn bộ các thành phần hình vẽ (bao gồm cả tia nắng, icon Mặt Trời, ngọn cây/cột, nhãn điểm đỉnh A) BẮT BUỘC nằm trong vùng tọa độ an toàn:
+  + Tọa độ x: từ 50 đến 750 (viewBox rộng 800).
+  + Tọa độ y: từ 60 đến 440 (viewBox cao 500).
+- TUYỆT ĐỐI KHÔNG để tâm Mặt Trời hoặc bất kỳ nét vẽ nào có tọa độ y < 50 để tránh bị chạm hoặc cắt cụt mép trên.
 
 QUY TẮC BẮT BUỘC VỀ VỊ TRÍ MẶT TRỜI (COLLINEAR SUN POSITION) TRONG BÀI TOÁN BÓNG NẮNG / TỈ SỐ LƯỢNG GIÁC:
-- Trong bài toán bóng mặt trời (Tam giác vuông ABC với B là chân vuông góc, A là ngọn vật thể (x_A, y_A), C là đỉnh mút của bóng trên mặt đất (x_C, y_C)):
+- Trong bài toán bóng mặt trời (Tam giác vuông ABC với B là chân vuông góc trên mặt đất y_B ≈ 410 - 425, A là ngọn vật thể y_A ≈ 200 - 240, C là đỉnh mút của bóng x_C, y_C ≈ 410 - 425):
   + Đoạn thẳng CA chính là hướng của tia sáng mặt trời.
-  + Vị trí tâm Mặt Trời S(x_S, y_S) BẮT BUỘC phải nằm trên ĐƯỜNG THẲNG KÉO DÀI từ C qua A về phía trên bầu trời (thỏa mãn hệ thức vector CS = k * CA với k ≈ 1.3 - 1.5).
+  + Vị trí tâm Mặt Trời S(x_S, y_S) BẮT BUỘC phải nằm trên ĐƯỜNG THẲNG KÉO DÀI từ C qua A về phía trên bầu trời (thỏa mãn hệ thức vector CS = k * CA).
   + Công thức tọa độ tâm Mặt Trời S:
     x_S = x_A + (x_A - x_C) * 0.4
     y_S = y_A + (y_A - y_C) * 0.4
-  + TUYỆT ĐỐI KHÔNG đặt Mặt Trời ở vị trí ngẫu nhiên không thẳng hàng với tia sáng CA.
+  + Đảm bảo y_S luôn nằm trong khoảng 60 đến 120 (Nếu y_S < 60, hãy giảm bớt chiều cao vật thể hoặc dời gốc B xuống sát y=420 để đảm bảo y_S ≥ 60).
+  + Bán kính Mặt Trời r = 20px, đảm bảo y_S - r > 20px tuyệt đối không bị chạm mép trên SVG.
   + Tia nắng nối dài: Dùng <line x1="x_S" y1="y_S" x2="x_C" y2="y_C" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6 4" /> kéo dài từ tâm Mặt Trời S xuyên qua ngọn A đến tận điểm C.
-  + Icon Mặt Trời: Đặt chính xác tại tâm S(x_S, y_S) với <circle cx="x_S" cy="y_S" r="22" fill="#fbbf24" stroke="#d97706" stroke-width="2" /> kèm các tia sáng ngắn xung quanh tâm S.
+  + Icon Mặt Trời: Đặt chính xác tại tâm S(x_S, y_S) với <circle cx="x_S" cy="y_S" r="20" fill="#fbbf24" stroke="#d97706" stroke-width="2" /> kèm các tia sáng ngắn xung quanh tâm S.
 
 CẤU TRÚC PHÂN LỚP BẮT BUỘC (SVG LAYERING ARCHITECTURE):
 Mỗi bản vẽ SVG bài toán thực tế PHẢI bao gồm 2 LỚP rõ rệt:
