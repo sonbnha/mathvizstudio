@@ -191,22 +191,22 @@ export default function HomePage() {
       setProgress(0);
       progressTimer = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 92) return 92;
-          let increment = 1;
+          if (prev >= 95) return 95;
+          let step = 0;
           if (prev < 25) {
-            // 0% -> 25%: Chạy trong 1 - 1.5s đầu (Gửi request và kết nối API)
-            increment = Math.random() * 1.5 + 1.2;
+            // 0s - 2s: Tăng từ tốn từ 0% -> 25% (khoảng 0.6% - 1.4% mỗi 100ms)
+            step = Math.random() * 0.8 + 0.6;
           } else if (prev < 60) {
-            // 25% -> 60%: Tăng đều (AI phân tích và sinh mã hình học)
-            increment = Math.random() * 1.2 + 0.8;
-          } else if (prev < 85) {
-            // 60% -> 85%: Tăng chậm lại tạo độ trễ tự nhiên
-            increment = Math.random() * 0.5 + 0.3;
+            // 2s - 5s: Tăng đều từ 25% -> 60% (khoảng 0.4% - 1.1% mỗi 100ms)
+            step = Math.random() * 0.7 + 0.4;
+          } else if (prev < 80) {
+            // 5s - 9s: Tăng chậm lại từ 60% -> 80% (khoảng 0.2% - 0.6% mỗi 100ms)
+            step = Math.random() * 0.4 + 0.2;
           } else {
-            // 85% -> 92%: Bước cực nhỏ và không vượt quá 92% khi chưa có response
-            increment = 0.15;
+            // Sau 9s: Nhích cực chậm từ 80% -> tối đa 95%
+            step = 0.1;
           }
-          return Math.min(prev + increment, 92);
+          return Math.min(Number((prev + step).toFixed(1)), 95);
         });
       }, 100);
     } else {
