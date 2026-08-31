@@ -1,27 +1,23 @@
 # MathViz Studio - Rules & Git Deployment Guidelines
 
-## Git Branching & Deployment Workflow
-1. Khi người dùng yêu cầu "thử nghiệm", "test", hoặc kiểm thử tính năng:
-   - Tự động chuyển/tạo nhánh staging: `git checkout -B staging`
-   - Gom code và commit: `git add . && git commit -m "feat(test): update admin layout preview"` (hoặc thông điệp tương ứng)
-   - Đẩy lên GitHub nhánh staging: `git push origin staging --force`
-   - Thông báo rõ ràng cho người dùng là đã đẩy lên nhánh `staging` để kiểm thử.
+## Git Branching & Strict Staging-First Workflow
 
-2. Khi người dùng yêu cầu "đẩy lên web chính", "lên main", hoặc phát hành chính thức:
-   - Chuyển về nhánh main: `git checkout main`
-   - Gộp code từ staging: `git merge staging`
-   - Đẩy lên GitHub nhánh main: `git push origin main`
-   - Thông báo rõ ràng cho người dùng là đã hoàn tất đưa lên web chính (nhánh `main`).
+1. Trong quá trình phát triển, sửa lỗi & thử nghiệm (MẶC ĐỊNH):
+   - MỌI thay đổi code, fix bug, tinh chỉnh giao diện, tối ưu prompt CHỈ ĐƯỢC PHÉP commit và push lên nhánh `staging`:
+     `git checkout -B staging`
+     `git add . && git commit -m "..."`
+     `git push origin staging --force`
+   - TUYỆT ĐỐI KHÔNG tự ý gộp vào nhánh `main`.
+   - TUYỆT ĐỐI KHÔNG tự ý tăng version trong `package.json`/`version.ts` hay ghi thêm changelog trong giai đoạn thử nghiệm này nếu người dùng chưa yêu cầu.
 
-## Application Versioning & Release Workflow
-1. Khi có yêu cầu "Nâng phiên bản", "Release", hoặc mỗi lần cập nhật tính năng / fix lỗi:
-   - Tự động chạy helper `npm run version:patch` (hoặc `npm run version:minor`) để đồng bộ `package.json` và `src/config/version.ts`.
-   - Thêm bản ghi tóm tắt thay đổi mới nhất vào đầu mảng `CHANGELOG` trong `src/config/changelog.ts` với định dạng ngày chuẩn `dd/MM/yyyy` (ví dụ: `31/08/2026`).
-   - Cập nhật tài liệu `walkthrough.md`.
-
-2. Cấu trúc định dạng ngày tháng:
-   - Toàn bộ hiển thị ngày tháng trên giao diện và file cấu hình PHẢI tuân thủ chuẩn Việt Nam `dd/MM/yyyy` (ví dụ: `31/08/2026`).
-   - Sử dụng hàm tiện ích `formatDateVN()` trong `src/config/version.ts` khi cần format ngày động.
+2. Chỉ khi người dùng ra lệnh chốt: "Gộp vào main" hoặc "Merge main":
+   - Bước 1: Tăng Patch Version (trong `package.json` và `src/config/version.ts`).
+   - Bước 2: Tổng hợp và ghi Changelog mới lên đầu file `src/config/changelog.ts` (định dạng ngày dd/MM/yyyy).
+   - Bước 3: Chuyển sang main và merge staging:
+     `git checkout main`
+     `git merge staging`
+     `git push origin main`
+   - Bước 4: Thông báo hoàn tất triển khai bản phát hành chính thức lên `main`.
 
 3. Version Stage Progression:
    - `alpha`: Early development, experimental features (`v0.1.x-alpha`).
