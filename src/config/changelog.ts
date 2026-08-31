@@ -11,7 +11,7 @@ export interface VersionRelease {
 export const CHANGELOG: VersionRelease[] = [
   {
     version: "v0.1.1-alpha",
-    date: "2026-08-31",
+    date: "31/08/2026",
     title: "Tối ưu hóa tiến trình & Fix kẹt loading",
     changes: [
       { type: "fix", description: "Khắc phục lỗi thanh loading bị dừng ở mốc 74%" },
@@ -21,7 +21,7 @@ export const CHANGELOG: VersionRelease[] = [
   },
   {
     version: "v0.1.0-alpha",
-    date: "2026-08-31",
+    date: "31/08/2026",
     title: "Khởi tạo MathViz Studio Alpha",
     changes: [
       { type: "feat", description: "Khởi chạy hệ thống tạo hình học và trực quan hóa toán học" },
