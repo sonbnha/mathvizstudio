@@ -1,0 +1,19 @@
+# MathViz Studio - Rules & Versioning Guidelines
+
+## Application Versioning Rules
+1. Every time a new feature, improvement, or bug fix is implemented and before committing/pushing code:
+   - Check `src/config/version.ts` and `package.json`.
+   - Increment the patch version (e.g., `0.1.0` -> `0.1.1` -> `0.1.2`).
+   - Update `buildDate` in `src/config/version.ts` to the current date (`YYYY-MM-DD`).
+   - Ensure `package.json` `"version"` matches `APP_VERSION.version`.
+
+2. Version Stage Progression:
+   - `alpha`: Early development, experimental features (`v0.1.x-alpha`).
+   - `beta`: Feature complete, testing stability (`v0.2.x-beta`).
+   - `rc`: Release candidate ready for public testing (`v0.9.x-rc`).
+   - `stable`: Production ready (`v1.0.0`).
+
+## UI & Theme Conventions
+- Always test Light Mode and Dark Mode support for all components.
+- Canvas active drawing area must remain clean white (`#ffffff` / `bg-white`) for pedagogical contrast, with dark mode border/shadow styling.
+- Authentication tokens must be validated through `src/lib/auth.ts` using `JWT_SECRET`.

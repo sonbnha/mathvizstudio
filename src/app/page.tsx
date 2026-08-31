@@ -33,6 +33,7 @@ import {
   ArrowUpRight,
   BookmarkCheck,
 } from 'lucide-react';
+import { APP_VERSION } from '@/config/version';
 
 const PRESETS = [
   {
@@ -782,7 +783,10 @@ export default function HomePage() {
           <div>
             <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-slate-800 to-slate-600 dark:from-white dark:via-slate-100 dark:to-slate-400 bg-clip-text text-transparent tracking-tight flex items-center gap-2">
               MathViz Studio
-              <span className="text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 font-semibold tracking-normal">
+              <span className="text-[11px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 tracking-normal shadow-xs">
+                {APP_VERSION.fullString}
+              </span>
+              <span className="hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 font-semibold tracking-normal">
                 AI Visualizer
               </span>
             </h1>
@@ -1587,8 +1591,11 @@ export default function HomePage() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 text-center text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
-        MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Hình học THCS/THPT
+      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 flex flex-wrap items-center justify-between gap-2 max-w-7xl mx-auto w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
+        <span>MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Toán học</span>
+        <span className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+          Phiên bản {APP_VERSION.fullString} ({APP_VERSION.buildDate})
+        </span>
       </footer>
     </div>
   );

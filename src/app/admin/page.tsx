@@ -38,6 +38,7 @@ import {
   Zap,
   ExternalLink,
 } from 'lucide-react';
+import { APP_VERSION } from '@/config/version';
 
 interface AuthUser {
   id: string;
@@ -744,6 +745,9 @@ export default function UnifiedAdminPage() {
           <div>
             <h1 className="text-lg font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
               MathViz Admin
+              <span className="text-[10px] font-mono font-medium px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+                {APP_VERSION.fullString}
+              </span>
               <span
                 className={`text-[10px] px-2.5 py-0.5 rounded-full font-semibold border ${
                   currentUser.role === 'ADMIN'
@@ -2099,8 +2103,11 @@ export default function UnifiedAdminPage() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 text-center text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
-        MathViz Studio &copy; {new Date().getFullYear()} — Hệ thống Phân quyền Quản trị & Cộng tác viên
+      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 flex flex-wrap items-center justify-between gap-2 max-w-7xl mx-auto w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
+        <span>MathViz Studio &copy; {new Date().getFullYear()} — Hệ thống Phân quyền Quản trị & Cộng tác viên</span>
+        <span className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
+          Phiên bản {APP_VERSION.fullString}
+        </span>
       </footer>
     </div>
   );
