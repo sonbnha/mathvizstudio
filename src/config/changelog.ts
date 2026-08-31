@@ -10,6 +10,17 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v0.1.3-alpha",
+    date: "31/08/2026",
+    title: "Quản lý Changelog trong Admin & API động",
+    changes: [
+      { type: "feat", description: "Bổ sung model Changelog và đồng bộ Neon Database" },
+      { type: "feat", description: "Xây dựng hệ thống API quản lý Changelog (CRUD) bảo mật" },
+      { type: "feat", description: "Giao diện quản lý và chỉnh sửa Changelog với dynamic rows trong Admin" },
+      { type: "improve", description: "Cửa sổ Changelog ngoài trang chủ tự động fetch dữ liệu theo thời gian thực" },
+    ],
+  },
+  {
     version: "v0.1.2-alpha",
     date: "31/08/2026",
     title: "Cập nhật định dạng ngày & Chuẩn hóa Changelog",

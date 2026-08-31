@@ -33,3 +33,14 @@ model LicenseKey {
   createdById  String?
   createdBy    User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
 }
+
+model Changelog {
+  id          String   @id @default(cuid())
+  version     String   @unique // ví dụ: v0.1.2-alpha
+  date        String   // định dạng: dd/MM/yyyy
+  title       String
+  changes     Json     // Lưu mảng: [{ type: "feat" | "fix" | "improve", description: string }]
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

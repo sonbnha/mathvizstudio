@@ -183,8 +183,25 @@ export default function HomePage() {
   const [tikzCopied, setTikzCopied] = useState(false);
   const [tikzError, setTikzError] = useState<string | null>(null);
 
-  // Changelog Modal state
+  // Changelog Dynamic State
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+  const [changelogList, setChangelogList] = useState(CHANGELOG);
+  const [changelogLoading, setChangelogLoading] = useState(false);
+
+  useEffect(() => {
+    if (isChangelogOpen) {
+      setChangelogLoading(true);
+      fetch('/api/changelog')
+        .then((res) => res.json())
+        .then((data) => {
+          if (data && Array.isArray(data.changelogs) && data.changelogs.length > 0) {
+            setChangelogList(data.changelogs);
+          }
+        })
+        .catch((err) => console.error('Error loading public changelogs:', err))
+        .finally(() => setChangelogLoading(false));
+    }
+  }, [isChangelogOpen]);
 
   // Canvas Loading Progress State (0 - 100)
   const [progress, setProgress] = useState(0);
@@ -1643,7 +1660,13 @@ export default function HomePage() {
 
             {/* Releases List */}
             <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 text-xs">
-              {CHANGELOG.map((rel, idx) => (
+              {changelogLoading && changelogList.length === 0 ? (
+                <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
+                  <Loader2 className="w-5 h-5 animate-spin text-cyan-600 dark:text-cyan-400" />
+                  <span>Đang tải lịch sử phiên bản...</span>
+                </div>
+              ) : (
+                changelogList.map((rel, idx) => (
                 <div
                   key={rel.version}
                   className="bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3"
@@ -1687,7 +1710,7 @@ export default function HomePage() {
                     ))}
                   </ul>
                 </div>
-              ))}
+              )))}
             </div>
 
             {/* Modal Footer */}
