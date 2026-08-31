@@ -1,6 +1,6 @@
 /**
  * MathViz Studio - Advanced Analytical Geometry Solver
- * High-precision mathematical geometric analysis & rendering engine.
+ * High-precision mathematical geometric analysis & real-world graphic rendering engine.
  */
 
 export interface GeoPoint {
@@ -34,7 +34,6 @@ export class GeoSolver {
   getPoint(name: string): GeoPoint {
     const pt = this.points.get(name);
     if (!pt) {
-      // Fallback to prevent crash if a point was omitted
       return { x: 400, y: 250, label: name };
     }
     return pt;
@@ -175,6 +174,83 @@ export class GeoSolver {
   }
 
   // 4. Các hàm bổ trợ Toán thực tế (Chỉ dùng khi đề bài có chi tiết thực tế)
+
+  // 1. Vẽ Bức tường nhà (Wall): Có họa tiết các ô gạch đứng
+  drawWall(bottomName: string, topName: string, width = 36) {
+    const b = this.getPoint(bottomName), t = this.getPoint(topName);
+    const h = b.y - t.y;
+    const numBricks = Math.max(3, Math.floor(h / 30));
+    let brickLines = '';
+    for (let i = 1; i < numBricks; i++) {
+      const yLine = t.y + (h / numBricks) * i;
+      brickLines += `<line x1="${t.x - width}" y1="${yLine}" x2="${t.x}" y2="${yLine}" stroke="#cbd5e1" stroke-width="1.5" />`;
+    }
+    this.svgElements.unshift(`
+      <g opacity="0.85">
+        <rect x="${t.x - width}" y="${t.y - 30}" width="${width}" height="${h + 30}" fill="#f8fafc" stroke="#94a3b8" stroke-width="2" />
+        ${brickLines}
+      </g>
+    `);
+  }
+
+  // 2. Vẽ Chiếc thang (Ladder): Hai gióng thang và các bậc thang vuông góc với thân
+  drawLadder(topName: string, bottomName: string, width = 18, numSteps = 5) {
+    const t = this.getPoint(topName), b = this.getPoint(bottomName);
+    const dx = b.x - t.x, dy = b.y - t.y;
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = -dy / len, ny = dx / len; // Vector pháp tuyến
+
+    const t1 = { x: t.x - (width / 2) * nx, y: t.y - (width / 2) * ny };
+    const t2 = { x: t.x + (width / 2) * nx, y: t.y + (width / 2) * ny };
+    const b1 = { x: b.x - (width / 2) * nx, y: b.y - (width / 2) * ny };
+    const b2 = { x: b.x + (width / 2) * nx, y: b.y + (width / 2) * ny };
+
+    let steps = '';
+    for (let i = 1; i <= numSteps; i++) {
+      const k = i / (numSteps + 1);
+      const pA = { x: t1.x + k * (b1.x - t1.x), y: t1.y + k * (b1.y - t1.y) };
+      const pB = { x: t2.x + k * (b2.x - t2.x), y: t2.y + k * (b2.y - t2.y) };
+      steps += `<line x1="${pA.x}" y1="${pA.y}" x2="${pB.x}" y2="${pB.y}" stroke="#b45309" stroke-width="3" />`;
+    }
+
+    this.svgElements.unshift(`
+      <g>
+        <line x1="${t1.x}" y1="${t1.y}" x2="${b1.x}" y2="${b1.y}" stroke="#d97706" stroke-width="4" stroke-linecap="round" />
+        <line x1="${t2.x}" y1="${t2.y}" x2="${b2.x}" y2="${b2.y}" stroke="#d97706" stroke-width="4" stroke-linecap="round" />
+        ${steps}
+      </g>
+    `);
+  }
+
+  // 3. Vẽ Cây xanh (Tree): Thân cây và tán lá tròn
+  drawTree(bottomName: string, topName: string) {
+    const b = this.getPoint(bottomName), t = this.getPoint(topName);
+    this.svgElements.unshift(`
+      <g>
+        <!-- Thân cây -->
+        <rect x="${b.x - 8}" y="${t.y + 40}" width="16" height="${b.y - t.y - 40}" fill="#92400e" rx="4" />
+        <!-- Tán lá tròn -->
+        <circle cx="${t.x}" cy="${t.y + 30}" r="45" fill="#22c55e" fill-opacity="0.3" stroke="#16a34a" stroke-width="2" />
+        <circle cx="${t.x - 25}" cy="${t.y + 50}" r="35" fill="#22c55e" fill-opacity="0.25" />
+        <circle cx="${t.x + 25}" cy="${t.y + 50}" r="35" fill="#22c55e" fill-opacity="0.25" />
+      </g>
+    `);
+  }
+
+  // 4. Vẽ Thuyền buồm (Boat)
+  drawBoat(posName: string) {
+    const p = this.getPoint(posName);
+    this.svgElements.unshift(`
+      <g transform="translate(${p.x - 25}, ${p.y})">
+        <!-- Thân thuyền -->
+        <polygon points="0,0 50,0 42,16 8,16" fill="#854d0e" stroke="#713f12" stroke-width="1.5" />
+        <!-- Cánh buồm -->
+        <polygon points="25,-5 25,-32 44,-5" fill="#f8fafc" stroke="#64748b" stroke-width="1.5" />
+      </g>
+    `);
+  }
+
+  // 5. Vẽ Mặt Trời (Sun)
   drawSun(posName: string, r = 24) {
     const p = this.getPoint(posName);
     this.svgElements.push(`
@@ -189,16 +265,18 @@ export class GeoSolver {
     `);
   }
 
+  // 6. Vẽ Ngọn Hải Đăng (Lighthouse)
   drawLighthouse(bottomName: string, topName: string) {
     const b = this.getPoint(bottomName), t = this.getPoint(topName);
-    this.svgElements.push(`
+    this.svgElements.unshift(`
       <polygon points="${b.x - 22},${b.y} ${b.x + 22},${b.y} ${t.x + 12},${t.y + 16} ${t.x - 12},${t.y + 16}" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1.5" />
       <polygon points="${t.x - 16},${t.y + 16} ${t.x + 16},${t.y + 16} ${t.x},${t.y - 8}" fill="#ef4444" stroke="#b91c1c" stroke-width="1.5" />
     `);
   }
 
+  // 7. Vẽ Mặt Đất (Ground)
   drawGround(y: number) {
-    this.svgElements.push(`<line x1="30" y1="${y}" x2="770" y2="${y}" stroke="#64748b" stroke-width="3" stroke-linecap="round" />`);
+    this.svgElements.unshift(`<line x1="30" y1="${y}" x2="770" y2="${y}" stroke="#64748b" stroke-width="3" stroke-linecap="round" />`);
   }
 
   // Thêm phần tử SVG tùy chỉnh

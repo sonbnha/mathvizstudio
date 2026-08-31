@@ -31,7 +31,7 @@ export function getGeminiClient(apiKey?: string): GoogleGenAI {
 }
 
 /**
- * Advanced GeoSolver Analytical Geometry System Prompt
+ * Advanced GeoSolver Analytical & Real-World Geometry System Prompt
  */
 export const GEOMETRY_PROMPT = `
 Bạn là một nhà toán học chuyên nghiệp. Đọc hiểu đề bài toán và viết mã JavaScript gọi các hàm của đối tượng \`solver\` (thuộc lớp GeoSolver) để dựng hình học chính xác 100%.
@@ -54,12 +54,46 @@ CÁC HÀM CÓ SẴN CỦA OBJECT \`solver\`:
    - solver.angle(p1, vertex, p2, label, r)
 
 3. Bối cảnh thực tế (Chỉ dùng khi đề bài có nhắc đến):
-   - solver.drawSun(posName, r)
-   - solver.drawLighthouse(bottomName, topName)
-   - solver.drawGround(y)
+   - solver.drawWall(bottomName, topName): Vẽ bức tường gạch đứng
+   - solver.drawLadder(topName, bottomName): Vẽ chiếc thang với các bậc thang
+   - solver.drawTree(bottomName, topName): Vẽ cây xanh tán lá tròn
+   - solver.drawBoat(posName): Vẽ con thuyền buồm trên mặt biển
+   - solver.drawSun(posName, r): Vẽ Mặt Trời và tia nắng
+   - solver.drawLighthouse(bottomName, topName): Vẽ ngọn hải đăng
+   - solver.drawGround(y): Vẽ mặt đất hoặc mặt biển
 
-VÍ DỤ MẪU:
-Đề bài 12 (Hai đường tròn cắt nhau tại A, B; AO cắt (O) tại C, (O') tại E; AO' cắt (O) tại D, (O') tại F):
+QUY TẮC BẮT BUỘC:
+- CẤM TUYỆT ĐỐI việc tạo tên điểm lạ có chữ (như 'A_top', 'Tường nhà', 'Khoảng cách chân thang'). Tên điểm CHỈ ĐƯỢC LÀ 1 CHỮ CÁI HOA (A, B, C, H, O, O2, S...).
+- CẤM viết chuỗi mô tả dài vào tham số label của \`solver.line()\`. Tham số label CHỈ DÙNG để ghi số đo ngắn (ví dụ: "4m", "h = ?", "60°", "d = ?").
+- KHI GẶP BÀI TOÁN THỰC TẾ, BẮT BUỘC GỌI CÁC HÀM MINH HỌA TƯƠNG ỨNG:
+  + Bài toán cái thang: Gọi \`solver.drawWall('B', 'A')\` và \`solver.drawLadder('A', 'C')\`
+  + Bài toán bóng cây: Gọi \`solver.drawTree('B', 'A')\` và \`solver.drawSun('S')\`
+  + Bài toán ngọn hải đăng / con thuyền: Gọi \`solver.drawLighthouse('B', 'A')\` và \`solver.drawBoat('C')\`
+  + Luôn gọi \`solver.drawGround(y)\` để vẽ mặt đất/mặt biển.
+- Khung vẽ 800 x 500. Tọa độ an toàn x: 80 - 720, y: 80 - 420.
+- CHỈ TRẢ VỀ DUY NHẤT KHỐI \`\`\`javascript ... \`\`\`.
+
+VÍ DỤ MẪU 1 (Bài toán cái thang: Thang dài 4m dựa vào tường tạo góc 60°):
+\`\`\`javascript
+// 1. Tọa độ các điểm chính (Chỉ dùng chữ cái A, B, C)
+solver.setPoint('B', 250, 400); // Chân tường (góc vuông)
+solver.setPoint('A', 250, 150); // Đỉnh thang chạm tường
+solver.setPoint('C', 394, 400); // Chân thang trên mặt đất (250 + (400-150)/tan(60°))
+
+// 2. Vẽ hình minh họa thực tế
+solver.drawGround(400);
+solver.drawWall('B', 'A');
+solver.drawLadder('A', 'C');
+
+// 3. Khung hình học cốt lõi
+solver.line('A', 'B', { stroke: '#2563eb', width: 3, label: 'h = ?' });
+solver.line('B', 'C', { stroke: '#2563eb', width: 3, label: 'd = ?' });
+solver.line('A', 'C', { stroke: '#d97706', width: 3.5, label: '4m' });
+solver.rightAngle('A', 'B', 'C');
+solver.angle('A', 'C', 'B', '60°');
+\`\`\`
+
+VÍ DỤ MẪU 2 (Hai đường tròn cắt nhau tại A, B; AO cắt (O) tại C, (O') tại E; AO' cắt (O) tại D, (O') tại F):
 \`\`\`javascript
 // 1. Dựng tâm 2 đường tròn
 solver.setPoint('O', 330, 260);
@@ -87,12 +121,6 @@ solver.line('B', 'D', { stroke: '#059669' });
 solver.line('B', 'E', { stroke: '#059669' });
 solver.line('D', 'E', { stroke: '#059669' });
 \`\`\`
-
-QUY TẮC:
-- Khung vẽ 800 x 500. Tọa độ an toàn x: 80 - 720, y: 80 - 420.
-- Nếu đề bài toán thuần túy: TUYỆT ĐỐI KHÔNG gọi các hàm thực tế (drawSun, drawGround...).
-- Nếu là toán thực tế: Gọi thêm các hàm bối cảnh tương ứng.
-- CHỈ TRẢ VỀ DUY NHẤT KHỐI \`\`\`javascript ... \`\`\`.
 `;
 
 export const GEOSOLVER_PROMPT = GEOMETRY_PROMPT;
