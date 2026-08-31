@@ -182,12 +182,22 @@ I. BỘ QUY TẮC HÌNH HỌC CỐT LÕI (CORE GEOMETRY - ÁP DỤNG CHO MỌI D
 1. Nét vẽ hình học chính:
    - Các cạnh đa giác, đường tròn, dây cung, tiếp tuyến: Dùng <line>, <path>, <polygon>, <circle> nét đậm (stroke="#2563eb" hoặc stroke="#0f172a", stroke-width="2.5" đến "3.5", stroke-linejoin="round").
    - Đường phụ, đường kéo dài, đường ngắm/chiều cao phụ: Dùng stroke-dasharray="5 4" nét đứt rõ ràng.
+   - Với bài toán thực tế (chiếc thang AC, ngọn hải đăng AB...): Cạnh toán học màu xanh dương #2563eb BẮT BUỘC CHẠY LIÊN TỤC TỪ ĐỈNH NÀY ĐẾN ĐỈNH KIA, hình minh họa chỉ là lớp vẽ phụ làm nền phía dưới.
 2. Điểm & Nhãn tên điểm:
    - Mọi đỉnh, tâm, giao điểm: Chấm tròn <circle cx="..." cy="..." r="4.5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />.
    - Nhãn tên điểm: Dùng <text font-size="20" font-weight="bold" fill="#0f172a"> (A, B, C, O, I, R, M, N, H, K, S...).
 3. Ký hiệu góc & Góc vuông:
    - Góc vuông (90°): Luôn có ô vuông nhỏ (12x12px đến 14x14px) bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="2" /> tại mọi góc vuông (chân đường cao, chân tường, chân hải đăng, tiếp điểm tiếp tuyến).
-   - Góc lượng giác / góc bằng nhau: Cung tròn cong <path d="..." fill="none" stroke="#ea580c" stroke-width="2.5" /> kèm nhãn số đo/ký hiệu góc (ví dụ: '30°', '45°', '60°', 'α', 'β', 'x').
+   - CÔNG THỨC CHUẨN DỰNG CUNG TRÒN ĐÁNH DẤU GÓC (SVG ANGLE ARC):
+     + Để vẽ cung góc tại đỉnh V(x_V, y_V) nằm giữa 2 cạnh hướng tới P1(x_1, y_1) và P2(x_2, y_2) với bán kính r ≈ 28 - 35px:
+       * Điểm bắt đầu S trên cạnh V->P1: S = V + r * (P1 - V) / dist(V, P1)
+       * Điểm kết thúc E trên cạnh V->P2: E = V + r * (P2 - V) / dist(V, P2)
+       * Thẻ SVG: <path d="M S_x S_y A r r 0 0 [sweep_flag] E_x E_y" fill="none" stroke="#ea580c" stroke-width="2.5" />
+       * QUY TẮC SWEEP FLAG (Cung luôn phồng lồi ra xa đỉnh V, hướng vào trong tam giác):
+         Nếu đi từ S sang E theo chiều kim đồng hồ quanh V: sweep_flag = 1.
+         Nếu đi từ S sang E ngược chiều kim đồng hồ quanh V: sweep_flag = 0.
+         (Tuyệt đối không vẽ cung bị lõm úp vào đỉnh V hoặc 2 đầu mút lệch khỏi 2 cạnh).
+     + Vị trí nhãn đo góc (ví dụ: '60°', 'α', '30°'): Đặt trên tia phân giác tại Tọa độ = V + (r + 14) * (u1 + u2) / dist(u1 + u2), nằm gọn gàng bên ngoài cung tròn, không bị đường cong đè lên chữ.
 4. Kích thước & Số đo:
    - Số đo ngắn gọn dóng dọc theo cạnh tương ứng (ví dụ: '4m', '1.5m', '45m', '10cm', 'R', 'h = ?', 'd = ?').
 
