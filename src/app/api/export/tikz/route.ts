@@ -102,10 +102,13 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
       svg ? `Mã SVG:\n${svg}\n` : ''
     }${prompt ? `Đề bài:\n${prompt}` : ''}`;
 
-    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const FALLBACK_MODEL = 'gemini-1.5-flash';
     const MODELS = [
-      defaultModel,
-      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
+      PRIMARY_MODEL,
+      ...(PRIMARY_MODEL !== FALLBACK_MODEL ? [FALLBACK_MODEL] : []),
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-pro',
     ];
 
     let response: any = null;
@@ -128,7 +131,7 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
         lastError = err;
         console.warn(`[TikZ API] Model ${currentModel} error:`, err?.message || err);
         if (i < MODELS.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          await new Promise((resolve) => setTimeout(resolve, 1200));
           continue;
         }
       }
@@ -142,12 +145,17 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
     const cleanedTikz = extractTikzOnly(rawTikz);
 
     return NextResponse.json({
+      success: true,
       tikz: cleanedTikz,
     });
   } catch (error: any) {
-    console.error('Gemini TikZ API Error:', error);
+    console.error('DEBUG GEMINI TIKZ ERROR:', error);
     return NextResponse.json(
-      { error: error?.message || 'Lỗi khi tạo mã TikZ LaTeX.', details: error?.message },
+      {
+        success: false,
+        error: error?.message || 'Lỗi khi tạo mã TikZ LaTeX.',
+        details: error?.message,
+      },
       { status: 500 }
     );
   }

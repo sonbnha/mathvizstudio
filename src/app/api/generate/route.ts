@@ -161,11 +161,14 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
 
     contents.push(userPrompt);
 
-    // List of models in order of priority
-    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
+    // List of models in order of priority (Primary: gemini-2.0-flash, Fallback: gemini-1.5-flash)
+    const PRIMARY_MODEL = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+    const FALLBACK_MODEL = 'gemini-1.5-flash';
     const MODELS = [
-      defaultModel,
-      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
+      PRIMARY_MODEL,
+      ...(PRIMARY_MODEL !== FALLBACK_MODEL ? [FALLBACK_MODEL] : []),
+      'gemini-2.0-flash-lite',
+      'gemini-1.5-pro',
     ];
 
     let response: any = null;
@@ -200,12 +203,15 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
           errorStatus === 503 ||
           errorStatus === 429 ||
           errorStatus === 500 ||
+          errorStatus === 404 ||
+          errorMsg.includes('not found') ||
           errorMsg.includes('overloaded') ||
           errorMsg.includes('high demand') ||
           errorMsg.includes('resource exhausted');
 
         if (i < MODELS.length - 1 && isRetryable) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
+          console.info(`[Gemini API] Chờ 1.2s và tự động fallback sang model ${MODELS[i + 1]}...`);
+          await new Promise((resolve) => setTimeout(resolve, 1200));
           continue;
         }
       }
@@ -233,11 +239,12 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
         : Math.max(0, updatedRecord.totalCredits - updatedRecord.usedCredits);
 
     return NextResponse.json({
+      success: true,
       svg: cleanedSvg,
       remainingCredits,
     });
   } catch (error: any) {
-    console.error('Gemini API Error:', error);
+    console.error('DEBUG GEMINI ERROR:', error);
     const errorMsg = String(error?.message || '').toLowerCase();
     const errorStatus = error?.status || error?.statusCode;
 
@@ -250,30 +257,37 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
       errorMsg.includes('resource exhausted') ||
       errorMsg.includes('overloaded');
 
+    const isInvalidKey =
+      errorStatus === 400 ||
+      errorStatus === 401 ||
+      errorStatus === 403 ||
+      errorMsg.includes('api_key_invalid') ||
+      errorMsg.includes('api key not valid') ||
+      errorMsg.includes('invalid api key') ||
+      errorMsg.includes('permission_denied') ||
+      errorMsg.includes('api_key');
+
     if (isQuotaOrRateLimit) {
       return NextResponse.json(
         {
+          success: false,
           error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
           code: 'RATE_LIMIT_EXCEEDED',
           isQuotaError: true,
+          isKeyError: true,
           details: error?.message,
         },
         { status: 429 }
       );
     }
 
-    const isInvalidKey =
-      errorStatus === 400 &&
-      (errorMsg.includes('api_key_invalid') ||
-        errorMsg.includes('api key not valid') ||
-        errorMsg.includes('invalid api key') ||
-        errorMsg.includes('api_key'));
-
     if (isInvalidKey) {
       return NextResponse.json(
         {
-          error: 'Gemini API Key không hợp lệ hoặc đã bị vô hiệu hóa.',
+          success: false,
+          error: 'Gemini API Key không hợp lệ hoặc không có quyền truy cập.',
           code: 'INVALID_API_KEY',
+          isKeyError: true,
           details: error?.message,
         },
         { status: 400 }
@@ -282,6 +296,7 @@ QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
 
     return NextResponse.json(
       {
+        success: false,
         error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
         details: error?.message,
       },

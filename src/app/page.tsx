@@ -599,13 +599,30 @@ export default function HomePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        if (res.status === 429 || data.isQuotaError || data.code === 'RATE_LIMIT_EXCEEDED') {
+        if (
+          res.status === 429 ||
+          res.status === 401 ||
+          res.status === 403 ||
+          data.isQuotaError ||
+          data.isKeyError ||
+          data.code === 'RATE_LIMIT_EXCEEDED' ||
+          data.code === 'INVALID_API_KEY'
+        ) {
           pendingGenerationRef.current = { promptText: activePrompt, isRefinement };
           setQuotaKeyInput(currentKey);
           setIsQuotaModalOpen(true);
-          throw new Error('Hệ thống đang quá tải lượt dùng miễn phí. Vui lòng thêm Gemini API Key cá nhân để tiếp tục ngay!');
+          throw new Error(
+            data.error ||
+              'Hệ thống đang quá tải hoặc API Key không hợp lệ. Vui lòng nhập Gemini API Key cá nhân để tiếp tục ngay!'
+          );
         }
         throw new Error(data.error || 'Đã có lỗi xảy ra khi tạo hình.');
+      }
+
+      if (!data.svg || typeof data.svg !== 'string' || !data.svg.includes('<svg')) {
+        throw new Error(
+          'Không nhận được dữ liệu vẽ SVG hợp lệ từ mô hình. Vui lòng thử lại với đề bài rõ ràng hơn.'
+        );
       }
 
       setSvgOutput(data.svg);
