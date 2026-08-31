@@ -188,24 +188,26 @@ I. BỘ QUY TẮC HÌNH HỌC CỐT LÕI (CORE GEOMETRY - ÁP DỤNG CHO MỌI D
    - Nhãn tên điểm: Dùng <text font-size="20" font-weight="bold" fill="#0f172a"> (A, B, C, O, I, R, M, N, H, K, S...).
 3. Ký hiệu góc & Góc vuông:
    - Góc vuông (90°): Luôn có ô vuông nhỏ (12x12px đến 14x14px) bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="2" /> tại mọi góc vuông (chân đường cao, chân tường, chân hải đăng, tiếp điểm tiếp tuyến).
-   - THUẬT TOÁN TOÁN HỌC DỰNG CUNG TRÒN GÓC SVG (SVG ANGLE ARC CHUẨN XÁC CHO MỌI ĐỈNH & MỌI HƯỚNG):
-     + Để vẽ cung góc tại đỉnh V(x_V, y_V) giữa 2 tia hướng tới P1 và P2 (bán kính r ≈ 28 - 35px):
-       * Tính góc cực của tia 1: theta1 = Math.atan2(y_P1 - y_V, x_P1 - x_V)
-       * Tính góc cực của tia 2: theta2 = Math.atan2(y_P2 - y_V, x_P2 - x_V)
-       * Điểm đầu S trên tia 1: S_x = x_V + r * Math.cos(theta1), S_y = y_V + r * Math.sin(theta1)
-       * Điểm cuối E trên tia 2: E_x = x_V + r * Math.cos(theta2), E_y = y_V + r * Math.sin(theta2)
-       * Độ chênh lệch góc quét: dTheta = theta2 - theta1. Chuẩn hóa dTheta về [-PI, PI].
-       * Quy tắc Sweep Flag: Nếu dTheta > 0 (quay theo chiều kim đồng hồ từ S sang E): sweep_flag = 1. Nếu dTheta < 0: sweep_flag = 0.
-       * Lệnh vẽ <path>: <path d="M S_x S_y A r r 0 0 sweep_flag E_x E_y" fill="none" stroke="#ea580c" stroke-width="2.5" />
-       * Đảm bảo cung luôn cong phồng lồi ra xa đỉnh V, tuyệt đối không bị lõm úp vào đỉnh.
-     + QUY CHUẨN RIÊNG CHO GÓC HẠ (DEPRESSION ANGLE) TẠI ĐỈNH HẢI ĐĂNG / TÒA NHÀ A:
-       * Tia 1 (Đường nằm ngang tham chiếu Ax kẻ nét đứt sang phải): theta1 = 0 rad (hướng ngang sang phải từ A).
-       * Tia 2 (Tia ngắm AC hướng chéo xuống thuyền C): theta2 = Math.atan2(y_C - y_A, x_C - x_A) (theta2 > 0).
-       * Điểm đầu trên tia Ax: S = (x_A + r, y_A).
-       * Điểm cuối trên tia AC: E = (x_A + r * Math.cos(theta2), y_A + r * Math.sin(theta2)).
-       * Lệnh vẽ cung góc hạ: <path d="M \${x_A + r} \${y_A} A \${r} \${r} 0 0 1 \${E_x} \${E_y}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-       * Nhãn góc hạ (vd: "25°", "30°", "α"): Đặt tại góc phân giác theta_mid = theta2 / 2, tọa độ = (x_A + (r + 16) * Math.cos(theta_mid), y_A + (r + 16) * Math.sin(theta_mid)).
-     + Vị trí nhãn đo góc (ví dụ: '60°', 'α', '30°'): Đặt trên tia phân giác tại Tọa độ = V + (r + 14) * (u1 + u2) / dist(u1 + u2), nằm gọn gàng bên ngoài cung tròn, không bị đường cong đè lên chữ.
+   - BẢNG TỌA ĐỘ & LỆNH VẼ SVG CHUẨN CHO 2 GÓC CỦA BÀI TOÁN TAM GIÁC VUÔNG / HẢI ĐĂNG:
+     (Giả sử A là đỉnh tháp (x_A, y_A), B là chân tháp (x_B, y_B), C là vị trí thuyền/mút bóng bên phải (x_C, y_C) với góc nghiêng/hạ là α, bán kính cung r = 32 - 35px):
+     
+     + 1. TẠI ĐỈNH TRÊN A (Góc hạ giữa tia ngang Ax sang phải và tia ngắm AC chéo xuống):
+       * Điểm đầu trên tia ngang: S = (x_A + r, y_A)
+       * Điểm cuối trên tia AC: E = (x_A + r * Math.cos(α), y_A + r * Math.sin(α))
+       * Lệnh vẽ thẻ <path>:
+         <path d="M \${x_A + r} \${y_A} A \${r} \${r} 0 0 1 \${x_A + r * Math.cos(α)} \${y_A + r * Math.sin(α)}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+       * Nhãn góc hạ (vd: "30°", "α"): Đặt tại (x_A + (r + 16) * Math.cos(α/2), y_A + (r + 16) * Math.sin(α/2)).
+
+     + 2. TẠI ĐỈNH DƯỚI C (Góc nâng giữa tia đáy CB sang trái và tia cạnh huyền CA hướng lên):
+       * Điểm đầu trên tia đáy CB (nằm ngang sang trái): S = (x_C - r, y_C)
+       * Điểm cuối trên tia CA (hướng lên trên sang trái): E = (x_C - r * Math.cos(α), y_C - r * Math.sin(α))
+       * Lệnh vẽ thẻ <path>:
+         <path d="M \${x_C - r} \${y_C} A \${r} \${r} 0 0 0 \${x_C - r * Math.cos(α)} \${y_C - r * Math.sin(α)}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+         (QUAN TRỌNG: sweep-flag = 0 để cung phồng lồi tự nhiên hướng về phía trong tam giác, không bị úp vào điểm C).
+       * Nhãn góc nâng (vd: "30°", "60°", "α"): Đặt tại (x_C - (r + 18) * Math.cos(α/2), y_C - (r + 18) * Math.sin(α/2) - 4).
+
+   - QUY TẮC ÁP DỤNG CHUNG:
+     "Mọi cung góc luôn là một phần của đường tròn tâm là đỉnh góc, có bề lồi hướng ra phía trong miền góc và quay lưng lại với đỉnh. Tuyệt đối không để cung bị lõm vào đỉnh."
 4. Kích thước & Số đo:
    - Số đo ngắn gọn dóng dọc theo cạnh tương ứng (ví dụ: '4m', '1.5m', '45m', '10cm', 'R', 'h = ?', 'd = ?').
 
