@@ -1,170 +1,94 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
-import { GeoSolver } from '@/lib/geometrySolver';
-import { GEOSOLVER_PROMPT } from '@/lib/gemini';
-import { renderStructuredMathToSvg, MathSpec } from '@/lib/svg-generator';
 
-// Helper function to sanitize and extract/execute ONLY valid, clean SVG content
-function extractSvgCode(rawText: string): string {
-  let clean = rawText.trim();
+// Helper function to sanitize and extract ONLY valid, clean SVG content
+function sanitizeSvg(svgString: string): string {
+  let clean = svgString.trim();
 
-  // 1. If text is a GeoSolver JavaScript snippet
-  if (
-    clean.includes('solver.') ||
-    clean.includes('GeoSolver') ||
-    clean.includes('geo.defPoint') ||
-    clean.includes('geo.draw') ||
-    clean.includes('GeoEngine') ||
-    (clean.includes('const ') && (clean.includes('solver') || clean.includes('geo')))
-  ) {
-    try {
-      const svg = GeoSolver.execute(clean);
-      if (svg && svg.includes('<svg')) {
-        return svg;
-      }
-    } catch (e) {
-      console.warn('[extractSvgCode] GeoSolver execution fallback:', e);
-    }
-  }
-
-  // 2. If text is JSON, attempt structured rendering
-  try {
-    const jsonMatch = clean.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as MathSpec;
-      if (parsed.type) {
-        return renderStructuredMathToSvg(parsed);
-      }
-    }
-  } catch (e) {
-    // Continue with normal SVG parsing
-  }
-
-  // 3. Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
+  // Strip markdown code fences if wrapped in ```xml, ```svg, ```html, etc.
   if (clean.startsWith('```')) {
-    clean = clean.replace(/^```(?:xml|svg|html|javascript|js|tsx|jsx|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
+    clean = clean.replace(/^```(?:xml|svg|html|javascript|js|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
   }
 
-  // Trích xuất đúng khối <svg>...</svg>
-  const svgMatch = clean.match(/<svg[\s\S]*?<\/svg>/i);
-  if (svgMatch) {
-    clean = svgMatch[0];
-  } else if (!clean.includes('<svg') && (clean.includes('ctx.') || clean.includes('canvas'))) {
-    return clean;
+  // 1. Trích xuất đúng khối <svg>...</svg>
+  const match = clean.match(/<svg[\s\S]*?<\/svg>/i);
+  if (match) {
+    clean = match[0];
   } else {
     clean = clean.replace(/```xml|```svg|```html|```/gi, '').trim();
   }
 
-  // Ensure essential SVG attributes exist so it never collapses or clips
-  if (clean.includes('<svg')) {
-    if (!clean.includes('xmlns=')) {
-      clean = clean.replace(/<svg/i, '<svg xmlns="http://www.w3.org/2000/svg"');
-    }
-    if (!clean.includes('viewBox=')) {
-      clean = clean.replace(/<svg/i, '<svg viewBox="0 0 800 500"');
-    }
-    if (!clean.includes('width=')) {
-      clean = clean.replace(/<svg/i, '<svg width="100%"');
-    }
-    if (!clean.includes('height=')) {
-      clean = clean.replace(/<svg/i, '<svg height="100%"');
-    }
-    if (!clean.includes('overflow=')) {
-      clean = clean.replace(/<svg/i, '<svg overflow="visible"');
-    }
-  }
-
-  // Xóa triệt để các thẻ text dài (tiêu đề, lời giải thừa từ 15 ký tự trở lên)
-  clean = clean.replace(/<text[^>]*>([^<]{15,})<\/text>/gi, '');
+  // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
+  clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
 
   return clean.trim();
 }
 
-// Helper function to extract GeoGebra command lines
-function extractGgbCommands(rawText: string): string[] {
-  let clean = rawText.trim();
-  const match = clean.match(/```(?:geogebra|ggb|text)?\s*([\s\S]*?)```/i);
-  const text = match ? match[1] : clean;
-  return text
-    .split('\n')
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('//') && !line.startsWith('#') && !line.startsWith('```'));
-}
-
 export async function POST(req: NextRequest) {
   try {
-    let body: any = {};
-    try {
-      body = await req.json();
-    } catch {
-      body = {};
-    }
-
-    const { prompt: promptText, imageBase64, mimeType = 'image/jpeg', style, styleMode, gridMode } = body;
-    const licenseKey = (req.headers.get('x-license-key') || req.headers.get('X-License-Key') || body.licenseKey || '').trim();
-
-    // 1. Validate prompt/image
-    if (!promptText && !imageBase64) {
-      return NextResponse.json({ error: 'Vui lòng cung cấp văn bản bài toán hoặc tải lên hình ảnh.' }, { status: 400 });
-    }
-
-    // 2. Validate License Key
+    // 1. Authenticate via Header X-License-Key
+    const licenseKey = req.headers.get('x-license-key') || req.headers.get('X-License-Key');
     if (!licenseKey) {
       return NextResponse.json(
-        {
-          error: 'MISSING_LICENSE',
-          message: 'Vui lòng nhập License Key để tiếp tục sử dụng.',
-        },
-        { status: 401 }
+        { error: 'Thiếu License Key trong Header X-License-Key.' },
+        { status: 403 }
       );
     }
 
     const keyRecord = await prisma.licenseKey.findUnique({
-      where: { key: licenseKey },
+      where: { key: licenseKey.trim() },
     });
 
     if (!keyRecord) {
       return NextResponse.json(
-        {
-          error: 'INVALID_LICENSE',
-          message: 'Mã License Key không hợp lệ hoặc không tồn tại trên hệ thống.',
-        },
-        { status: 401 }
+        { error: 'License key không tồn tại.' },
+        { status: 403 }
       );
     }
 
     if (!keyRecord.isActive) {
       return NextResponse.json(
-        {
-          error: 'LICENSE_DISABLED',
-          message: 'Mã License Key của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.',
-        },
+        { error: 'License key đã bị vô hiệu hóa.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
       return NextResponse.json(
-        {
-          error: 'LICENSE_EXPIRED',
-          message: 'Mã bản quyền của bạn đã hết hạn sử dụng. Vui lòng gia hạn hoặc liên hệ quản trị viên.',
-        },
+        { error: 'License key đã hết hạn sử dụng.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.totalCredits !== -1 && keyRecord.usedCredits >= keyRecord.totalCredits) {
       return NextResponse.json(
-        {
-          error: 'LICENSE_LIMIT_REACHED',
-          message: 'Mã bản quyền của bạn đã sử dụng hết số lượt tạo hình cho phép.',
-        },
+        { error: 'License key đã hết lượt sử dụng.' },
         { status: 403 }
       );
     }
 
-    // 3. Initialize Gemini Client (Supports BYOK custom user API key or Server GEMINI_API_KEY)
+    // 2. Parse request payload
+    let body: { prompt?: string; imageBase64?: string; mimeType?: string; styleMode?: string };
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
+    const promptText = body.prompt?.trim() || '';
+    const imageBase64 = body.imageBase64;
+    const mimeType = body.mimeType || 'image/png';
+    const styleMode = (body.styleMode || 'color').toLowerCase() === 'monochrome' ? 'monochrome' : 'color';
+
+    if (!promptText && !imageBase64) {
+      return NextResponse.json(
+        { error: 'Vui lòng cung cấp văn bản gợi ý (prompt) hoặc hình ảnh (imageBase64).' },
+        { status: 400 }
+      );
+    }
+
+    // 3. Gemini API setup (Priority 1: User custom BYOK key, Priority 2: System GEMINI_API_KEY)
     const customKey = req.headers.get('x-custom-api-key');
     const apiKey =
       customKey && customKey.trim().length > 10
@@ -172,19 +96,51 @@ export async function POST(req: NextRequest) {
         : process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
+      console.error('[Gemini API] Thiếu cấu hình API Key: Cả key người dùng và GEMINI_API_KEY đều trống.');
       return NextResponse.json(
-        {
-          error: 'AI_KEY_MISSING',
-          message: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.',
-          isAiKeyError: true,
-        },
+        { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
         { status: 400 }
       );
     }
 
     const ai = new GoogleGenAI({ apiKey });
 
-    const systemInstruction = GEOSOLVER_PROMPT;
+    const colorPaletteInstruction =
+      styleMode === 'monochrome'
+        ? `BẢNG MÀU ĐỀ THI / IN ẤN (MONOCHROME PRINT MODE):
+1. Nền và màu sắc: Nền trắng tinh (#ffffff). Toàn bộ nét vẽ đều màu đen stroke="#000000" với stroke-width="2.2".
+2. Nét phụ / đường gióng / đường cao: stroke="#000000", stroke-dasharray="4 4", stroke-width="1.5".
+3. Điểm đỉnh (Dots): Vòng tròn r="3.5", fill="#000000".
+4. Chữ tên đỉnh và số đo: fill="#000000", font-weight="bold", font-family="sans-serif".
+5. Đối tượng thực tế (mặt đất, bờ tường, cây, thang): Dùng nét vẽ đơn sắc đen trắng, gạch bóng mờ hoặc nét đứt gạch chéo (pattern/hatch), TUYỆT ĐỐI KHÔNG dùng màu xanh, cam, vàng hay các màu sặc sỡ để tối ưu cho việc in đề thi A4.`
+        : `BẢNG MÀU BÀI GIẢNG TRỰC QUAN (COLOR PEDAGOGY MODE):
+1. Nét vẽ hình học chính (các cạnh tam giác, hình chiếu): Đồng nhất 1 màu duy nhất stroke="#2563eb" (Blue 600), độ dày stroke-width="2.5".
+2. Nét phụ / đường gióng / nét đứt: Màu stroke="#94a3b8" (Slate 400), stroke-dasharray="4 4", stroke-width="1.5".
+3. Điểm đỉnh (Dots): Vòng tròn bán kính r="4", fill="#1e293b".
+4. Chữ tên đỉnh (A, B, C...): Màu fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
+5. Ký hiệu góc & số đo góc: Đồng nhất màu stroke="#d97706" và fill="#d97706" (Amber 600) cho toàn bộ các góc (KHÔNG dùng mỗi góc một màu khác nhau).`;
+
+    const systemInstruction = `Bạn là một trình biên dịch đồ họa vector. Nhiệm vụ duy nhất: Đọc đề bài toán (từ văn bản hoặc tự động đọc nội dung đề bài trong ảnh OCR nếu có) và xuất ra MÃ SVG HỢP LỆ.
+
+NGHIÊM CẤM: Không viết lời mở đầu, không tóm tắt đề bài, không giải thích các bước giải, không viết chữ markdown ngoài thẻ <svg>.
+BẮT BUỘC: Đầu ra phải bắt đầu chính xác bằng '<svg' và kết thúc chính xác bằng '</svg>'.
+
+${colorPaletteInstruction}
+
+QUY TẮC NỘI DUNG CHỮ TRONG SVG:
++ TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa nội dung đề bài, tóm tắt đề, công thức tính toán hoặc các bước giải bài toán.
++ CHỈ ĐƯỢC PHÉP dùng thẻ <text> cho 3 mục đích duy nhất:
+  1. Tên điểm đỉnh hình học (ngắn gọn từ 1 đến 3 ký tự, ví dụ: 'A', 'B', 'C', 'H', 'A'', 'S_1').
+  2. Số đo góc (ví dụ: '60°', '30°', '45°', 'α', 'β').
+  3. Độ dài kích thước cạnh / chiều cao ngắn (ví dụ: '4m', '38m', 'h = ?', 'x', '10 cm').
++ Tất cả các thẻ <text> chứa đoạn văn giải thích dài hơn 20 ký tự đều bị cấm triệt để.
+
+QUY TẮC TỌA ĐỘ VÀ CĂN CHỈNH BỐ CỤC:
++ Sử dụng viewBox="0 0 600 450" chuẩn tỷ lệ 4:3.
++ Để lề (padding) an toàn tối thiểu 40px xung quanh hình để chữ không bị cắt viền.
++ Hình vẽ phải cân đối, rõ ràng, các nét vẽ không chồng chéo làm biến dạng hình ảnh.
++ Đánh dấu góc vuông: Sử dụng thẻ <path> hoặc <rect> nhỏ (kích thước cạnh khoảng 12px) để thể hiện ký hiệu góc vuông chuẩn toán học.
++ Đánh dấu cung góc: Sử dụng thẻ <path> hình cung (arc) kèm nhãn số đo góc bên cạnh.`;
 
     const contents: any[] = [];
 
@@ -200,18 +156,16 @@ export async function POST(req: NextRequest) {
     }
 
     const userPrompt = promptText
-      ? `Hãy viết mã JavaScript GeoSolver để dựng hình cho bài toán sau:\n\n${promptText}`
-      : 'Hãy đọc đề bài toán trong ảnh và viết mã JavaScript GeoSolver để dựng hình chính xác.';
+      ? `Hãy vẽ mô hình hình học SVG cho bài toán sau:\n\n${promptText}`
+      : 'Hãy đọc đề bài toán trong ảnh và vẽ mô hình hình học SVG chính xác.';
 
     contents.push(userPrompt);
 
-    const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    // List of models in order of priority
+    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const MODELS = [
-      DEFAULT_MODEL,
-      ...(DEFAULT_MODEL !== 'gemini-3.5-flash' ? ['gemini-3.5-flash'] : []),
-      'gemini-3.5-flash-lite',
-      'gemini-3.6-flash',
-      'gemini-3.7-flash',
+      defaultModel,
+      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
     ];
 
     let response: any = null;
@@ -220,39 +174,49 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < MODELS.length; i++) {
       const currentModel = MODELS[i];
       try {
-        console.info(`[Gemini API] Đang gửi yêu cầu tới model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
+        console.info(`[Gemini API] Đang thử model: ${currentModel} (Lần thử ${i + 1}/${MODELS.length})...`);
         const result = await ai.models.generateContent({
           model: currentModel,
           contents,
           config: {
             systemInstruction,
             temperature: 0.1,
-            maxOutputTokens: 6144,
+            maxOutputTokens: 4096,
           },
         });
 
         if (result && result.text) {
           response = result;
-          console.info(`[Gemini API] Model ${currentModel} đã sinh mã GeoGebra thành công!`);
+          console.info(`[Gemini API] Model ${currentModel} đã phản hồi thành công!`);
           break;
         }
       } catch (err: any) {
         lastError = err;
         console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
-        if (i < MODELS.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 800));
+        
+        const errorStatus = err?.status || err?.statusCode;
+        const errorMsg = String(err?.message || '').toLowerCase();
+        const isRetryable =
+          errorStatus === 503 ||
+          errorStatus === 429 ||
+          errorStatus === 500 ||
+          errorMsg.includes('overloaded') ||
+          errorMsg.includes('high demand') ||
+          errorMsg.includes('resource exhausted');
+
+        if (i < MODELS.length - 1 && isRetryable) {
+          await new Promise((resolve) => setTimeout(resolve, 1500));
           continue;
         }
       }
     }
 
     if (!response || !response.text) {
-      throw lastError || new Error('Mô hình Gemini không thể sinh mã GeoGebra hợp lệ.');
+      throw lastError || new Error('Tất cả các model trong danh sách fallback đều không thể phản hồi.');
     }
 
     const rawText = response.text || '';
-    const ggbCommands = extractGgbCommands(rawText);
-    const cleanedSvg = extractSvgCode(rawText);
+    const cleanedSvg = sanitizeSvg(rawText);
 
     // 4. Update usage credits
     let updatedRecord = keyRecord;
@@ -269,14 +233,11 @@ export async function POST(req: NextRequest) {
         : Math.max(0, updatedRecord.totalCredits - updatedRecord.usedCredits);
 
     return NextResponse.json({
-      success: true,
-      commands: ggbCommands,
-      ggbScript: ggbCommands.join('\n'),
       svg: cleanedSvg,
       remainingCredits,
     });
   } catch (error: any) {
-    console.error('DEBUG GEMINI ERROR:', error);
+    console.error('Gemini API Error:', error);
     const errorMsg = String(error?.message || '').toLowerCase();
     const errorStatus = error?.status || error?.statusCode;
 
@@ -289,39 +250,30 @@ export async function POST(req: NextRequest) {
       errorMsg.includes('resource exhausted') ||
       errorMsg.includes('overloaded');
 
-    const isInvalidKey =
-      errorStatus === 400 ||
-      errorStatus === 401 ||
-      errorStatus === 403 ||
-      errorMsg.includes('api_key_invalid') ||
-      errorMsg.includes('api key not valid') ||
-      errorMsg.includes('invalid api key') ||
-      errorMsg.includes('permission_denied') ||
-      errorMsg.includes('api_key');
-
     if (isQuotaOrRateLimit) {
       return NextResponse.json(
         {
-          success: false,
-          error: 'AI_QUOTA_EXCEEDED',
-          message: 'Hệ thống AI đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
+          error: 'Hệ thống đang quá tải lượt dùng hoặc hết hạn mức API miễn phí (Rate Limit / Quota Exceeded).',
           code: 'RATE_LIMIT_EXCEEDED',
-          isAiQuotaError: true,
-          isAiKeyError: true,
+          isQuotaError: true,
           details: error?.message,
         },
         { status: 429 }
       );
     }
 
+    const isInvalidKey =
+      errorStatus === 400 &&
+      (errorMsg.includes('api_key_invalid') ||
+        errorMsg.includes('api key not valid') ||
+        errorMsg.includes('invalid api key') ||
+        errorMsg.includes('api_key'));
+
     if (isInvalidKey) {
       return NextResponse.json(
         {
-          success: false,
-          error: 'INVALID_AI_KEY',
-          message: 'Gemini API Key không hợp lệ hoặc không có quyền truy cập.',
+          error: 'Gemini API Key không hợp lệ hoặc đã bị vô hiệu hóa.',
           code: 'INVALID_API_KEY',
-          isAiKeyError: true,
           details: error?.message,
         },
         { status: 400 }
@@ -330,9 +282,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(
       {
-        success: false,
-        error: 'GENERATE_FAILED',
-        message: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
+        error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
         details: error?.message,
       },
       { status: errorStatus && errorStatus >= 400 && errorStatus < 600 ? errorStatus : 500 }

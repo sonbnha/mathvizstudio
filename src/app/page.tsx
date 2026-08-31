@@ -39,7 +39,6 @@ import {
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
-import { GeoCanvasViewer } from '@/components/GeoCanvasViewer';
 
 const PRESETS = [
   {
@@ -165,44 +164,6 @@ export default function HomePage() {
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
   const svgContainerRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [renderError, setRenderError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!svgOutput) return;
-
-    // If svgOutput is JavaScript Canvas code
-    if (!svgOutput.includes('<svg') && (svgOutput.includes('ctx.') || svgOutput.includes('canvas'))) {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
-      const rect = canvas.parentElement?.getBoundingClientRect();
-      const width = rect && rect.width > 0 ? rect.width : 600;
-      const height = rect && rect.height > 0 ? rect.height : 450;
-      canvas.width = width;
-      canvas.height = height;
-
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = theme === 'dark' ? '#0f172a' : '#ffffff';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      try {
-        setRenderError(null);
-        let code = svgOutput.trim();
-        code = code.replace(/^```(?:javascript|js|tsx|jsx|json)?\n?/i, '').replace(/\n?```$/i, '').trim();
-        const renderFn = new Function('ctx', 'canvas', 'width', 'height', code);
-        renderFn(ctx, canvas, canvas.width, canvas.height);
-      } catch (renderErr: any) {
-        console.error('Lỗi khi thực thi code vẽ Canvas:', renderErr);
-        setRenderError(renderErr?.message || 'Lỗi thực thi vẽ hình');
-        ctx.fillStyle = '#ef4444';
-        ctx.font = '14px sans-serif';
-        ctx.fillText('Lỗi thực thi vẽ hình: ' + (renderErr as Error).message, 20, 40);
-      }
-    }
-  }, [svgOutput, theme]);
-
   const draggingElementRef = useRef<{
     element: SVGElement;
     startX: number;
@@ -638,52 +599,17 @@ export default function HomePage() {
       const data = await res.json();
 
       if (!res.ok) {
-        // 1. Phân loại lỗi License Key (Hết hạn, hết lượt, key sai, bị khóa) -> Báo lỗi trực tiếp, TUYỆT ĐỐI KHÔNG mở popup BYOK
-        if (
-          data.error === 'LICENSE_EXPIRED' ||
-          data.error === 'LICENSE_LIMIT_REACHED' ||
-          data.error === 'INVALID_LICENSE' ||
-          data.error === 'MISSING_LICENSE' ||
-          data.error === 'LICENSE_DISABLED' ||
-          (res.status === 403 && !data.isAiKeyError && !data.isAiQuotaError) ||
-          (res.status === 401 && !data.isAiKeyError && !data.isAiQuotaError)
-        ) {
-          checkLicenseKey();
-          throw new Error(data.message || data.error || 'Mã License Key không hợp lệ hoặc đã hết lượt/hết hạn sử dụng.');
-        }
-
-        // 2. Chỉ khi lỗi thực sự xuất phát từ Gemini AI (Quá tải 429 / Quota AI / Key AI lỗi) -> Mới mở pop-up BYOK
-        if (
-          res.status === 429 ||
-          data.error === 'AI_QUOTA_EXCEEDED' ||
-          data.error === 'AI_KEY_MISSING' ||
-          data.error === 'INVALID_AI_KEY' ||
-          data.isAiQuotaError ||
-          data.isAiKeyError ||
-          data.code === 'RATE_LIMIT_EXCEEDED' ||
-          data.code === 'INVALID_API_KEY'
-        ) {
+        if (res.status === 429 || data.isQuotaError || data.code === 'RATE_LIMIT_EXCEEDED') {
           pendingGenerationRef.current = { promptText: activePrompt, isRefinement };
           setQuotaKeyInput(currentKey);
           setIsQuotaModalOpen(true);
-          throw new Error(
-            data.message ||
-              data.error ||
-              'Hệ thống AI đang quá tải lượt dùng. Vui lòng nhập Gemini API Key cá nhân để tiếp tục ngay!'
-          );
+          throw new Error('Hệ thống đang quá tải lượt dùng miễn phí. Vui lòng thêm Gemini API Key cá nhân để tiếp tục ngay!');
         }
-
-        throw new Error(data.message || data.error || 'Đã có lỗi xảy ra khi tạo hình.');
+        throw new Error(data.error || 'Đã có lỗi xảy ra khi tạo hình.');
       }
 
-      if (data.svg && typeof data.svg === 'string' && data.svg.includes('<svg')) {
-        setSvgOutput(data.svg);
-        saveToHistory(data.svg, activePrompt);
-      } else {
-        throw new Error(
-          'Không nhận được dữ liệu vẽ hình học hợp lệ từ mô hình. Vui lòng thử lại với đề bài rõ ràng hơn.'
-        );
-      }
+      setSvgOutput(data.svg);
+      saveToHistory(data.svg, activePrompt);
 
       // Hit 100% on success and delay 250ms with smooth completion effect
       setProgress(100);
@@ -890,63 +816,81 @@ export default function HomePage() {
       const target = e.target as SVGElement;
       if (!target) return;
 
-      // CHỈ CHO PHÉP kéo thả thẻ <text> (Nhãn tên điểm A, B, C... hoặc nhãn kích thước)
+      // Find if clicked element is a <text> or <circle>
       const textTarget = (target.tagName.toLowerCase() === 'text'
         ? target
         : target.closest('text')) as SVGTextElement | null;
+      const circleTarget = (target.tagName.toLowerCase() === 'circle'
+        ? target
+        : target.closest('circle')) as SVGCircleElement | null;
 
-      if (!textTarget) return;
+      if (textTarget) {
+        e.preventDefault();
+        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
+        const initX = parseFloat(textTarget.getAttribute('x') || '0');
+        const initY = parseFloat(textTarget.getAttribute('y') || '0');
 
-      e.preventDefault();
-      e.stopPropagation();
+        draggingElementRef.current = {
+          element: textTarget,
+          startX,
+          startY,
+          initX,
+          initY,
+          type: 'text',
+        };
+        textTarget.classList.add('opacity-80');
+      } else if (circleTarget) {
+        e.preventDefault();
+        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
+        const initX = parseFloat(circleTarget.getAttribute('cx') || '0');
+        const initY = parseFloat(circleTarget.getAttribute('cy') || '0');
 
-      const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
-      const initX = parseFloat(textTarget.getAttribute('x') || '0');
-      const initY = parseFloat(textTarget.getAttribute('y') || '0');
-
-      draggingElementRef.current = {
-        element: textTarget,
-        startX,
-        startY,
-        initX,
-        initY,
-        type: 'text',
-      };
-      textTarget.classList.add('opacity-75');
-      document.body.style.cursor = 'grabbing';
+        draggingElementRef.current = {
+          element: circleTarget,
+          startX,
+          startY,
+          initX,
+          initY,
+          type: 'circle',
+        };
+        circleTarget.classList.add('opacity-80');
+      }
     };
 
     const handlePointerMove = (e: PointerEvent) => {
       if (!draggingElementRef.current) return;
       e.preventDefault();
 
-      const { element, startX, startY, initX, initY } = draggingElementRef.current;
+      const { element, startX, startY, initX, initY, type } = draggingElementRef.current;
       const currentPos = getSvgCoordinates(svg, e.clientX, e.clientY);
       const dx = currentPos.x - startX;
       const dy = currentPos.y - startY;
 
-      const newX = Math.round((initX + dx) * 10) / 10;
-      const newY = Math.round((initY + dy) * 10) / 10;
-      element.setAttribute('x', String(newX));
-      element.setAttribute('y', String(newY));
+      if (type === 'text') {
+        const newX = Math.round((initX + dx) * 10) / 10;
+        const newY = Math.round((initY + dy) * 10) / 10;
+        element.setAttribute('x', String(newX));
+        element.setAttribute('y', String(newY));
 
-      // Also update any child tspans if they have absolute x coords
-      const tspans = element.querySelectorAll('tspan');
-      tspans.forEach((tspan) => {
-        if (tspan.getAttribute('x')) {
-          tspan.setAttribute('x', String(newX));
-        }
-        if (tspan.getAttribute('y')) {
-          tspan.setAttribute('y', String(newY));
-        }
-      });
+        // Also update any child tspans if they have absolute x coords
+        const tspans = element.querySelectorAll('tspan');
+        tspans.forEach((tspan) => {
+          if (tspan.getAttribute('x')) {
+            tspan.setAttribute('x', String(newX));
+          }
+        });
+      } else if (type === 'circle') {
+        const newCx = Math.round((initX + dx) * 10) / 10;
+        const newCy = Math.round((initY + dy) * 10) / 10;
+        element.setAttribute('cx', String(newCx));
+        element.setAttribute('cy', String(newCy));
+      }
     };
 
     const handlePointerUp = () => {
       if (draggingElementRef.current) {
-        draggingElementRef.current.element.classList.remove('opacity-75');
+        draggingElementRef.current.element.classList.remove('opacity-80');
         draggingElementRef.current = null;
-        document.body.style.cursor = '';
 
         // Synchronize updated SVG DOM back to React state
         const serialized = new XMLSerializer().serializeToString(svg);
@@ -1502,7 +1446,15 @@ export default function HomePage() {
               )}
 
               {svgOutput ? (
-                <GeoCanvasViewer svg={svgOutput} isEditMode={isEditMode} />
+                <div
+                  id="svgMount"
+                  className={`w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:w-auto [&>svg]:h-auto ${
+                    isEditMode
+                      ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500'
+                      : ''
+                  }`}
+                  dangerouslySetInnerHTML={{ __html: svgOutput }}
+                />
               ) : (
                 <div className="text-center p-8 flex flex-col items-center gap-3 text-slate-400 dark:text-slate-500">
                   <div className="w-16 h-16 rounded-2xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-sm">
@@ -1840,7 +1792,7 @@ export default function HomePage() {
       {/* Changelog / Version History Modal */}
       {isChangelogOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="relative w-full max-w-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh]">
+          <div className="relative w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-4 max-h-[85vh] overflow-hidden">
             {/* Modal Header */}
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5">
@@ -1866,10 +1818,10 @@ export default function HomePage() {
               </button>
             </div>
 
-            {/* Releases List - Full Scroll View */}
-            <div className="w-full min-h-0 flex-1 overflow-y-auto space-y-4 pr-2 text-xs">
+            {/* Releases List */}
+            <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-4 text-xs">
               {changelogLoading && changelogList.length === 0 ? (
-                <div className="py-12 flex flex-col items-center justify-center gap-2 text-slate-400">
+                <div className="py-8 flex flex-col items-center justify-center gap-2 text-slate-400">
                   <Loader2 className="w-5 h-5 animate-spin text-cyan-600 dark:text-cyan-400" />
                   <span>Đang tải lịch sử phiên bản...</span>
                 </div>
@@ -1877,11 +1829,11 @@ export default function HomePage() {
                 changelogList.map((rel, idx) => (
                 <div
                   key={rel.version}
-                  className="p-5 rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/50 flex flex-col gap-3 shadow-xs"
+                  className="bg-slate-50 dark:bg-slate-950/70 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 px-2.5 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
+                      <span className="font-mono font-bold text-xs text-slate-900 dark:text-slate-100 px-2 py-0.5 rounded-md bg-cyan-500/15 border border-cyan-500/30 text-cyan-700 dark:text-cyan-300">
                         {rel.version}
                       </span>
                       {idx === 0 && (
@@ -1890,18 +1842,18 @@ export default function HomePage() {
                         </span>
                       )}
                     </div>
-                    <span className="text-slate-400 dark:text-slate-500 text-xs font-mono">
+                    <span className="text-slate-400 dark:text-slate-500 text-[11px]">
                       {rel.date}
                     </span>
                   </div>
 
-                  <h4 className="font-semibold text-slate-900 dark:text-slate-100 text-sm">
+                  <h4 className="font-semibold text-slate-800 dark:text-slate-200 text-xs">
                     {rel.title}
                   </h4>
 
-                  <ul className="flex flex-col gap-2 pl-0.5">
+                  <ul className="flex flex-col gap-2 pl-1">
                     {rel.changes.map((c, cIdx) => (
-                      <li key={cIdx} className="flex items-start gap-2 text-slate-600 dark:text-slate-300 leading-relaxed text-xs">
+                      <li key={cIdx} className="flex items-start gap-2 text-slate-600 dark:text-slate-300 leading-relaxed">
                         <span
                           className={`text-[9px] font-bold uppercase px-1.5 py-0.5 rounded shrink-0 mt-0.5 ${
                             c.type === 'feat'
@@ -1913,7 +1865,7 @@ export default function HomePage() {
                         >
                           {c.type}
                         </span>
-                        <span className="break-words">{c.description}</span>
+                        <span>{c.description}</span>
                       </li>
                     ))}
                   </ul>
