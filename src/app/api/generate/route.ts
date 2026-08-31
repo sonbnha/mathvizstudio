@@ -183,33 +183,27 @@ I. BỘ QUY TẮC HÌNH HỌC CỐT LÕI (CORE GEOMETRY - ÁP DỤNG CHO MỌI D
    - Các cạnh đa giác, đường tròn, dây cung, tiếp tuyến: Dùng <line>, <path>, <polygon>, <circle> nét đậm (stroke="#2563eb" hoặc stroke="#0f172a", stroke-width="2.5" đến "3.5", stroke-linejoin="round").
    - Đường phụ, đường kéo dài, đường ngắm/chiều cao phụ: Dùng stroke-dasharray="5 4" nét đứt rõ ràng.
    - Với bài toán thực tế (chiếc thang AC, ngọn hải đăng AB...): Cạnh toán học màu xanh dương #2563eb BẮT BUỘC CHẠY LIÊN TỤC TỪ ĐỈNH NÀY ĐẾN ĐỈNH KIA, hình minh họa chỉ là lớp vẽ phụ làm nền phía dưới.
-2. Điểm & Nhãn tên điểm:
+2. Điểm & Nhãn tên điểm (Tránh đè chữ lên nét vẽ):
    - Mọi đỉnh, tâm, giao điểm: Chấm tròn <circle cx="..." cy="..." r="4.5" fill="#0f172a" stroke="#ffffff" stroke-width="1.5" />.
-   - Nhãn tên điểm: Dùng <text font-size="20" font-weight="bold" fill="#0f172a"> (A, B, C, O, I, R, M, N, H, K, S...).
+   - Nhãn tên điểm (A, B, C, O, I, R, M, N, H, K, S...): Dùng <text font-size="20" font-weight="bold" fill="#0f172a">, BẮT BUỘC DỊCH RA NGOÀI tam giác/đa giác tối thiểu 18px - 24px:
+     + Đỉnh A ở trên cùng: x = x_A, y = y_A - 18 (text-anchor="middle").
+     + Chân B ở góc dưới bên trái: x = x_B - 22, y = y_B + 20 (text-anchor="end").
+     + Mút C ở góc dưới bên phải: x = x_C + 22, y = y_C + 20 (text-anchor="start").
 3. Ký hiệu góc & Góc vuông:
    - Góc vuông (90°): Luôn có ô vuông nhỏ (12x12px đến 14x14px) bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="2" /> tại mọi góc vuông (chân đường cao, chân tường, chân hải đăng, tiếp điểm tiếp tuyến).
-   - BẢNG TỌA ĐỘ & LỆNH VẼ SVG CHUẨN CHO 2 GÓC CỦA BÀI TOÁN TAM GIÁC VUÔNG / HẢI ĐĂNG:
-     (Giả sử A là đỉnh tháp (x_A, y_A), B là chân tháp (x_B, y_B), C là vị trí thuyền/mút bóng bên phải (x_C, y_C) với góc nghiêng/hạ là α, bán kính cung r = 32 - 35px):
-     
-     + 1. TẠI ĐỈNH TRÊN A (Góc hạ giữa tia ngang Ax sang phải và tia ngắm AC chéo xuống):
-       * Điểm đầu trên tia ngang: S = (x_A + r, y_A)
-       * Điểm cuối trên tia AC: E = (x_A + r * Math.cos(α), y_A + r * Math.sin(α))
-       * Lệnh vẽ thẻ <path>:
-         <path d="M \${x_A + r} \${y_A} A \${r} \${r} 0 0 1 \${x_A + r * Math.cos(α)} \${y_A + r * Math.sin(α)}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-       * Nhãn góc hạ (vd: "30°", "α"): Đặt tại (x_A + (r + 16) * Math.cos(α/2), y_A + (r + 16) * Math.sin(α/2)).
-
-     + 2. TẠI ĐỈNH DƯỚI C (Góc nâng giữa tia đáy CB sang trái và tia cạnh huyền CA hướng lên):
-       * Điểm đầu trên tia đáy CB (nằm ngang sang trái): S = (x_C - r, y_C)
-       * Điểm cuối trên tia CA (hướng lên trên sang trái): E = (x_C - r * Math.cos(α), y_C - r * Math.sin(α))
-       * Lệnh vẽ thẻ <path>:
-         <path d="M \${x_C - r} \${y_C} A \${r} \${r} 0 0 0 \${x_C - r * Math.cos(α)} \${y_C - r * Math.sin(α)}" fill="none" stroke="#ea580c" stroke-width="2.5" />
-         (QUAN TRỌNG: sweep-flag = 0 để cung phồng lồi tự nhiên hướng về phía trong tam giác, không bị úp vào điểm C).
-       * Nhãn góc nâng (vd: "30°", "60°", "α"): Đặt tại (x_C - (r + 18) * Math.cos(α/2), y_C - (r + 18) * Math.sin(α/2) - 4).
-
-   - QUY TẮC ÁP DỤNG CHUNG:
-     "Mọi cung góc luôn là một phần của đường tròn tâm là đỉnh góc, có bề lồi hướng ra phía trong miền góc và quay lưng lại với đỉnh. Tuyệt đối không để cung bị lõm vào đỉnh."
-4. Kích thước & Số đo:
-   - Số đo ngắn gọn dóng dọc theo cạnh tương ứng (ví dụ: '4m', '1.5m', '45m', '10cm', 'R', 'h = ?', 'd = ?').
+   - THUẬT TOÁN TOÁN HỌC CHUẨN XÁC DỰNG CUNG TRÒN GÓC SVG (SVG ANGLE ARC CHỐNG LÕM):
+     + Quét từ Vector 1 (u1 hướng tới P1) sang Vector 2 (u2 hướng tới P2) quanh đỉnh V bán kính r = 32px:
+       * a1 = Math.atan2(P1.y - V.y, P1.x - V.x)
+       * a2 = Math.atan2(P2.y - V.y, P2.x - V.x)
+       * diff = ((a2 - a1 + 3 * Math.PI) % (2 * Math.PI)) - Math.PI
+       * sweep_flag = diff > 0 ? 1 : 0
+       * Đường vẽ: <path d="M \${V.x + r*Math.cos(a1)} \${V.y + r*Math.sin(a1)} A \${r} \${r} 0 0 \${sweep_flag} \${V.x + r*Math.cos(a2)} \${V.y + r*Math.sin(a2)}" fill="none" stroke="#ea580c" stroke-width="2.5" />
+       * Nhãn góc (vd: "60°", "30°", "α"): Đặt tại hướng phân giác a_mid = a1 + diff/2 với khoảng cách r + 16px từ đỉnh V.
+     + Cung luôn là một phần của đường tròn tâm V, có bề lồi hướng ra phía trong miền góc và quay lưng lại với đỉnh.
+4. Kích thước & Số đo (Text Offset & Collision Avoidance):
+   - Cạnh đứng (chiều cao h, AB): Dịch sang bên trái cạnh ít nhất 22px (text-anchor="end").
+   - Cạnh đáy (bóng nắng, khoảng cách BC): Dịch xuống dưới đáy ít nhất 24px (text-anchor="middle").
+   - Cạnh nghiêng / Cạnh huyền: Dịch vuông góc ra ngoài tối thiểu 20px, tuyệt đối không để số đo bị nét vẽ cắt ngang qua chữ.
 
 II. QUY CHUẨN CHUYÊN SÂU CHO DẠNG HÌNH TRÒN & ĐƯỜNG TRÒN (CIRCLE GEOMETRY):
 - Đường tròn (O; R):
@@ -226,9 +220,14 @@ II. QUY CHUẨN CHUYÊN SÂU CHO DẠNG HÌNH TRÒN & ĐƯỜNG TRÒN (CIRCLE GE
 - Hình quạt tròn / Hình viên phân / Diện tích:
   + Nếu đề bài yêu cầu tính diện tích: Tô màu nền nhẹ fill="#3b82f6" fill-opacity="0.15".
 
-III. QUY TẮC ĐỐI VỚI BÀI TOÁN THỰC TẾ & BÓNG MẶT TRỜI (SUN RAY & SHADOW MATH):
+III. QUY TẮC ĐỐI VỚI BÀI TOÁN THỰC TẾ (REAL-WORLD MATH VISUALIZATION):
 - Lớp 1: Khung tam giác/hình học toán học chính luôn nằm đè lên trên cùng với nét đậm nổi bật.
 - Lớp 2: Hình minh họa thực tế phụ (ngọn hải đăng, thang, tường gạch, mặt biển, tòa nhà, tán cây, mặt đất...): Vẽ làm nền mờ phía dưới (opacity 0.35 - 0.7), KHÔNG ĐƯỢC lấn át hay thay thế khung toán học chính.
+- BÀI TOÁN CHIẾC THANG DỰA TƯỜNG (LADDER ALIGNMENT):
+  + Cạnh huyền hình học AC và trục thân của chiếc thang BẮT BUỘC PHẢI TRÙNG NHAU 100%:
+    * Đỉnh trên của thang đặt chính xác tại tâm điểm A(x_A, y_A).
+    * Chân thang đặt chính xác tại tâm điểm C(x_C, y_C).
+    * Đường thẳng hình học nét đậm (stroke="#2563eb" stroke-width="3.5") nối trực tiếp từ A đến C dọc chính giữa thân thang, các bậc thang vẽ vuông góc với trục AC.
 - THUẬT TOÁN VECTOR CHUẨN ĐỒNG TRỤC CHO BÀI TOÁN BÓNG NẮNG / MẶT TRỜI:
   + Cho tam giác vuông ABC tại B trên mặt đất:
     * B(x_B, y_B): Chân cây / chân vật thể (góc vuông 90° tại chân, y_B ≈ 410 - 425).
