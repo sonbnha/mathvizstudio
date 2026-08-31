@@ -38,6 +38,9 @@ function extractSvgCode(rawText: string): string {
     }
   }
 
+  // 2. Xóa triệt để các thẻ text dài (tiêu đề, lời giải, ghi chú mô tả thừa từ 15 ký tự trở lên)
+  clean = clean.replace(/<text[^>]*>([^<]{15,})<\/text>/gi, '');
+
   return clean.trim();
 }
 
@@ -140,39 +143,46 @@ export async function POST(req: NextRequest) {
   + Thang / dây neo: stroke="#d97706" hoặc stroke="#64748b" stroke-width="2.5".
   + Mặt đất: Đường chuẩn nằm ngang stroke="#64748b" stroke-width="2".
 - Điểm đỉnh: Vòng tròn r="4.5" fill="#1e293b".
-- Chữ tên đỉnh (A, B, C...): fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
+- Chữ tên đỉnh (A, B, C...): fill="#0f172a", font-weight="bold", font-size="18", font-family="sans-serif".
 - Ký hiệu góc & số đo: stroke="#ea580c" và fill="#ea580c" (Orange 600) font-weight="bold".`;
 
     const systemInstruction = `Bạn là chuyên gia hàng đầu về Đồ Họa Vector Toán Học (MathViz Engine).
-Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh OCR) và sinh ra một mô hình hình học toán học ĐẦY ĐỦ, CHÍNH XÁC, ĐẸP MẮT dưới dạng MÃ SVG HỢP LỆ.
+Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh OCR) và sinh ra một mô hình hình học toán học THUẦN TÚY, ĐẦY ĐỦ, CHÍNH XÁC, ĐẸP MẮT dưới dạng MÃ SVG HỢP LỆ.
 
 BẮT BUỘC VỀ ĐẦU RA:
-1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích.
+1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
 2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">.
+
+QUY TẮC NGHIÊM NGẶT VỀ CHỮ (STRICT TEXT RULES - LOẠI BỎ TOÀN BỘ CHỮ THỪA):
+- TUYỆT ĐỐI KHÔNG chèn: Tiêu đề hình, lời giải bài toán, nội dung đề bài, tên đối tượng dài (ví dụ: "Cây", "Mặt đất", "Tòa nhà", "Ngọn hải đăng", "Người quan sát", "Chiều cao", "Bóng cây") hoặc bất kỳ đoạn ghi chú dài bằng chữ tiếng Việt/tiếng Anh vào bên trong SVG.
+- KHÔNG viết văn bản mô tả hay lời giải vào trong SVG. Khung SVG chỉ chứa hình vẽ thuần túy (đường nét, hình học, vật thể minh họa, ký hiệu vuông góc, cung góc) cùng các nhãn đỉnh (A, B, C...) và số đo ngắn gọn.
+- CHỈ ĐƯỢC PHÉP giữ lại DUY NHẤT 3 loại ký hiệu toán học tối giản sau trong các thẻ <text>:
+  1. Tên các điểm/đỉnh hình học: Dạng 1 chữ cái in hoa đơn lẻ như A, B, C, H, O, S, M, N (font-size="18" font-weight="bold").
+  2. Số đo kích thước bài toán: Dạng siêu ngắn gọn kèm đơn vị như "8m", "6m", "10cm", "x", "h", "h = ?" (font-size="16" font-weight="bold").
+  3. Ký hiệu góc & số đo góc: Dạng ngắn như "30°", "45°", "60°", "α", "β", "φ" (font-size="16" font-weight="bold").
 
 ${colorPaletteInstruction}
 
 QUY TẮC MÔ HÌNH HÓA BÀI TOÁN THỰC TẾ (BÓNG NẮNG, HẢI ĐĂNG, CHIỀU CAO, THANG, GÓC NÂNG/HẠ):
 Khi gặp bài toán thực tế (ví dụ: "Cây cao bóng dài", "Ngọn hải đăng nhìn tàu", "Thang dựa vào tường", "Khinh khí cầu", "Tỉ số lượng giác"):
-BẮT BUỘC PHẢI VẼ ĐỦ CẢ 4 LỚP SAU:
-1. Lớp Mặt Đất & Chuẩn Ngang:
-   - Một đường kẻ ngang làm mặt đất rõ ràng (ví dụ: y = 420 từ x=50 đến x=750).
-   - Có nhãn số đo cạnh đáy/bóng (ví dụ: '6m', '20m', 'd = ?') đặt phía dưới đường mặt đất.
-2. Lớp Đối Tượng Thực Tế:
+BẮT BUỘC VẼ ĐỦ CÁC THÀNH PHẦN MINH HỌA VÀ HÌNH HỌC SAU:
+1. Mặt Đất & Chuẩn Ngang:
+   - Một đường kẻ ngang làm mặt đất rõ ràng (ví dụ: y = 400 từ x=100 đến x=700).
+   - Có đường gióng đo kích thước cạnh đáy/bóng (ví dụ: '6m') đặt phía dưới đường mặt đất.
+2. Đối Tượng Thực Tế:
    - Vẽ hình cách điệu của vật thể (cây xanh, cột hải đăng, tòa nhà, bờ tường...) dựng THẲNG ĐỨNG vuông góc với mặt đất.
-   - Có nhãn chiều cao của vật thể (ví dụ: '8m', 'h = ?', '15m') đặt cạnh thân vật thể.
-3. Lớp Hình Học Tam Giác & Góc:
+   - Có đường gióng đo chiều cao của vật thể (ví dụ: '8m' hoặc 'h = ?') đặt cạnh thân vật thể.
+3. Hình Học Tam Giác & Góc:
    - Nối ngọn vật thể với đầu bóng hoặc điểm quan sát tạo thành tam giác vuông chuẩn toán học.
-   - Ký hiệu góc vuông: Vẽ hình vuông nhỏ (14x14px) tại chân góc vuông bằng <path d="M ... L ... L ..." fill="none" stroke="#2563eb" stroke-width="1.8" />.
-   - Ký hiệu cung tròn góc & nhãn độ lớn góc: Cung tròn góc tại điểm quan sát/đầu bóng bằng <path d="..." fill="none" stroke="#ea580c" stroke-width="2" /> kèm nhãn số đo (ví dụ: '30°', '45°', 'α', 'β').
-4. Lớp Điểm Đỉnh & Chú Thích:
-   - Đặt tên các đỉnh tam giác: A (ngọn/đỉnh cao), B (gốc/chân vuông góc), C (đầu bóng/điểm quan sát) bằng thẻ <text font-weight="bold" font-size="16">.
-   - Chấm tròn đỉnh: <circle cx="..." cy="..." r="4.5" /> tại mỗi đỉnh A, B, C.
+   - Ký hiệu góc vuông: Vẽ hình vuông nhỏ (14x14px) tại chân góc vuông bằng <path d="M ... L ... L ..." fill="none" stroke="#ea580c" stroke-width="2" />.
+   - Ký hiệu cung tròn góc & nhãn độ lớn góc: Cung tròn góc tại điểm quan sát/đầu bóng bằng <path d="..." fill="none" stroke="#ea580c" stroke-width="2.5" /> kèm nhãn số đo (ví dụ: '60°', '30°', 'α').
+4. Điểm Đỉnh:
+   - Đặt tên các đỉnh tam giác: A (ngọn/đỉnh cao), B (gốc/chân vuông góc), C (đầu bóng/điểm quan sát) bằng thẻ <text font-weight="bold" font-size="18">.
+   - Chấm tròn đỉnh: <circle cx="..." cy="..." r="5" /> tại mỗi đỉnh A, B, C.
 
 QUY TẮC BỐ CỤC & TỌA ĐỘ:
 - Căn giữa toàn bộ mô hình trong khung viewBox="0 0 800 500" (khoảng x từ 80 đến 720, y từ 60 đến 440).
-- Chừa lề an toàn tối thiểu 40px xung quanh để các chữ tên đỉnh và số đo không bị cắt viền.
-- Đảm bảo hình vẽ có chiều sâu, rõ ràng, trực quan chuẩn sư phạm.`;
+- Chừa lề an toàn tối thiểu 40px xung quanh để các chữ tên đỉnh và số đo không bị cắt viền.`;
 
     const contents: any[] = [];
 
