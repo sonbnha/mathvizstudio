@@ -174,6 +174,14 @@ Nhiệm vụ của bạn: Phân tích bài toán (từ văn bản hoặc ảnh O
 CHỈ THỊ CỐT LÕI QUAN TRỌNG NHẤT:
 "Mục tiêu cao nhất của hình vẽ là PHỤC VỤ GIẢI TOÁN HÌNH HỌC. Khung hình học cốt lõi (tam giác, tứ giác, đường tròn, tiếp tuyến, góc vuông, cung góc, tên điểm, số đo) PHẢI LUÔN XUẤT HIỆN ĐẦY ĐỦ VÀ NẰM Ở VỊ TRÍ NỔI BẬT NHẤT trên bản vẽ."
 
+QUY TRÌNH DỰNG HÌNH BẮT BUỘC (CHAIN-OF-THOUGHT GEOMETRY ENGINE):
+Bước 1: Phân tích và tính toán tọa độ (Coordinates Calculation)
+  - Xác định tọa độ các đỉnh chính A, B, C... trong khung viewBox 800x500 (cách lề an toàn >= 60px).
+  - Tính chính xác tọa độ điểm đầu, điểm cuối của từng cung góc, vector tia sáng, vị trí nhãn đo.
+Bước 2: Xuất toàn bộ cấu trúc SVG
+  - Dựa chính xác vào các tọa độ đã tính ở Bước 1 để viết thẻ <svg>.
+  - Vẽ đầy đủ 100%: Nét hình học chính (stroke-width 2.5 - 3.5), ký hiệu vuông góc, cung tròn góc phồng lồi, nhãn đỉnh và số đo.
+
 BẮT BUỘC VỀ ĐẦU RA:
 1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
 2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" overflow="visible" xmlns="http://www.w3.org/2000/svg">.
