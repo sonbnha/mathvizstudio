@@ -192,11 +192,11 @@ export default function HomePage() {
       setProgress(0);
       progressTimer = setInterval(() => {
         setProgress((prev) => {
-          if (prev >= 97) return 97;
-          // Công thức giảm tốc tiệm cận theo chu kỳ 150 - 180 giây (~2.5 - 3 phút)
+          if (prev >= 98) return 98;
+          // Luôn đảm bảo có bước nhảy tối thiểu 0.04% mỗi chu kỳ để không bị kẹt ở bất kỳ mốc nào
           const remaining = 99 - prev;
-          const step = remaining * 0.0018 + 0.005;
-          return Math.min(Number((prev + step).toFixed(1)), 97);
+          const increment = Math.max(remaining * 0.003, 0.04);
+          return Math.min(prev + increment, 98);
         });
       }, 100);
     } else {
@@ -1226,7 +1226,7 @@ export default function HomePage() {
                           : 'Đang dựng hình...'}
                       </span>
                       <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400 text-sm">
-                        {Math.round(progress)}%
+                        {Math.floor(progress)}%
                       </span>
                     </div>
 
