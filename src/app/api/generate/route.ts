@@ -220,33 +220,39 @@ II. QUY CHUẨN CHUYÊN SÂU CHO DẠNG HÌNH TRÒN & ĐƯỜNG TRÒN (CIRCLE GE
 - Hình quạt tròn / Hình viên phân / Diện tích:
   + Nếu đề bài yêu cầu tính diện tích: Tô màu nền nhẹ fill="#3b82f6" fill-opacity="0.15".
 
-III. QUY TẮC ĐỐI VỚI BÀI TOÁN THỰC TẾ (REAL-WORLD MATH VISUALIZATION):
-- Lớp 1: Khung tam giác/hình học toán học chính luôn nằm đè lên trên cùng với nét đậm nổi bật.
-- Lớp 2: Hình minh họa thực tế phụ (ngọn hải đăng, thang, tường gạch, mặt biển, tòa nhà, tán cây, mặt đất...): Vẽ làm nền mờ phía dưới (opacity 0.35 - 0.7), KHÔNG ĐƯỢC lấn át hay thay thế khung toán học chính.
-- BÀI TOÁN CHIẾC THANG DỰA TƯỜNG (LADDER ALIGNMENT):
-  + Cạnh huyền hình học AC và trục thân của chiếc thang BẮT BUỘC PHẢI TRÙNG NHAU 100%:
-    * Đỉnh trên của thang đặt chính xác tại tâm điểm A(x_A, y_A).
-    * Chân thang đặt chính xác tại tâm điểm C(x_C, y_C).
-    * Đường thẳng hình học nét đậm (stroke="#2563eb" stroke-width="3.5") nối trực tiếp từ A đến C dọc chính giữa thân thang, các bậc thang vẽ vuông góc với trục AC.
-- THUẬT TOÁN VECTOR CHUẨN ĐỒNG TRỤC CHO BÀI TOÁN BÓNG NẮNG / MẶT TRỜI:
-  + Cho tam giác vuông ABC tại B trên mặt đất:
-    * B(x_B, y_B): Chân cây / chân vật thể (góc vuông 90° tại chân, y_B ≈ 410 - 425).
-    * A(x_A, y_A): Ngọn cây / đỉnh vật thể (thẳng đứng ngay trên B, x_A = x_B, y_A = y_B - h ≈ 180 - 240).
-    * C(x_C, y_C): Mút bóng nắng trên mặt đất (y_C = y_B, x_C = x_B + d hoặc x_B - d).
-  + Tọa độ Tia Nắng & Tâm Mặt Trời S(x_S, y_S):
-    * Vector tia sáng từ C qua A: vec(CA) = (x_A - x_C, y_A - y_C).
-    * Đường tia nắng BẮT BUỘC là đoạn thẳng kéo dài từ C qua A lên Mặt Trời S (đồng trục 100%).
-    * Tọa độ tâm Mặt Trời S:
-      x_S = x_A + 0.5 * (x_A - x_C)
-      y_S = y_A + 0.5 * (y_A - y_C)
-    * Đảm bảo y_S >= 50 (nếu y_S < 50, hãy scale giảm chiều cao h của tam giác để y_S >= 60, không chạm viền trên).
-  + Cú pháp SVG chuẩn xác:
-    * Tia nắng mặt trời (nét đứt xuyên suốt từ S qua A đến C):
-      <line x1="\${x_S}" y1="\${y_S}" x2="\${x_C}" y2="\${y_C}" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="5 5" />
-    * Cạnh huyền hình học AC (nét liền xanh dương chạy từ A đến C):
-      <line x1="\${x_A}" y1="\${y_A}" x2="\${x_C}" y2="\${y_C}" stroke="#2563eb" stroke-width="3" />
-    * Icon Mặt Trời: Vẽ tại đúng tâm cx="\${x_S}" cy="\${y_S}" với <circle cx="\${x_S}" cy="\${y_S}" r="20" fill="#fbbf24" stroke="#d97706" stroke-width="2" /> và các tia sáng xung quanh.
-    * Cung góc tại C: Dùng đúng công thức SVG Arc với điểm đầu/cuối trên 2 cạnh CA và CB, lồi về phía lòng góc, nhãn góc (vd: "60°", "α") đặt trên đường phân giác góc C.
+III. QUY TẮC CÔ LẬP THEO TỪNG DẠNG BÀI (TYPE-SPECIFIC RENDER RULES):
+
+1. DẠNG 1: BÀI TOÁN BÓNG NẮNG & TIA NẮNG MẶT TRỜI (SHADOW & SUN RAY):
+   - CHỈ áp dụng vẽ Mặt Trời và tia nắng khi đề bài NÓI RÕ về bóng nắng, mặt trời, tia sáng mặt trời.
+   - Thuật toán vị tự thẳng hàng tuyệt đối (Collinear Homothety):
+     * B(x_B, y_B): Gốc cây / chân vật thể (góc vuông 90° tại chân, y_B ≈ 410 - 425).
+     * A(x_A, y_A): Ngọn cây / đỉnh vật thể (thẳng đứng ngay trên B: x_A = x_B, y_A = y_B - h ≈ 180 - 240).
+     * C(x_C, y_C): Mút bóng nắng trên mặt đất (y_C = y_B, x_C = x_B + d hoặc x_B - d).
+     * Tọa độ tâm Mặt Trời S(x_S, y_S) tính bằng phép vị tự kéo dài từ C qua A với tỉ lệ k = 1.4:
+       x_S = x_C + 1.4 * (x_A - x_C)
+       y_S = y_C + 1.4 * (y_A - y_C)
+     * Nếu y_S < 60: Tự động co tỉ lệ giảm chiều cao h của tam giác để tâm Mặt Trời luôn có y_S >= 60 (không chạm mép trên).
+   - Cú pháp SVG chuẩn xác:
+     * Tia nắng (vẽ DUY NHẤT 1 đường nối từ tâm Mặt Trời S xuyên qua A xuống tận C):
+       <line x1="\${x_S}" y1="\${y_S}" x2="\${x_C}" y2="\${y_C}" stroke="#f59e0b" stroke-width="2" stroke-dasharray="6,4" />
+     * Cạnh huyền hình học AC (nét liền xanh dương đậm):
+       <line x1="\${x_A}" y1="\${y_A}" x2="\${x_C}" y2="\${y_C}" stroke="#2563eb" stroke-width="3" />
+     * Icon Mặt Trời: Tâm hình tròn đặt chính xác tại cx="\${x_S}" cy="\${y_S}" với <circle cx="\${x_S}" cy="\${y_S}" r="20" fill="#fbbf24" stroke="#d97706" stroke-width="2" /> và các tia phát sáng ngắn xung quanh.
+     * Cung góc tại C: Dùng đúng công thức SVG Arc với điểm đầu/cuối trên 2 cạnh CA và CB, lồi về phía lòng góc, nhãn góc (vd: "60°", "α") đặt trên đường phân giác góc C.
+
+2. DẠNG 2: BÀI TOÁN THỰC TẾ KHÁC (THANG DỰA TƯỜNG, HẢI ĐĂNG, TÒA NHÀ, KHINH KHÍ CẦU...):
+   - TUYỆT ĐỐI KHÔNG vẽ Mặt Trời hay tia nắng mặt trời vào các bài toán này.
+   - Chiếc thang dựa tường (Ladder Alignment):
+     * Cạnh huyền hình học AC và trục thân của chiếc thang BẮT BUỘC PHẢI TRÙNG NHAU 100%.
+     * Đỉnh trên của thang đặt chính xác tại tâm điểm A(x_A, y_A).
+     * Chân thang đặt chính xác tại tâm điểm C(x_C, y_C).
+     * Đường thẳng hình học nét đậm (stroke="#2563eb" stroke-width="3.5") nối trực tiếp từ A đến C dọc chính giữa thân thang.
+   - Ngọn hải đăng nhìn tàu / Tòa nhà cao tầng:
+     * Đỉnh hải đăng/tháp A(x_A, y_A), Chân tháp B(x_B, y_B), Vị trí thuyền/người ngắm C(x_C, y_C).
+     * Đường nằm ngang nét đứt Ax từ A thể hiện đường tham chiếu góc hạ. Cung góc hạ tại A và cung góc nâng tại C lồi chuẩn xác.
+
+3. DẠNG 3: BÀI TOÁN HÌNH HỌC PHẲNG & ĐƯỜNG TRÒN THUẦN TÚY:
+   - TUYỆT ĐỐI KHÔNG vẽ các chi tiết minh họa đời thực (không vẽ cây, không mặt đất, không mặt trời), chỉ vẽ hình học toán học chuẩn mực, sắc nét và sư phạm.
 
 IV. QUY TẮC VÙNG ĐỆM AN TOÀN & BỐ CỤC (SAFE BOUNDING BOX):
 - Tọa độ x: từ 50 đến 750 (viewBox rộng 800).
