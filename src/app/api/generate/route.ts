@@ -175,6 +175,17 @@ BẮT BUỘC VỀ ĐẦU RA:
 1. Đầu ra CHỈ LÀ MÃ SVG bắt đầu bằng '<svg' và kết thúc bằng '</svg>'. Không viết lời mở đầu, không kèm code markdown hay giải thích ngoài thẻ svg.
 2. Thẻ SVG gốc bắt buộc: <svg viewBox="0 0 800 500" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg">.
 
+QUY TẮC BẮT BUỘC VỀ VỊ TRÍ MẶT TRỜI (COLLINEAR SUN POSITION) TRONG BÀI TOÁN BÓNG NẮNG / TỈ SỐ LƯỢNG GIÁC:
+- Trong bài toán bóng mặt trời (Tam giác vuông ABC với B là chân vuông góc, A là ngọn vật thể (x_A, y_A), C là đỉnh mút của bóng trên mặt đất (x_C, y_C)):
+  + Đoạn thẳng CA chính là hướng của tia sáng mặt trời.
+  + Vị trí tâm Mặt Trời S(x_S, y_S) BẮT BUỘC phải nằm trên ĐƯỜNG THẲNG KÉO DÀI từ C qua A về phía trên bầu trời (thỏa mãn hệ thức vector CS = k * CA với k ≈ 1.3 - 1.5).
+  + Công thức tọa độ tâm Mặt Trời S:
+    x_S = x_A + (x_A - x_C) * 0.4
+    y_S = y_A + (y_A - y_C) * 0.4
+  + TUYỆT ĐỐI KHÔNG đặt Mặt Trời ở vị trí ngẫu nhiên không thẳng hàng với tia sáng CA.
+  + Tia nắng nối dài: Dùng <line x1="x_S" y1="y_S" x2="x_C" y2="y_C" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6 4" /> kéo dài từ tâm Mặt Trời S xuyên qua ngọn A đến tận điểm C.
+  + Icon Mặt Trời: Đặt chính xác tại tâm S(x_S, y_S) với <circle cx="x_S" cy="y_S" r="22" fill="#fbbf24" stroke="#d97706" stroke-width="2" /> kèm các tia sáng ngắn xung quanh tâm S.
+
 CẤU TRÚC PHÂN LỚP BẮT BUỘC (SVG LAYERING ARCHITECTURE):
 Mỗi bản vẽ SVG bài toán thực tế PHẢI bao gồm 2 LỚP rõ rệt:
 
@@ -187,7 +198,7 @@ LỚP 1: HÌNH HỌC TOÁN HỌC CHÍNH (BẮT BUỘC - NẰM TRÊN CÙNG, VẼ 
 - Đường kích thước số đo: Thể hiện rõ các số đo đề bài đã cho hoặc cần tìm (ví dụ: '50m', '6m', 'd = ?', 'h = ?') nằm dọc theo cạnh tương ứng.
 
 LỚP 2: MINH HỌA TRỰC QUAN PHỤ (NẰM DƯỚI LÀM NỀN HỖ TRỢ):
-- Cây cối, ngọn hải đăng, tòa nhà, mặt trời, tia nắng, mặt đất/mặt biển chỉ đóng vai trò hình họa phụ, vẽ gọn gàng bên dưới/song song với khung hình học toán học, KHÔNG ĐƯỢC vẽ đè làm mất nét hay lu mờ tam giác hình học toán học chính.
+- Cây cối, ngọn hải đăng, tòa nhà, mặt trời S, mặt đất/mặt biển chỉ đóng vai trò hình họa phụ, vẽ gọn gàng bên dưới/song song với khung hình học toán học, KHÔNG ĐƯỢC vẽ đè làm mất nét hay lu mờ tam giác hình học toán học chính.
 
 QUY TẮC NGHIÊM NGẶT VỀ CHỮ (LOẠI BỎ TOÀN BỘ CHỮ THỪA):
 - TUYỆT ĐỐI KHÔNG chèn: Tiêu đề hình, lời giải bài toán, nội dung đề bài, tên đối tượng dài.
