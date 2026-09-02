@@ -156,36 +156,63 @@ Yêu cầu kỹ thuật đồ họa SVG:
     const MODEL_CASCADE = [
       process.env.GEMINI_MODEL || 'gemini-3.6-flash',
       'gemini-3.5-flash',
-      'gemini-2.5-flash',
     ].filter((v, i, a) => a.indexOf(v) === i);
 
     let response: any = null;
     let lastError: any = null;
     let usedModel = MODEL_CASCADE[0];
+    const maxRetriesPerModel = 2;
 
     for (const modelName of MODEL_CASCADE) {
-      try {
-        console.log(`[AI Cascade] Đang thử với model: ${modelName}...`);
-        response = await ai.models.generateContent({
-          model: modelName,
-          contents,
-          config: {
-            systemInstruction,
-            temperature: 0.1,
-          },
-        });
-        if (response?.text) {
-          usedModel = modelName;
-          console.log(`[AI Cascade] Thành công với model: ${modelName}`);
+      for (let attempt = 0; attempt <= maxRetriesPerModel; attempt++) {
+        try {
+          console.log(
+            `[AI Cascade] Đang thử với model: ${modelName} (Lần thử ${attempt + 1}/${maxRetriesPerModel + 1})...`
+          );
+          response = await ai.models.generateContent({
+            model: modelName,
+            contents,
+            config: {
+              systemInstruction,
+              temperature: 0.1,
+            },
+          });
+          if (response?.text) {
+            usedModel = modelName;
+            console.log(`[AI Cascade] Thành công với model: ${modelName}`);
+            break;
+          }
+        } catch (err: any) {
+          lastError = err;
+          const statusCode = err?.status || err?.statusCode || err?.response?.status;
+          const errMsg = String(err?.message || '').toLowerCase();
+
+          const isSpike =
+            statusCode === 503 ||
+            statusCode === 429 ||
+            errMsg.includes('503') ||
+            errMsg.includes('429') ||
+            errMsg.includes('high demand') ||
+            errMsg.includes('overloaded') ||
+            errMsg.includes('resource exhausted');
+
+          if (isSpike && attempt < maxRetriesPerModel) {
+            const delay = (attempt + 1) * 1200 + Math.random() * 500;
+            console.warn(
+              `[AI Cascade] Model ${modelName} gặp lỗi tạm thời (${statusCode || 'Spike'}). Thử lại sau ${Math.round(delay)}ms...`
+            );
+            await new Promise((res) => setTimeout(res, delay));
+            continue;
+          }
+
+          console.warn(
+            `[AI Cascade] Model ${modelName} gặp lỗi (${statusCode || 'Unknown'}): ${err?.message || ''}. Chuyển model kế tiếp trong chuỗi cascade...`
+          );
           break;
         }
-      } catch (err: any) {
-        lastError = err;
-        const statusCode = err?.status || err?.statusCode || err?.response?.status;
-        const errMsg = err?.message || '';
-        console.warn(
-          `[AI Cascade] Model ${modelName} gặp lỗi (${statusCode || 'Unknown'}): ${errMsg}. Tự động chuyển model kế tiếp trong chuỗi cascade...`
-        );
+      }
+      if (response?.text) {
+        break;
       }
     }
 
