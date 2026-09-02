@@ -974,7 +974,24 @@ export default function HomePage() {
 
       {/* TAB 1: Vẽ hình học AI */}
       <div className={mainTab === 'geometry' ? 'block' : 'hidden'}>
-        <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
+        {/* Floating/Action Pill Button for Collection */}
+        <div className="max-w-7xl w-full mx-auto px-4 lg:px-6 pt-3 pb-1 flex justify-end print:hidden">
+          <button
+            type="button"
+            onClick={() => setIsHistoryDrawerOpen(!isHistoryDrawerOpen)}
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-xs hover:border-indigo-500 text-xs font-semibold text-slate-700 dark:text-slate-200 transition-colors cursor-pointer"
+            title="Bật/tắt thanh Bộ sưu tập bên phải"
+          >
+            <FolderClock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+            <span>Bộ sưu tập ({historyItems.length})</span>
+            <span className="text-slate-400 text-[10px] font-mono">{isHistoryDrawerOpen ? '▶' : '◀'}</span>
+          </button>
+        </div>
+
+        {/* Flex Push Container */}
+        <div className="max-w-7xl w-full mx-auto p-4 lg:p-6 pt-2 relative flex gap-6 overflow-hidden transition-all duration-300">
+          {/* 1. KHU VỰC VẼ HÌNH CHÍNH (Tự co giãn khi panel mở/đóng) */}
+          <main className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10 transition-all duration-300">
         {/* LEFT COLUMN: Input & Upload & Styles (5 Cols) */}
         <section className="lg:col-span-5 flex flex-col gap-5">
           {/* Preset Buttons */}
@@ -1207,22 +1224,6 @@ export default function HomePage() {
                   <span>{isEditMode ? 'Đang Chỉnh sửa' : 'Chỉnh sửa trực tiếp'}</span>
                 </button>
 
-                {/* Collection Button on Canvas Toolbar */}
-                <button
-                  type="button"
-                  onClick={() => setIsHistoryDrawerOpen(true)}
-                  className="px-2.5 py-1.5 rounded-lg bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 border border-indigo-200 dark:border-indigo-800/80 text-indigo-700 dark:text-indigo-300 text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer shadow-xs"
-                  title="Mở Bộ sưu tập & Lịch sử hình vẽ đã tạo"
-                >
-                  <FolderClock className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Bộ sưu tập</span>
-                  {historyItems.length > 0 && (
-                    <span className="px-1.5 py-0.5 rounded-full bg-indigo-600 text-[10px] text-white font-bold leading-none">
-                      {historyItems.length}
-                    </span>
-                  )}
-                </button>
-
                 <button
                   onClick={handleCopySVG}
                   disabled={!svgOutput || isGenerating}
@@ -1418,6 +1419,162 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+
+      {/* 2. PANEL BỘ SƯU TẬP (Trượt ra đẩy nội dung sang trái, không có backdrop làm mờ) */}
+      <aside
+        className={`transition-all duration-300 ease-in-out border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col shrink-0 ${
+          isHistoryDrawerOpen
+            ? 'w-80 sm:w-96 opacity-100 p-4 shadow-lg sticky top-20 max-h-[calc(100vh-140px)] z-20'
+            : 'w-0 p-0 m-0 border-none opacity-0 pointer-events-none hidden'
+        }`}
+      >
+        {isHistoryDrawerOpen && (
+          <div className="w-full flex flex-col h-full min-h-0">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <FolderClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+                <span className="font-bold text-sm text-slate-900 dark:text-slate-100">
+                  Hình vẽ đã lưu ({historyItems.length})
+                </span>
+              </div>
+              <div className="flex items-center gap-1">
+                {historyItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleClearAllHistory}
+                    className="text-[10px] text-rose-500 hover:text-rose-600 dark:hover:text-rose-400 px-2 py-1 rounded hover:bg-rose-500/10 transition cursor-pointer font-medium"
+                    title="Xóa toàn bộ"
+                  >
+                    Xóa hết
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setIsHistoryDrawerOpen(false)}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
+                  title="Đóng panel"
+                >
+                  Đóng ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Filter and Search Bar */}
+            <div className="flex flex-col gap-2 pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="relative w-full">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={historySearch}
+                  onChange={(e) => setHistorySearch(e.target.value)}
+                  placeholder="Tìm kiếm hình vẽ..."
+                  className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-indigo-500 transition"
+                />
+              </div>
+
+              <div className="flex items-center gap-1 overflow-x-auto w-full pb-1">
+                {TOPIC_CATEGORIES.map((topic) => (
+                  <button
+                    key={topic}
+                    onClick={() => setSelectedTopic(topic)}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] whitespace-nowrap font-medium transition cursor-pointer ${
+                      selectedTopic === topic
+                        ? 'bg-indigo-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {topic.startsWith('Toán') ? topic.split(' - ')[0] : topic}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* List of items */}
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {filteredHistory.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
+                  <FolderOpen className="w-7 h-7 mb-2 text-slate-300 dark:text-slate-600" />
+                  <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
+                    Không có hình vẽ nào
+                  </p>
+                </div>
+              ) : (
+                filteredHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="group bg-slate-50/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 rounded-xl p-2.5 flex flex-col gap-2 transition shadow-xs hover:shadow-sm"
+                  >
+                    {/* SVG Thumbnail Container */}
+                    <div className="w-full h-28 bg-white rounded-lg border border-slate-200 dark:border-slate-700/80 p-1 flex items-center justify-center overflow-hidden relative shadow-2xs">
+                      <div
+                        className="w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-auto [&>svg]:h-auto pointer-events-none"
+                        dangerouslySetInnerHTML={{ __html: item.svgCode }}
+                      />
+                      <span className="absolute top-1.5 left-1.5 text-[8px] px-1.5 py-0.2 rounded-full bg-slate-900/80 backdrop-blur-xs text-slate-200 font-semibold">
+                        {item.topic.split(' - ')[0]}
+                      </span>
+                    </div>
+
+                    {/* Info & Actions */}
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
+                        {item.title}
+                      </h4>
+                      <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
+                        {item.promptText}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[9px] text-slate-400 border-t border-slate-200/80 dark:border-slate-800/80 pt-1.5 mt-0.5">
+                      <span>{new Date(item.timestamp).toLocaleDateString('vi-VN')}</span>
+
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(item.svgCode);
+                            setHistoryCardCopiedId(item.id);
+                            setTimeout(() => setHistoryCardCopiedId(null), 2000);
+                          }}
+                          className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer"
+                          title="Copy mã SVG"
+                        >
+                          {historyCardCopiedId === item.id ? (
+                            <Check className="w-3 h-3 text-emerald-500" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={(e) => handleDeleteHistoryItem(item.id, e)}
+                          className="p-1 rounded hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition cursor-pointer"
+                          title="Xóa hình này"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleLoadFromHistory(item)}
+                          className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[10px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
+                        >
+                          <span>Mở</span>
+                          <ArrowUpRight className="w-2.5 h-2.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+      </aside>
+      </div>
       </div>
 
       {/* TAB 2: Soạn giáo án tự động */}
@@ -1512,190 +1669,6 @@ export default function HomePage() {
                     </>
                   )}
                 </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Feature 2: Personal History & Subject Library Slide-over Drawer */}
-      {isHistoryDrawerOpen && (
-        <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Backdrop */}
-          <div
-            className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity duration-300"
-            onClick={() => setIsHistoryDrawerOpen(false)}
-          />
-
-          <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-            <div className="w-screen max-w-md sm:max-w-lg lg:max-w-xl bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col h-full z-10 animate-in slide-in-from-right duration-300">
-              {/* Drawer Header */}
-              <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-950/50">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
-                    <FolderClock className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h3 className="text-base font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                      Bộ Sưu Tập & Lịch Sử Hình Vẽ
-                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-500/10 border border-indigo-500/30 text-indigo-600 dark:text-indigo-400 font-semibold">
-                        {historyItems.length} hình đã lưu
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Tra cứu, nạp lại và sử dụng các hình vẽ hình học
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  {historyItems.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={handleClearAllHistory}
-                      className="px-2.5 py-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-medium transition flex items-center gap-1.5 cursor-pointer"
-                      title="Xóa toàn bộ lịch sử"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Xóa tất cả</span>
-                    </button>
-                  )}
-                  <button
-                    onClick={() => setIsHistoryDrawerOpen(false)}
-                    className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 transition cursor-pointer"
-                    title="Đóng ngăn kéo"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Filter and Search Bar */}
-              <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex flex-col gap-3 bg-slate-50/40 dark:bg-slate-950/30">
-                {/* Search input */}
-                <div className="relative w-full">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={historySearch}
-                    onChange={(e) => setHistorySearch(e.target.value)}
-                    placeholder="Tìm kiếm theo tên bài hoặc từ khóa..."
-                    className="w-full pl-9 pr-4 py-2 rounded-xl bg-white dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 outline-none focus:border-indigo-500 transition shadow-xs"
-                  />
-                </div>
-
-                {/* Topic Select Pills */}
-                <div className="flex items-center gap-1.5 overflow-x-auto w-full pb-1">
-                  {TOPIC_CATEGORIES.map((topic) => (
-                    <button
-                      key={topic}
-                      onClick={() => setSelectedTopic(topic)}
-                      className={`px-3 py-1.5 rounded-xl text-xs whitespace-nowrap font-medium transition cursor-pointer ${
-                        selectedTopic === topic
-                          ? 'bg-indigo-600 text-white shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                      }`}
-                    >
-                      {topic.startsWith('Toán') ? topic.split(' - ')[0] : topic}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Gallery List (Scrollable) */}
-              <div className="flex-1 overflow-y-auto p-4">
-                {filteredHistory.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-16 text-center text-slate-400">
-                    <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 mb-3">
-                      <FolderOpen className="w-8 h-8" />
-                    </div>
-                    <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">
-                      Không tìm thấy hình vẽ nào
-                    </p>
-                    <p className="text-xs text-slate-400 mt-1 max-w-xs">
-                      {historySearch || selectedTopic !== 'Tất cả'
-                        ? 'Thử thay đổi từ khóa tìm kiếm hoặc bỏ chọn bộ lọc chủ đề.'
-                        : 'Các mô hình hình học bạn tạo sẽ tự động được lưu trữ và hiển thị tại đây.'}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                    {filteredHistory.map((item) => (
-                      <div
-                        key={item.id}
-                        className="group bg-white dark:bg-slate-950/80 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 rounded-2xl p-3 flex flex-col gap-2.5 transition shadow-sm hover:shadow-md"
-                      >
-                        {/* SVG Thumbnail Container - Always White to preserve drawing contrast */}
-                        <div className="w-full h-32 bg-white rounded-xl border border-slate-200 dark:border-slate-700/80 p-2 flex items-center justify-center overflow-hidden relative shadow-xs">
-                          <div
-                            className="w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-auto [&>svg]:h-auto pointer-events-none"
-                            dangerouslySetInnerHTML={{ __html: item.svgCode }}
-                          />
-                          <span className="absolute top-2 left-2 text-[9px] px-2 py-0.5 rounded-full bg-slate-900/80 backdrop-blur-sm text-slate-200 font-semibold border border-slate-700">
-                            {item.topic.split(' - ')[0]}
-                          </span>
-                        </div>
-
-                        {/* Info */}
-                        <div className="flex-1 flex flex-col justify-between">
-                          <div>
-                            <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
-                              {item.title}
-                            </h4>
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2 mt-0.5">
-                              {item.promptText}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center justify-between text-[9px] text-slate-400 border-t border-slate-100 dark:border-slate-800/80 pt-2 mt-2">
-                            <span>{new Date(item.timestamp).toLocaleDateString('vi-VN')}</span>
-
-                            <div className="flex items-center gap-1">
-                              {/* Copy button */}
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  navigator.clipboard.writeText(item.svgCode);
-                                  setHistoryCardCopiedId(item.id);
-                                  setTimeout(() => setHistoryCardCopiedId(null), 2000);
-                                }}
-                                className="p-1 rounded hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer"
-                                title="Copy mã SVG"
-                              >
-                                {historyCardCopiedId === item.id ? (
-                                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                                ) : (
-                                  <Copy className="w-3.5 h-3.5" />
-                                )}
-                              </button>
-
-                              {/* Delete button */}
-                              <button
-                                type="button"
-                                onClick={(e) => handleDeleteHistoryItem(item.id, e)}
-                                className="p-1 rounded hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition cursor-pointer"
-                                title="Xóa hình này"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-
-                              {/* Open button */}
-                              <button
-                                type="button"
-                                onClick={() => handleLoadFromHistory(item)}
-                                className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[10px] transition flex items-center gap-1 shadow-xs cursor-pointer"
-                              >
-                                <span>Mở</span>
-                                <ArrowUpRight className="w-3 h-3" />
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             </div>
           </div>
