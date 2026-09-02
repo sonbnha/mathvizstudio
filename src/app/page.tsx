@@ -34,7 +34,7 @@ import {
   BookmarkCheck,
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
-import { CHANGELOG } from '@/config/changelog';
+import { CHANGELOG, mergeAndSortChangelogs } from '@/config/changelog';
 
 const PRESETS = [
   {
@@ -200,7 +200,7 @@ export default function HomePage() {
           try {
             const data = JSON.parse(text);
             if (data && Array.isArray(data.changelogs) && data.changelogs.length > 0) {
-              setChangelogList(data.changelogs);
+              setChangelogList(() => mergeAndSortChangelogs(CHANGELOG, data.changelogs));
             }
           } catch (e) {
             console.warn('Error parsing changelogs, keeping static CHANGELOG:', e);

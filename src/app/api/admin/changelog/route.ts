@@ -19,25 +19,26 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Ensure all static initial releases exist in database
+    // Ensure all static initial releases exist and are up-to-date in database (UPSERT)
     for (const item of [...CHANGELOG].reverse()) {
       try {
-        const existing = await prisma.changelog.findUnique({
+        await prisma.changelog.upsert({
           where: { version: item.version },
+          update: {
+            date: item.date,
+            title: item.title,
+            changes: item.changes,
+          },
+          create: {
+            version: item.version,
+            date: item.date,
+            title: item.title,
+            changes: item.changes,
+            isPublished: true,
+          },
         });
-        if (!existing) {
-          await prisma.changelog.create({
-            data: {
-              version: item.version,
-              date: item.date,
-              title: item.title,
-              changes: item.changes,
-              isPublished: true,
-            },
-          });
-        }
       } catch {
-        // ignore duplicate
+        // ignore race conditions
       }
     }
 
@@ -47,7 +48,9 @@ export async function GET(req: NextRequest) {
 
     const sorted = sortChangelogsList(changelogs);
 
-    return NextResponse.json({ changelogs: sorted });
+    const response = NextResponse.json({ changelogs: sorted });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    return response;
   } catch (error: any) {
     console.error('Error fetching admin changelogs:', error);
     return NextResponse.json(

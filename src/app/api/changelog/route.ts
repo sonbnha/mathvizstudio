@@ -8,25 +8,26 @@ export const revalidate = 0;
 
 export async function GET() {
   try {
-    // 1. Ensure all static initial releases exist in database
+    // 1. Ensure all static initial releases exist and are up-to-date in database (UPSERT)
     for (const item of [...CHANGELOG].reverse()) {
       try {
-        const existing = await prisma.changelog.findUnique({
+        await prisma.changelog.upsert({
           where: { version: item.version },
+          update: {
+            date: item.date,
+            title: item.title,
+            changes: item.changes,
+          },
+          create: {
+            version: item.version,
+            date: item.date,
+            title: item.title,
+            changes: item.changes,
+            isPublished: true,
+          },
         });
-        if (!existing) {
-          await prisma.changelog.create({
-            data: {
-              version: item.version,
-              date: item.date,
-              title: item.title,
-              changes: item.changes,
-              isPublished: true,
-            },
-          });
-        }
       } catch {
-        // ignore duplicate
+        // ignore race conditions
       }
     }
 

@@ -109,3 +109,38 @@ export function sortChangelogsList<T extends { version: string; date: string; cr
     return 0;
   });
 }
+
+export function mergeAndSortChangelogs(
+  baseList: VersionRelease[],
+  incomingList: any[]
+): VersionRelease[] {
+  const map = new Map<string, VersionRelease>();
+
+  // 1. First add base static items
+  for (const item of baseList) {
+    map.set(item.version, item);
+  }
+
+  // 2. Merge incoming items from DB
+  for (const inc of incomingList) {
+    if (!inc || !inc.version) continue;
+    const base = map.get(inc.version);
+    if (base) {
+      map.set(inc.version, {
+        ...base,
+        title: inc.title || base.title,
+        date: inc.date || base.date,
+        changes: Array.isArray(inc.changes) && inc.changes.length > 0 ? inc.changes : base.changes,
+      });
+    } else {
+      map.set(inc.version, {
+        version: inc.version,
+        title: inc.title || '',
+        date: inc.date || '',
+        changes: Array.isArray(inc.changes) ? inc.changes : [],
+      });
+    }
+  }
+
+  return sortChangelogsList(Array.from(map.values()));
+}
