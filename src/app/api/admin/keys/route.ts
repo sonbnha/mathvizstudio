@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
-function generateRandomKey(): string {
-  const p1 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'X');
-  const p2 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'Y');
-  const p3 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'Z');
-  return `MV-${p1}-${p2}-${p3}`;
+function generateRandomKey(type: 'VIP' | 'TRIAL' = 'VIP'): string {
+  const p1 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'A');
+  const p2 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'B');
+  if (type === 'TRIAL') {
+    return `MV-TR-${p1}-${p2}`;
+  }
+  return `MV-VIP-${p1}-${p2}`;
 }
 
 // GET: Fetch license keys (All for ADMIN, own keys for STAFF)
@@ -54,7 +56,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { customerName, totalCredits = 50, durationDays = 0, customKey, note } = body;
+    const { customerName, totalCredits = 50, durationDays = 0, customKey, note, keyType = 'VIP' } = body;
 
     // Fetch fresh user data with key count from database
     const user = await prisma.user.findUnique({
@@ -82,8 +84,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const effectiveType: 'VIP' | 'TRIAL' = keyType === 'TRIAL' ? 'TRIAL' : 'VIP';
+
     // Auto generate unique key if not provided
-    let keyString = customKey?.trim() ? customKey.trim().toUpperCase() : generateRandomKey();
+    let keyString = customKey?.trim() ? customKey.trim().toUpperCase() : generateRandomKey(effectiveType);
     
     // Check collision and regenerate if needed
     let attempts = 0;
@@ -92,7 +96,7 @@ export async function POST(req: NextRequest) {
         where: { key: keyString },
       });
       if (!existing) break;
-      keyString = generateRandomKey();
+      keyString = generateRandomKey(effectiveType);
       attempts++;
     }
 

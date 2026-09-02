@@ -131,6 +131,7 @@ interface LicenseCheckResult {
   valid: boolean;
   message?: string;
   customerName?: string | null;
+  keyType?: 'trial' | 'vip';
   totalCredits?: number;
   usedCredits?: number;
   remainingCredits?: number | string;
@@ -922,28 +923,61 @@ export default function HomePage() {
         <div className="flex items-center gap-2.5">
           {/* License Key & Live Status Badge (Collapsible when activated) */}
           {licenseStatus?.valid && !isLicenseExpanded ? (
-            /* Collapsed VIP Active Badge */
-            <button
-              type="button"
-              onClick={() => setIsLicenseExpanded(true)}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
-              title="Bấm để xem chi tiết hoặc thay đổi License Key"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="flex items-center gap-1 font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
-                <Key className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                {maskKey(licenseKey)}
-              </span>
-              <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 font-medium">
-                {customerName ? `👋 ${customerName}` : 'VIP'} •{' '}
-                {licenseStatus.totalCredits === -1
-                  ? 'Vĩnh viễn'
-                  : `Còn ${licenseStatus.remainingCredits} lượt`}
-              </span>
-              <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition font-normal ml-0.5">
-                ⚙️ Đổi key
-              </span>
-            </button>
+            /* Collapsed Active Badge (Trial vs VIP) */
+            (() => {
+              const isTrial =
+                licenseStatus.keyType === 'trial' ||
+                licenseKey.toUpperCase().startsWith('MV-TR-') ||
+                licenseKey.toUpperCase().includes('TRIAL') ||
+                licenseKey.toUpperCase().includes('-TR-');
+
+              return isTrial ? (
+                /* Collapsed Trial Badge */
+                <button
+                  type="button"
+                  onClick={() => setIsLicenseExpanded(true)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-sky-300/80 dark:border-sky-700/60 bg-sky-50/90 hover:bg-sky-100/90 dark:bg-sky-950/50 dark:hover:bg-sky-900/60 text-sky-800 dark:text-sky-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
+                  title="Bấm để xem chi tiết hoặc thay đổi License Key"
+                >
+                  <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
+                  <span className="flex items-center gap-1 font-mono text-[11px] text-sky-700 dark:text-sky-400">
+                    🧪 Trial: {maskKey(licenseKey)}
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-sky-200/60 dark:bg-sky-900/60 text-sky-900 dark:text-sky-200 font-medium">
+                    {customerName ? `${customerName} • ` : ''}
+                    {licenseStatus.totalCredits === -1
+                      ? 'Dùng thử'
+                      : `Còn ${licenseStatus.remainingCredits} lượt`}
+                  </span>
+                  <span className="text-[10px] text-sky-600/70 dark:text-sky-400/70 group-hover:text-sky-800 dark:group-hover:text-sky-200 transition font-normal ml-0.5">
+                    ⚙️ Đổi key
+                  </span>
+                </button>
+              ) : (
+                /* Collapsed VIP Badge */
+                <button
+                  type="button"
+                  onClick={() => setIsLicenseExpanded(true)}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
+                  title="Bấm để xem chi tiết hoặc thay đổi License Key"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  <span className="flex items-center gap-1 font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
+                    <Key className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                    VIP: {maskKey(licenseKey)}
+                  </span>
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 font-medium">
+                    {customerName ? `👋 ${customerName}` : 'VIP'} •{' '}
+                    {licenseStatus.totalCredits === -1
+                      ? 'Vĩnh viễn'
+                      : `Còn ${licenseStatus.remainingCredits} lượt`}
+                  </span>
+                  <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition font-normal ml-0.5">
+                    ⚙️ Đổi key
+                  </span>
+                </button>
+              );
+            })()
           ) : (
             /* Expanded / Unactivated Form */
             <div className="flex flex-wrap items-center gap-2 bg-slate-100/90 dark:bg-slate-950/70 p-1.5 pl-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all animate-in fade-in duration-200">
@@ -958,7 +992,7 @@ export default function HomePage() {
                   onChange={handleKeyChange}
                   onBlur={() => checkLicenseKey()}
                   onKeyDown={(e) => e.key === 'Enter' && checkLicenseKey()}
-                  placeholder="Nhập Key (vd: MV-TRIAL-1234)"
+                  placeholder="Nhập Key (vd: MV-VIP-xxxx / MV-TR-xxxx)"
                   className="bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700/70 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-xs px-2.5 py-1.5 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition w-36 sm:w-44 font-mono shadow-sm dark:shadow-none"
                 />
                 <button
@@ -989,19 +1023,44 @@ export default function HomePage() {
                   <span>Đang kiểm tra...</span>
                 </div>
               ) : licenseStatus.valid ? (
-                <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:text-emerald-300 shadow-sm">
-                  <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                  <span className="font-semibold">
-                    {customerName ? `👋 Chào ${customerName} • ` : ''}
-                    {licenseStatus.totalCredits === -1
-                      ? `VIP: Không giới hạn (${
-                          licenseStatus.expiresAt
-                            ? `Hạn: ${new Date(licenseStatus.expiresAt).toLocaleDateString('vi-VN')}`
-                            : 'Vĩnh viễn'
-                        })`
-                      : `VIP: Còn ${licenseStatus.remainingCredits}/${licenseStatus.totalCredits} lượt`}
-                  </span>
-                </div>
+                (() => {
+                  const isTrial =
+                    licenseStatus.keyType === 'trial' ||
+                    licenseKey.toUpperCase().startsWith('MV-TR-') ||
+                    licenseKey.toUpperCase().includes('TRIAL') ||
+                    licenseKey.toUpperCase().includes('-TR-');
+
+                  return isTrial ? (
+                    /* Expanded Trial Badge */
+                    <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-800 dark:bg-sky-950/40 dark:border-sky-500/30 dark:text-sky-300 shadow-sm">
+                      <span className="text-sky-600 dark:text-sky-400">🧪</span>
+                      <span className="font-semibold">
+                        {customerName ? `👋 Chào ${customerName} • ` : ''}
+                        {licenseStatus.totalCredits === -1
+                          ? 'Dùng thử: Không giới hạn'
+                          : `Dùng thử: Còn ${licenseStatus.remainingCredits}/${licenseStatus.totalCredits} lượt`}
+                        {licenseStatus.expiresAt
+                          ? ` (Hạn: ${new Date(licenseStatus.expiresAt).toLocaleDateString('vi-VN')})`
+                          : ''}
+                      </span>
+                    </div>
+                  ) : (
+                    /* Expanded VIP Badge */
+                    <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:text-emerald-300 shadow-sm">
+                      <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                      <span className="font-semibold">
+                        {customerName ? `👋 Chào ${customerName} • ` : ''}
+                        {licenseStatus.totalCredits === -1
+                          ? `VIP: Không giới hạn (${
+                              licenseStatus.expiresAt
+                                ? `Hạn: ${new Date(licenseStatus.expiresAt).toLocaleDateString('vi-VN')}`
+                                : 'Vĩnh viễn'
+                            })`
+                          : `VIP: Còn ${licenseStatus.remainingCredits}/${licenseStatus.totalCredits} lượt`}
+                      </span>
+                    </div>
+                  );
+                })()
               ) : (
                 <div className="text-xs px-2.5 py-1 rounded-lg font-medium bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />

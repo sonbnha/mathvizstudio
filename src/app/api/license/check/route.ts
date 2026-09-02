@@ -55,9 +55,17 @@ export async function POST(req: NextRequest) {
         ? 'Vô hạn'
         : Math.max(0, keyRecord.totalCredits - keyRecord.usedCredits);
 
+    const upperKey = keyRecord.key.toUpperCase();
+    const isTrial =
+      upperKey.startsWith('MV-TR-') ||
+      upperKey.includes('TRIAL') ||
+      upperKey.includes('-TR-');
+    const keyType: 'trial' | 'vip' = isTrial ? 'trial' : 'vip';
+
     return NextResponse.json({
       valid: true,
       customerName: keyRecord.customerName,
+      keyType,
       totalCredits: keyRecord.totalCredits,
       usedCredits: keyRecord.usedCredits,
       remainingCredits: remaining,

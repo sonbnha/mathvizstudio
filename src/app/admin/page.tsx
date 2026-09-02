@@ -147,6 +147,7 @@ export default function UnifiedAdminPage() {
   };
 
   // New Key Form State
+  const [keyPackageType, setKeyPackageType] = useState<'VIP' | 'TRIAL'>('VIP');
   const [customerName, setCustomerName] = useState('');
   const [isUnlimitedCredits, setIsUnlimitedCredits] = useState(false);
   const [customCreditCount, setCustomCreditCount] = useState<number>(50);
@@ -402,6 +403,7 @@ export default function UnifiedAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerName: customerName.trim(),
+          keyType: keyPackageType,
           totalCredits: isUnlimitedCredits ? -1 : Number(customCreditCount) || 50,
           durationDays,
           note: keyNote.trim(),
@@ -429,6 +431,7 @@ export default function UnifiedAdminPage() {
       // 4. Reset form
       setCustomerName('');
       setKeyNote('');
+      setKeyPackageType('VIP');
       setIsUnlimitedCredits(false);
       setCustomCreditCount(50);
       setDurationDays(0);
@@ -1638,6 +1641,15 @@ export default function UnifiedAdminPage() {
                           <tr key={k.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-950/50 transition">
                             <td className="py-2.5 px-4 font-mono text-xs whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5 font-mono text-xs">
+                                {k.key.startsWith('MV-TR-') || k.key.includes('TRIAL') ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-300 font-bold">
+                                    Trial
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold">
+                                    VIP
+                                  </span>
+                                )}
                                 <span
                                   onClick={() => toggleRevealKey(k.id)}
                                   title={revealedKeyIds.has(k.id) ? "Bấm để ẩn mã key" : `Mã Key: ${k.key} (Bấm để xem đầy đủ)`}
@@ -1720,6 +1732,46 @@ export default function UnifiedAdminPage() {
                 </div>
 
                 <form onSubmit={handleCreateKey} className="flex flex-col gap-4.5">
+                  {/* Phân Loại Gói Key: VIP vs Dùng thử (Trial) */}
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                      <span>Phân Loại Gói Bản Quyền</span>
+                    </label>
+                    <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-950 p-1 rounded-xl border border-slate-200 dark:border-slate-800">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setKeyPackageType('VIP');
+                          if (customCreditCount === 15) setCustomCreditCount(50);
+                        }}
+                        className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          keyPackageType === 'VIP'
+                            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <span>👑 Gói VIP</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setKeyPackageType('TRIAL');
+                          setIsUnlimitedCredits(false);
+                          setCustomCreditCount(15);
+                          setDurationDays(7);
+                        }}
+                        className={`py-2 px-3 rounded-lg text-xs font-bold transition flex items-center justify-center gap-1.5 cursor-pointer ${
+                          keyPackageType === 'TRIAL'
+                            ? 'bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-xs'
+                            : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                        }`}
+                      >
+                        <span>🧪 Gói Dùng Thử (Trial)</span>
+                      </button>
+                    </div>
+                  </div>
+
                   {/* Customer Name */}
                   <div className="flex flex-col gap-1.5">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -1985,6 +2037,15 @@ export default function UnifiedAdminPage() {
                             {/* 2. Mã Key (Masked Display & Toggle Reveal) */}
                             <td className="px-2.5 py-3 whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5 font-mono text-xs whitespace-nowrap">
+                                {k.key.startsWith('MV-TR-') || k.key.includes('TRIAL') ? (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-300 font-bold">
+                                    Trial
+                                  </span>
+                                ) : (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold">
+                                    VIP
+                                  </span>
+                                )}
                                 <span
                                   onClick={() => toggleRevealKey(k.id)}
                                   title={revealedKeyIds.has(k.id) ? "Bấm để ẩn mã key" : `Mã Key: ${k.key} (Bấm để xem đầy đủ)`}
