@@ -968,7 +968,7 @@ export default function HomePage() {
         </div>
 
         {/* Header Right: License Key + Library + Theme Toggle */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* License Key & Live Status Badge (Collapsible when activated) */}
           {licenseStatus?.valid && !isLicenseExpanded ? (
             /* Collapsed Active Badge (Trial vs VIP) */
@@ -984,7 +984,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setIsLicenseExpanded(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/90 hover:bg-sky-100/90 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
+                  className="h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/90 hover:bg-sky-100/90 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
                   title="Bấm để xem chi tiết hoặc thay đổi License Key"
                 >
                   <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
@@ -1006,7 +1006,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setIsLicenseExpanded(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
+                  className="h-9 inline-flex items-center justify-center gap-2 px-3 rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
                   title="Bấm để xem chi tiết hoặc thay đổi License Key"
                 >
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -1061,12 +1061,12 @@ export default function HomePage() {
 
               {/* Badge Info Status */}
               {!licenseKey.trim() || licenseStatus === null ? (
-                <div className="text-xs px-2.5 py-1 rounded-lg font-medium bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
+                <div className="h-9 text-xs px-2.5 rounded-xl font-medium bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5">
                   <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
                   <span>Chưa kích hoạt</span>
                 </div>
               ) : isCheckingLicense ? (
-                <div className="text-xs px-2.5 py-1 rounded-lg font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 flex items-center gap-1.5">
+                <div className="h-9 text-xs px-2.5 rounded-xl font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 flex items-center justify-center gap-1.5">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-600 dark:text-cyan-400" />
                   <span>Đang kiểm tra...</span>
                 </div>
@@ -1080,7 +1080,7 @@ export default function HomePage() {
 
                   return isTrial ? (
                     /* Expanded Trial Badge */
-                    <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300 shadow-sm">
+                    <div className="h-9 text-xs px-3 rounded-xl font-medium flex items-center justify-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300 shadow-sm">
                       <span className="text-sky-600 dark:text-sky-400 font-bold">🧪</span>
                       <span className="font-semibold">
                         {customerName ? `Chào ${customerName} • ` : ''}
@@ -1094,7 +1094,7 @@ export default function HomePage() {
                     </div>
                   ) : (
                     /* Expanded VIP Badge */
-                    <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:text-emerald-300 shadow-sm">
+                    <div className="h-9 text-xs px-3 rounded-xl font-medium flex items-center justify-center gap-1.5 transition-colors bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:text-emerald-300 shadow-sm">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       <span className="font-semibold">
                         {customerName ? `👋 Chào ${customerName} • ` : ''}
@@ -1110,7 +1110,7 @@ export default function HomePage() {
                   );
                 })()
               ) : (
-                <div className="text-xs px-2.5 py-1 rounded-lg font-medium bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center gap-1.5">
+                <div className="h-9 text-xs px-2.5 rounded-xl font-medium bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                   <span>{licenseStatus.message || 'Key không hợp lệ'}</span>
                 </div>
@@ -1122,20 +1122,18 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => openApiKeyModal()}
-            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition shadow-xs cursor-pointer ${
-              isCustomKeyActive
-                ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
-                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80'
-            }`}
+            className="h-9 inline-flex items-center justify-center gap-2 px-3.5 rounded-xl text-xs font-medium border bg-slate-100 hover:bg-slate-200/90 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border-slate-200 dark:border-slate-700/60 hover:border-sky-500/40 dark:hover:border-sky-500/40 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all shadow-xs cursor-pointer group"
             title="Cấu hình Gemini API Key cá nhân (khi hệ thống quá tải)"
           >
-            <Key className={`w-3.5 h-3.5 ${isCustomKeyActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`} />
+            <Key className="w-3.5 h-3.5 text-sky-500 dark:text-sky-400 group-hover:rotate-12 transition-transform shrink-0" />
             <span className="hidden sm:inline">
               {isCustomKeyActive ? 'Key riêng' : 'Gemini Key'}
             </span>
             <span
-              className={`w-2 h-2 rounded-full ${
-                isCustomKeyActive ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'
+              className={`w-2 h-2 rounded-full shrink-0 transition-all ${
+                isCustomKeyActive
+                  ? 'bg-sky-400 shadow-[0_0_6px_rgba(56,189,248,0.6)] animate-pulse'
+                  : 'bg-slate-400 dark:bg-slate-500'
               }`}
             ></span>
           </button>
@@ -1144,7 +1142,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-amber-400 transition shadow-sm cursor-pointer"
+            className="h-9 w-9 rounded-xl bg-slate-100 hover:bg-slate-200/90 dark:bg-slate-900/60 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-700/60 hover:border-sky-500/40 dark:hover:border-sky-500/40 text-slate-700 dark:text-amber-400 transition-all shadow-xs cursor-pointer flex items-center justify-center"
             title={theme === 'dark' ? 'Chuyển sang chế độ Sáng' : 'Chuyển sang chế độ Tối'}
           >
             {theme === 'dark' ? (
