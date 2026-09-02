@@ -268,19 +268,19 @@ export const ApiKeyModal: React.FC = () => {
 
           {/* Step-by-Step Guide Box */}
           <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-200 dark:border-slate-800 space-y-2.5 text-xs text-slate-600 dark:text-slate-400">
-            <div className="flex items-center justify-between gap-3 pb-2.5 border-b border-slate-200 dark:border-slate-700/50">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-base shrink-0">📖</span>
-                <h4 className="text-sm font-semibold text-slate-800 dark:text-slate-200 truncate">
-                  Hướng dẫn lấy API Key miễn phí{' '}
-                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(chưa đầy 1 phút)</span>
-                </h4>
+            <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-slate-200 dark:border-slate-700/50">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📖</span>
+                <span className="text-sm font-semibold text-slate-800 dark:text-slate-200 whitespace-nowrap">
+                  Hướng dẫn lấy API Key{' '}
+                  <span className="text-xs font-normal text-slate-500 dark:text-slate-400">(1 phút)</span>
+                </span>
               </div>
               <a
                 href="https://aistudio.google.com/app/apikey"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="shrink-0 inline-flex items-center gap-1.5 text-xs font-medium text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2.5 py-1 rounded-lg transition-colors border border-sky-500/20 dark:border-sky-500/30"
+                className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-sky-600 dark:text-sky-400 hover:text-sky-700 dark:hover:text-sky-300 bg-sky-500/10 hover:bg-sky-500/20 px-2 py-1 rounded-md border border-sky-500/20 dark:border-sky-500/30 transition-colors"
               >
                 <span>Mở AI Studio</span>
                 <ExternalLink className="w-3 h-3 shrink-0" />
