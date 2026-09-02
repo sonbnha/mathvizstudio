@@ -970,11 +970,11 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* TAB 1: Vẽ hình học AI (Fixed 3-Column Studio Layout) */}
+      {/* TAB 1: Vẽ hình học AI (Fixed 3-Column Studio Dashboard Layout) */}
       <div className={mainTab === 'geometry' ? 'block' : 'hidden'}>
-        <div className="w-full px-4 md:px-6 py-3 min-h-[calc(100vh-80px)] flex flex-col lg:flex-row gap-4 items-start">
-          {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang) */}
-          <section className="w-full lg:w-[360px] xl:w-[380px] shrink-0 space-y-4">
+        <div className="w-full px-4 md:px-6 py-3 h-[calc(100vh-76px)] flex flex-col lg:flex-row gap-4 overflow-hidden">
+          {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang, h-full, cuộn độc lập) */}
+          <section className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full overflow-y-auto pr-1 space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col">
           {/* Preset Buttons */}
           <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg transition-colors">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
@@ -1165,108 +1165,106 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* CỘT 2: KHUNG VẼ CANVAS SVG (Tự nở rộng chiếm không gian chính) */}
-        <section className="flex-1 min-w-0 w-full flex flex-col gap-4">
-          {/* Main Canvas Box */}
-          <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg flex-1 flex flex-col min-h-[460px] transition-colors">
-            {/* Toolbar */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Khung Canvas SVG</span>
+        {/* CỘT 2: KHUNG VẼ CANVAS SVG (Tự nở rộng chiếm không gian chính, h-full) */}
+        <section className="flex-1 min-w-0 h-full flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+              <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">Khung Canvas SVG</span>
 
-                {/* Edit Mode Active Indicator */}
-                {isEditMode && (
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 font-semibold flex items-center gap-1 animate-pulse">
-                    <MousePointerClick className="w-3 h-3" />
-                    Kéo thả nhãn/điểm đang bật
-                  </span>
-                )}
-              </div>
-
-              {/* Action Tools */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                {/* Interactive Edit Mode Toggle Button */}
-                <button
-                  onClick={() => setIsEditMode(!isEditMode)}
-                  disabled={!svgOutput || isGenerating}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border ${
-                    isEditMode
-                      ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
-                      : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-transparent disabled:opacity-40'
-                  }`}
-                  title={
-                    isEditMode
-                      ? 'Tắt chế độ chỉnh sửa kéo thả'
-                      : 'Bật chế độ chỉnh sửa trực tiếp: Kéo thả nhãn số đo & tên điểm bằng chuột'
-                  }
-                >
-                  <MousePointerClick className="w-3.5 h-3.5" />
-                  <span>{isEditMode ? 'Đang Chỉnh sửa' : 'Chỉnh sửa trực tiếp'}</span>
-                </button>
-
-                <button
-                  onClick={handleCopySVG}
-                  disabled={!svgOutput || isGenerating}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1.5"
-                  title="Sao chép mã SVG"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
-                      <span className="text-emerald-600 dark:text-emerald-400">Đã chép!</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>Copy SVG</span>
-                    </>
-                  )}
-                </button>
-
-                <button
-                  onClick={handleDownloadSVG}
-                  disabled={!svgOutput || isGenerating}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1.5"
-                  title="Tải file .svg"
-                >
-                  <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                  <span>Tải SVG</span>
-                </button>
-
-                <button
-                  onClick={() => handleDownloadPNG(2)}
-                  disabled={!svgOutput || isGenerating}
-                  className="px-2.5 py-1.5 rounded-lg bg-cyan-600/10 dark:bg-cyan-600/20 border border-cyan-500/30 hover:bg-cyan-600/20 dark:hover:bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition flex items-center gap-1.5"
-                  title="Tải file PNG nét cao"
-                >
-                  <FileImage className="w-3.5 h-3.5" />
-                  <span>Tải PNG</span>
-                </button>
-
-                {/* TikZ LaTeX Export Button */}
-                <button
-                  onClick={handleExportTikz}
-                  disabled={(!svgOutput && !prompt.trim()) || isGenerating}
-                  className="px-2.5 py-1.5 rounded-lg bg-indigo-600/10 dark:bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/20 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
-                  title="Xuất mã TikZ / LaTeX để dùng trên Overleaf hoặc MathType"
-                >
-                  <FileCode className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Xuất TikZ (LaTeX)</span>
-                </button>
-              </div>
+              {/* Edit Mode Active Indicator */}
+              {isEditMode && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 font-semibold flex items-center gap-1 animate-pulse">
+                  <MousePointerClick className="w-3 h-3" />
+                  Kéo thả nhãn/điểm đang bật
+                </span>
+              )}
             </div>
 
-            {/* Display Canvas Screen */}
-            <div
-              id="previewContainer"
-              ref={svgContainerRef}
-              className={`flex-1 w-full rounded-xl flex items-center justify-center p-4 min-h-[340px] relative overflow-hidden select-none transition-all ${
-                svgOutput
-                  ? 'bg-white border border-slate-300 dark:border-slate-700/80 shadow-sm dark:shadow-xl dark:shadow-black/50 text-slate-900'
-                  : 'bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-inner'
-              }`}
-            >
+            {/* Action Tools */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              {/* Interactive Edit Mode Toggle Button */}
+              <button
+                onClick={() => setIsEditMode(!isEditMode)}
+                disabled={!svgOutput || isGenerating}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border ${
+                  isEditMode
+                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-transparent disabled:opacity-40'
+                }`}
+                title={
+                  isEditMode
+                    ? 'Tắt chế độ chỉnh sửa kéo thả'
+                    : 'Bật chế độ chỉnh sửa trực tiếp: Kéo thả nhãn số đo & tên điểm bằng chuột'
+                }
+              >
+                <MousePointerClick className="w-3.5 h-3.5" />
+                <span>{isEditMode ? 'Đang Chỉnh sửa' : 'Chỉnh sửa trực tiếp'}</span>
+              </button>
+
+              <button
+                onClick={handleCopySVG}
+                disabled={!svgOutput || isGenerating}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1.5"
+                title="Sao chép mã SVG"
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-500 dark:text-emerald-400" />
+                    <span className="text-emerald-600 dark:text-emerald-400">Đã chép!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy SVG</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={handleDownloadSVG}
+                disabled={!svgOutput || isGenerating}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1.5"
+                title="Tải file .svg"
+              >
+                <Download className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                <span>Tải SVG</span>
+              </button>
+
+              <button
+                onClick={() => handleDownloadPNG(2)}
+                disabled={!svgOutput || isGenerating}
+                className="px-2.5 py-1.5 rounded-lg bg-cyan-600/10 dark:bg-cyan-600/20 border border-cyan-500/30 hover:bg-cyan-600/20 dark:hover:bg-cyan-600/30 text-cyan-700 dark:text-cyan-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition flex items-center gap-1.5"
+                title="Tải file PNG nét cao"
+              >
+                <FileImage className="w-3.5 h-3.5" />
+                <span>Tải PNG</span>
+              </button>
+
+              {/* TikZ LaTeX Export Button */}
+              <button
+                onClick={handleExportTikz}
+                disabled={(!svgOutput && !prompt.trim()) || isGenerating}
+                className="px-2.5 py-1.5 rounded-lg bg-indigo-600/10 dark:bg-indigo-600/20 border border-indigo-500/30 hover:bg-indigo-600/20 dark:hover:bg-indigo-600/30 text-indigo-700 dark:text-indigo-300 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-medium transition flex items-center gap-1.5 shadow-sm"
+                title="Xuất mã TikZ / LaTeX để dùng trên Overleaf hoặc MathType"
+              >
+                <FileCode className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                <span>Xuất TikZ (LaTeX)</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Display Canvas Screen (flex-1 min-h-0 chiếm trọn chiều cao còn lại) */}
+          <div
+            id="previewContainer"
+            ref={svgContainerRef}
+            className={`flex-1 min-h-0 w-full rounded-xl flex items-center justify-center p-4 my-2 relative overflow-hidden select-none transition-all ${
+              svgOutput
+                ? 'bg-white border border-slate-300 dark:border-slate-700/80 shadow-sm dark:shadow-xl dark:shadow-black/50 text-slate-900'
+                : 'bg-slate-50 dark:bg-slate-900/90 border border-slate-200 dark:border-slate-800 shadow-inner'
+            }`}
+          >
               {/* High-Tech Mathematical Loading Animation Overlay with Progress Bar */}
               {isGenerating && (
                 <div className="absolute inset-0 z-30 backdrop-blur-md bg-white/90 dark:bg-slate-950/90 flex flex-col items-center justify-center p-6 gap-4 animate-in fade-in duration-200">
@@ -1338,7 +1336,7 @@ export default function HomePage() {
               {svgOutput ? (
                 <div
                   id="svgMount"
-                  className={`w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-[380px] [&>svg]:w-auto [&>svg]:h-auto ${
+                  className={`w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-auto [&>svg]:h-auto ${
                     isEditMode
                       ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500'
                       : ''
@@ -1363,7 +1361,7 @@ export default function HomePage() {
             </div>
 
             {/* Refinement Chat Box */}
-            <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-800/80 flex flex-col gap-2">
+            <div className="pt-3 border-t border-slate-200 dark:border-slate-800 shrink-0 flex flex-col gap-2">
               <label className="text-xs font-semibold text-slate-600 dark:text-slate-400 flex items-center gap-1.5">
                 <RefreshCw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Tinh chỉnh nhanh hình vẽ
               </label>
@@ -1397,11 +1395,10 @@ export default function HomePage() {
                 </button>
               </div>
             </div>
-          </div>
         </section>
 
-        {/* CỘT 3: BỘ SƯU TẬP HIỂN THỊ MẶC ĐỊNH (Cố định bên phải) */}
-        <aside className="w-full lg:w-[320px] xl:w-[340px] shrink-0 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col lg:h-[calc(100vh-100px)] lg:sticky lg:top-4 overflow-hidden">
+        {/* CỘT 3: BỘ SƯU TẬP HIỂN THỊ MẶC ĐỊNH (Cố định bên phải, h-full) */}
+        <aside className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-full flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
           <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
             <span className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
               <FolderClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -1632,17 +1629,19 @@ export default function HomePage() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 md:px-6 flex flex-wrap items-center justify-between gap-2 w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
-        <span>MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Toán học</span>
-        <button
-          type="button"
-          onClick={() => setIsChangelogOpen(true)}
-          title="Bấm để xem lịch sử phiên bản (Changelog)"
-          className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
-        >
-          Phiên bản {APP_VERSION.fullString} ({APP_VERSION.buildDate})
-        </button>
-      </footer>
+      {mainTab === 'lesson-plan' && (
+        <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 md:px-6 flex flex-wrap items-center justify-between gap-2 w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
+          <span>MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Toán học</span>
+          <button
+            type="button"
+            onClick={() => setIsChangelogOpen(true)}
+            title="Bấm để xem lịch sử phiên bản (Changelog)"
+            className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+          >
+            Phiên bản {APP_VERSION.fullString} ({APP_VERSION.buildDate})
+          </button>
+        </footer>
+      )}
 
       {/* Changelog / Version History Modal */}
       {isChangelogOpen && (
