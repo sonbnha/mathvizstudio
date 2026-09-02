@@ -191,7 +191,10 @@ export default function HomePage() {
   useEffect(() => {
     if (isChangelogOpen) {
       setChangelogLoading(true);
-      fetch('/api/changelog')
+      fetch(`/api/changelog?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      })
         .then((res) => res.text())
         .then((text) => {
           try {

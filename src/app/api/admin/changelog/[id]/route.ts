@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 async function checkAdmin(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
@@ -55,6 +58,11 @@ export async function PUT(
       data: updateData,
     });
 
+    try {
+      revalidatePath('/api/changelog');
+      revalidatePath('/');
+    } catch {}
+
     return NextResponse.json({ success: true, changelog: updated });
   } catch (error: any) {
     console.error('Error updating changelog:', error);
@@ -86,6 +94,11 @@ export async function PATCH(
       data: { isPublished },
     });
 
+    try {
+      revalidatePath('/api/changelog');
+      revalidatePath('/');
+    } catch {}
+
     return NextResponse.json({ success: true, changelog: updated });
   } catch (error: any) {
     console.error('Error patching changelog status:', error);
@@ -109,6 +122,11 @@ export async function DELETE(
     await prisma.changelog.delete({
       where: { id },
     });
+
+    try {
+      revalidatePath('/api/changelog');
+      revalidatePath('/');
+    } catch {}
 
     return NextResponse.json({ success: true, message: 'Đã xóa phiên bản Changelog thành công.' });
   } catch (error: any) {

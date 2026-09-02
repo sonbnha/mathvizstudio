@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { revalidatePath } from 'next/cache';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
-import { CHANGELOG } from '@/config/changelog';
+import { CHANGELOG, sortChangelogsList } from '@/config/changelog';
 
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 // GET /api/admin/changelog: Get all changelogs (Admin only)
 export async function GET(req: NextRequest) {
@@ -16,7 +19,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Ensure all static CHANGELOG releases exist in database
+    // Ensure all static initial releases exist in database
     for (const item of [...CHANGELOG].reverse()) {
       try {
         const existing = await prisma.changelog.findUnique({
@@ -42,7 +45,9 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ changelogs });
+    const sorted = sortChangelogsList(changelogs);
+
+    return NextResponse.json({ changelogs: sorted });
   } catch (error: any) {
     console.error('Error fetching admin changelogs:', error);
     return NextResponse.json(
@@ -101,6 +106,11 @@ export async function POST(req: NextRequest) {
         isPublished: Boolean(isPublished),
       },
     });
+
+    try {
+      revalidatePath('/api/changelog');
+      revalidatePath('/');
+    } catch {}
 
     return NextResponse.json({ success: true, changelog: newChangelog }, { status: 201 });
   } catch (error: any) {

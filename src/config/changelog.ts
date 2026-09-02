@@ -62,3 +62,50 @@ export const CHANGELOG: VersionRelease[] = [
     ],
   },
 ];
+
+export function parseVersionNumber(v: string): number[] {
+  const clean = v.replace(/^v/i, '').split('-')[0];
+  return clean.split('.').map((x) => parseInt(x, 10) || 0);
+}
+
+export function compareVersions(a: string, b: string): number {
+  const partsA = parseVersionNumber(a);
+  const partsB = parseVersionNumber(b);
+  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+    const numA = partsA[i] || 0;
+    const numB = partsB[i] || 0;
+    if (numA !== numB) {
+      return numB - numA; // Descending: larger version number comes first
+    }
+  }
+  return 0;
+}
+
+export function parseDateVN(dateStr: string): number {
+  try {
+    const parts = dateStr.split('/');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day).getTime();
+    }
+    return new Date(dateStr).getTime() || 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function sortChangelogsList<T extends { version: string; date: string; createdAt?: Date | string }>(list: T[]): T[] {
+  return [...list].sort((a, b) => {
+    const vDiff = compareVersions(a.version, b.version);
+    if (vDiff !== 0) return vDiff;
+    const dateA = parseDateVN(a.date);
+    const dateB = parseDateVN(b.date);
+    if (dateB !== dateA) return dateB - dateA;
+    if (a.createdAt && b.createdAt) {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    return 0;
+  });
+}

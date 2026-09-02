@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { CHANGELOG } from '@/config/changelog';
+import { CHANGELOG, sortChangelogsList } from '@/config/changelog';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 export async function GET() {
   try {
-    // 1. Ensure all static CHANGELOG releases exist in database
+    // 1. Ensure all static initial releases exist in database
     for (const item of [...CHANGELOG].reverse()) {
       try {
         const existing = await prisma.changelog.findUnique({
@@ -29,49 +30,35 @@ export async function GET() {
       }
     }
 
+    // 2. Query Single Source of Truth from Database
     const changelogs = await prisma.changelog.findMany({
       where: { isPublished: true },
       orderBy: { createdAt: 'desc' },
     });
 
-    const dbList = changelogs.map((c) => ({
+    const mapped = changelogs.map((c) => ({
       id: c.id,
       version: c.version,
       date: c.date,
       title: c.title,
       changes: c.changes,
       isPublished: c.isPublished,
+      createdAt: c.createdAt,
     }));
 
-    // 2. Merge: Guarantee that static CHANGELOG releases are ordered first (newest at top)
-    const mergedList: any[] = [];
-    const seen = new Set<string>();
+    // 3. Sort strictly by semantic version & date
+    const sorted = sortChangelogsList(mapped);
 
-    for (const item of CHANGELOG) {
-      const dbMatch = dbList.find((d) => d.version === item.version);
-      if (dbMatch) {
-        mergedList.push(dbMatch);
-      } else {
-        mergedList.push(item);
-      }
-      seen.add(item.version);
-    }
-
-    for (const dbItem of dbList) {
-      if (!seen.has(dbItem.version)) {
-        mergedList.push(dbItem);
-        seen.add(dbItem.version);
-      }
-    }
-
-    return NextResponse.json({
-      changelogs: mergedList,
+    const response = NextResponse.json({
+      changelogs: sorted,
     });
+
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0');
+    return response;
   } catch (error: any) {
     console.error('Error fetching public changelogs:', error);
-    // Fallback to static config if DB connection fails
     return NextResponse.json({
-      changelogs: CHANGELOG,
+      changelogs: sortChangelogsList(CHANGELOG),
     });
   }
 }

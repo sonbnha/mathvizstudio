@@ -304,8 +304,17 @@ export default function UnifiedAdminPage() {
       setChangelogsLoading(true);
     }
     try {
-      const res = await fetch('/api/admin/changelog');
-      const data = await res.json();
+      const res = await fetch(`/api/admin/changelog?t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.warn('Lỗi parse JSON admin changelog:', e);
+      }
       if (res.ok && data.changelogs) {
         setChangelogs(data.changelogs);
       }
