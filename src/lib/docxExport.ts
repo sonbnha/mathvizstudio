@@ -13,40 +13,87 @@ import {
 } from 'docx';
 
 /**
- * Clean math LaTeX syntax to readable plain text for docx runs
+ * Enhanced LaTeX math cleaner for Microsoft Word docx output
  */
 function cleanLatexForWord(text: string): string {
   return text
+    // Fractions: \frac{a}{b} -> (a)/(b)
     .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1)/($2)')
+    // Square roots: \sqrt[n]{x} or \sqrt{x}
+    .replace(/\\sqrt\[([^\]]+)\]\{([^}]+)\}/g, '$1√($2)')
     .replace(/\\sqrt\{([^}]+)\}/g, '√($1)')
+    // Angles and Triangles
+    .replace(/\\widehat\{([^}]+)\}/g, '∠$1')
+    .replace(/\\Delta\s*([A-Z]{3})/g, 'Δ$1')
+    .replace(/\\Delta/g, 'Δ')
+    .replace(/\\angle/g, '∠')
+    // Vectors
+    .replace(/\\vec\{([^}]+)\}/g, 'vector($1)')
+    .replace(/\\overrightarrow\{([^}]+)\}/g, 'vector($1)')
+    // Superscripts
+    .replace(/\^2\b/g, '²')
+    .replace(/\^3\b/g, '³')
+    .replace(/\^n\b/g, 'ⁿ')
+    .replace(/\^0\b/g, '⁰')
+    .replace(/\^1\b/g, '¹')
+    .replace(/\^\{([^}]+)\}/g, '^($1)')
+    // Subscripts
+    .replace(/_1\b/g, '₁')
+    .replace(/_2\b/g, '₂')
+    .replace(/_3\b/g, '₃')
+    .replace(/_0\b/g, '₀')
+    .replace(/_n\b/g, 'ₙ')
+    .replace(/_\{([^}]+)\}/g, '_($1)')
+    // Common Math Operators and Symbols
+    .replace(/\\pm/g, '±')
+    .replace(/\\mp/g, '∓')
     .replace(/\\cdot/g, '·')
     .replace(/\\times/g, '×')
+    .replace(/\\div/g, '÷')
     .replace(/\\degree/g, '°')
     .replace(/\\circ/g, '°')
     .replace(/\\alpha/g, 'α')
     .replace(/\\beta/g, 'β')
     .replace(/\\gamma/g, 'γ')
     .replace(/\\theta/g, 'θ')
+    .replace(/\\phi/g, 'φ')
     .replace(/\\pi/g, 'π')
-    .replace(/\\Delta/g, 'Δ')
+    .replace(/\\omega/g, 'ω')
+    .replace(/\\lambda/g, 'λ')
+    .replace(/\\sigma/g, 'σ')
     .replace(/\\le/g, '≤')
     .replace(/\\ge/g, '≥')
     .replace(/\\neq/g, '≠')
     .replace(/\\approx/g, '≈')
+    .replace(/\\equiv/g, '≡')
+    .replace(/\\sim/g, '∼')
+    .replace(/\\cong/g, '≅')
+    .replace(/\\parallel/g, '∥')
+    .replace(/\\perp/g, '⊥')
     .replace(/\\in/g, '∈')
-    .replace(/\\Rightarrow/g, '⇒')
-    .replace(/\\Leftrightarrow/g, '⇔')
+    .replace(/\\notin/g, '∉')
+    .replace(/\\subset/g, '⊂')
+    .replace(/\\subseteq/g, '⊆')
+    .replace(/\\cup/g, '∪')
+    .replace(/\\cap/g, '∩')
+    .replace(/\\emptyset/g, '∅')
+    .replace(/\\infty/g, '∞')
+    .replace(/\\Rightarrow/g, ' ⇒ ')
+    .replace(/\\Leftrightarrow/g, ' ⇔ ')
+    .replace(/\\forall/g, '∀')
+    .replace(/\\exists/g, '∃')
     .replace(/\\text\{([^}]+)\}/g, '$1')
     .replace(/\\mathbf\{([^}]+)\}/g, '$1')
     .replace(/\\mathit\{([^}]+)\}/g, '$1')
     .replace(/\\left|\\right/g, '')
+    // Clean remaining dollar signs
     .replace(/\$+/g, '');
 }
 
 /**
- * Parse inline markdown text (bold, italic, math) into docx TextRuns
+ * Parse inline markdown text (bold, italic, math) into docx TextRuns with Times New Roman font
  */
-function parseInlineTextRuns(rawText: string, baseSize = 26): TextRun[] {
+function parseInlineTextRuns(rawText: string, baseSize = 26, isItalicDefault = false): TextRun[] {
   const runs: TextRun[] = [];
   const cleaned = cleanLatexForWord(rawText);
 
@@ -60,6 +107,7 @@ function parseInlineTextRuns(rawText: string, baseSize = 26): TextRun[] {
         new TextRun({
           text: token.slice(2, -2),
           bold: true,
+          italics: isItalicDefault,
           font: 'Times New Roman',
           size: baseSize,
           color: '000000',
@@ -79,6 +127,7 @@ function parseInlineTextRuns(rawText: string, baseSize = 26): TextRun[] {
       runs.push(
         new TextRun({
           text: token,
+          italics: isItalicDefault,
           font: 'Times New Roman',
           size: baseSize,
           color: '000000',
@@ -102,6 +151,7 @@ function parseInlineTextRuns(rawText: string, baseSize = 26): TextRun[] {
 
 /**
  * Export Markdown Lesson Plan to a genuine .docx file
+ * Conforms to Official Dispatch 5512/BGDĐT & Decree 30/2020/NĐ-CP formatting standards
  */
 export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoach_Bai_Day_5512'): Promise<void> {
   const lines = markdown.split('\n');
@@ -113,33 +163,49 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
   const flushTable = () => {
     if (tableRows.length === 0) return;
 
+    const colCount = Math.max(...tableRows.map((r) => r.length), 1);
+    
+    // Proportional column sizing: 2 columns -> 38% / 62%; otherwise equal distribution
+    const colWidths =
+      colCount === 2
+        ? [38, 62]
+        : Array.from({ length: colCount }, () => Math.floor(100 / colCount));
+
     const docxRows: TableRow[] = tableRows.map((rowCells, rowIndex) => {
       const isHeader = rowIndex === 0;
+
       return new TableRow({
         tableHeader: isHeader,
+        cantSplit: true,
         children: rowCells.map(
-          (cellText) =>
+          (cellText, colIndex) =>
             new TableCell({
               width: {
-                size: Math.floor(100 / (rowCells.length || 1)),
+                size: colWidths[colIndex] || Math.floor(100 / colCount),
                 type: WidthType.PERCENTAGE,
               },
               shading: isHeader
                 ? {
-                    fill: 'F2F2F2',
+                    fill: 'F1F5F9', // Subtle elegant light grey-blue header background
                   }
                 : undefined,
+              margins: {
+                top: 120, // 6pt cell padding
+                bottom: 120,
+                left: 160, // 8pt cell padding
+                right: 160,
+              },
               borders: {
-                top: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
-                bottom: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
-                left: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
-                right: { style: BorderStyle.SINGLE, size: 4, color: '000000' },
+                top: { style: BorderStyle.SINGLE, size: 6, color: '333333' },
+                bottom: { style: BorderStyle.SINGLE, size: 6, color: '333333' },
+                left: { style: BorderStyle.SINGLE, size: 6, color: '333333' },
+                right: { style: BorderStyle.SINGLE, size: 6, color: '333333' },
               },
               children: [
                 new Paragraph({
                   alignment: isHeader ? AlignmentType.CENTER : AlignmentType.LEFT,
                   children: parseInlineTextRuns(cellText, 24), // 12pt
-                  spacing: { before: 80, after: 80, line: 260 },
+                  spacing: { before: 40, after: 40, line: 270 },
                 }),
               ],
             })
@@ -157,10 +223,10 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       })
     );
 
-    // Empty space after table
+    // Subtle space after table
     children.push(
       new Paragraph({
-        spacing: { after: 120 },
+        spacing: { before: 60, after: 100 },
       })
     );
 
@@ -193,27 +259,27 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       children.push(
         new Paragraph({
           border: {
-            bottom: { style: BorderStyle.SINGLE, size: 6, color: 'B0B0B0' },
+            bottom: { style: BorderStyle.SINGLE, size: 6, color: 'CBD5E1' },
           },
-          spacing: { before: 120, after: 120 },
+          spacing: { before: 100, after: 100 },
         })
       );
       continue;
     }
 
-    // Headings
+    // Heading 1: TÊN BÀI DẠY (15pt, Bold, Center, Black)
     if (trimmed.startsWith('# ')) {
       children.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_1,
           alignment: AlignmentType.CENTER,
-          spacing: { before: 240, after: 140 },
+          spacing: { before: 200, after: 120, line: 300 },
           children: [
             new TextRun({
               text: cleanLatexForWord(trimmed.slice(2)).toUpperCase(),
               bold: true,
               font: 'Times New Roman',
-              size: 32, // 16pt
+              size: 30, // 15pt
               color: '000000',
             }),
           ],
@@ -222,18 +288,19 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       continue;
     }
 
+    // Heading 2: CÁC MỤC LỚN I, II, III, IV (13.5pt, Bold, Navy #1A365D, Uppercase)
     if (trimmed.startsWith('## ')) {
       children.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_2,
-          spacing: { before: 200, after: 100 },
+          spacing: { before: 220, after: 80, line: 280 },
           children: [
             new TextRun({
               text: cleanLatexForWord(trimmed.slice(3)),
               bold: true,
               font: 'Times New Roman',
-              size: 28, // 14pt
-              color: '002060',
+              size: 27, // 13.5pt
+              color: '1A365D', // Dark Navy Accent
             }),
           ],
         })
@@ -241,11 +308,12 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       continue;
     }
 
+    // Heading 3: TIỂU MỤC 1. VỀ KIẾN THỨC, A. BẢNG TỔNG QUAN... (13pt, Bold)
     if (trimmed.startsWith('### ')) {
       children.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_3,
-          spacing: { before: 160, after: 80 },
+          spacing: { before: 140, after: 60, line: 280 },
           children: [
             new TextRun({
               text: cleanLatexForWord(trimmed.slice(4)),
@@ -260,19 +328,26 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       continue;
     }
 
+    // Heading 4: CÁC HOẠT ĐỘNG 1, 2, 3, 4 (13pt, Bold, Accent Shading Bar)
     if (trimmed.startsWith('#### ')) {
       children.push(
         new Paragraph({
           heading: HeadingLevel.HEADING_4,
-          spacing: { before: 140, after: 60 },
+          shading: {
+            fill: 'F1F5F9', // Subtle grey-blue highlight bar for activity headers
+          },
+          border: {
+            left: { style: BorderStyle.SINGLE, size: 18, color: '1A365D' },
+          },
+          spacing: { before: 180, after: 80, line: 280 },
+          indent: { left: 140 },
           children: [
             new TextRun({
-              text: cleanLatexForWord(trimmed.slice(5)),
+              text: ` ${cleanLatexForWord(trimmed.slice(5))} `,
               bold: true,
-              italics: true,
               font: 'Times New Roman',
               size: 26, // 13pt
-              color: '000000',
+              color: '1A365D',
             }),
           ],
         })
@@ -280,7 +355,54 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       continue;
     }
 
-    // Lists (- or *)
+    // Sub-items a) Mục tiêu, b) Nội dung, c) Sản phẩm, d) Tổ chức thực hiện (Bold Italic)
+    if (/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i.test(trimmed)) {
+      const match = trimmed.match(/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i)!;
+      children.push(
+        new Paragraph({
+          spacing: { before: 80, after: 40, line: 280 },
+          alignment: AlignmentType.BOTH,
+          indent: { left: 280 },
+          children: [
+            new TextRun({
+              text: `${match[1]} ${match[2]}: `,
+              bold: true,
+              italics: true,
+              font: 'Times New Roman',
+              size: 26,
+              color: '000000',
+            }),
+            ...parseInlineTextRuns(match[3].trim(), 26),
+          ],
+        })
+      );
+      continue;
+    }
+
+    // Steps: * Bước 1: Chuyển giao nhiệm vụ...
+    if (/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i.test(trimmed)) {
+      const match = trimmed.match(/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i)!;
+      children.push(
+        new Paragraph({
+          spacing: { before: 60, after: 40, line: 280 },
+          alignment: AlignmentType.BOTH,
+          indent: { left: 420 },
+          children: [
+            new TextRun({
+              text: `• Bước ${match[1]}: ${match[2].trim()}`,
+              bold: true,
+              font: 'Times New Roman',
+              size: 26,
+              color: '000000',
+            }),
+            ...parseInlineTextRuns(match[3] ? ` ${match[3].trim()}` : '', 26),
+          ],
+        })
+      );
+      continue;
+    }
+
+    // Bullet Lists (- or *)
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       children.push(
         new Paragraph({
@@ -310,13 +432,13 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
     if (!trimmed) {
       children.push(
         new Paragraph({
-          spacing: { after: 80 },
+          spacing: { after: 60 },
         })
       );
       continue;
     }
 
-    // Regular Paragraph
+    // Regular Paragraph (Times New Roman 13pt, 1.25x line spacing, 3pt/5pt paragraph spacing, Justified)
     children.push(
       new Paragraph({
         alignment: AlignmentType.BOTH,
@@ -330,8 +452,26 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
     flushTable();
   }
 
-  // Create Document with standard A4 margins (20mm = 1134 twips)
+  // Create Document adhering strictly to Decree 30/2020/NĐ-CP & CV 5512
   const doc = new Document({
+    styles: {
+      default: {
+        document: {
+          run: {
+            font: 'Times New Roman',
+            size: 26, // 13pt
+            color: '000000',
+          },
+          paragraph: {
+            spacing: {
+              line: 280, // ~1.25 - 1.3 lines
+              before: 60, // 3pt
+              after: 100, // 5pt
+            },
+          },
+        },
+      },
+    },
     sections: [
       {
         properties: {
@@ -341,9 +481,9 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
               height: 16838, // A4 height in twips (297mm)
             },
             margin: {
-              top: 1134, // 20mm
+              top: 1134, // 20mm (Decree 30/2020/NĐ-CP)
               bottom: 1134, // 20mm
-              left: 1134, // 20mm
+              left: 1701, // 30mm (standard left binding margin)
               right: 1134, // 20mm
             },
           },
