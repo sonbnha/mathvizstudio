@@ -2,6 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { renderMarkdownWithKatex, exportToDocx } from '@/lib/lessonPlanUtils';
+import { IllustrationBox } from './IllustrationBox';
 
 interface LessonPlanWordPreviewProps {
   markdown: string;
@@ -33,13 +34,41 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
   const [viewMode, setViewMode] = useState<'word' | 'raw'>('word');
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const renderedHtml = React.useMemo(() => {
-    try {
-      return renderMarkdownWithKatex(markdown);
-    } catch (err) {
-      console.error('Lỗi khi chuyển đổi Markdown sang HTML:', err);
-      return `<div class="whitespace-pre-wrap font-mono text-sm">${markdown}</div>`;
+  // Parse markdown into interleaved segments of formatted HTML and IllustrationBox React components
+  const segments = React.useMemo(() => {
+    if (!markdown) return [];
+    const list: Array<{ type: 'html' | 'illustration'; content: string }> = [];
+    const regex = /\[HÌNH MINH HỌA:\s*([^\]]+)\]/gi;
+    let lastIdx = 0;
+    let match: RegExpExecArray | null;
+
+    while ((match = regex.exec(markdown)) !== null) {
+      if (match.index > lastIdx) {
+        const textChunk = markdown.slice(lastIdx, match.index);
+        if (textChunk.trim()) {
+          try {
+            list.push({ type: 'html', content: renderMarkdownWithKatex(textChunk) });
+          } catch (e) {
+            list.push({ type: 'html', content: `<div class="whitespace-pre-wrap">${textChunk}</div>` });
+          }
+        }
+      }
+      list.push({ type: 'illustration', content: match[1].trim() });
+      lastIdx = regex.lastIndex;
     }
+
+    if (lastIdx < markdown.length) {
+      const remaining = markdown.slice(lastIdx);
+      if (remaining.trim()) {
+        try {
+          list.push({ type: 'html', content: renderMarkdownWithKatex(remaining) });
+        } catch (e) {
+          list.push({ type: 'html', content: `<div class="whitespace-pre-wrap">${remaining}</div>` });
+        }
+      }
+    }
+
+    return list;
   }, [markdown]);
 
   const handleZoomIn = () => {
@@ -262,11 +291,26 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
                 </div>
               )}
 
-              {/* Main Rendered HTML Document Content */}
-              <div
-                className="lesson-plan-word-body text-black text-[13pt] leading-[1.38] text-justify space-y-1 [&_*]:text-black"
-                dangerouslySetInnerHTML={{ __html: renderedHtml }}
-              />
+              {/* Main Rendered HTML Document Content & React Components */}
+              <div className="space-y-2">
+                {segments.map((seg, sIdx) => {
+                  if (seg.type === 'illustration') {
+                    return (
+                      <IllustrationBox
+                        key={`illust-${sIdx}`}
+                        description={seg.content}
+                      />
+                    );
+                  }
+                  return (
+                    <div
+                      key={`content-${sIdx}`}
+                      className="lesson-plan-word-body text-black text-[13pt] leading-[1.38] text-justify space-y-1 [&_*]:text-black"
+                      dangerouslySetInnerHTML={{ __html: seg.content }}
+                    />
+                  );
+                })}
+              </div>
 
               {/* Continuation Callout / Button at bottom of Word paper */}
               {(isMaxTokensReached || (onContinue && !isStreaming && markdown && markdown.length > 800)) && (
