@@ -299,8 +299,23 @@ export const ApiKeyModal: React.FC = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex items-center justify-between gap-2 pt-1 pb-1">
-              {/* Left group: Test + Save */}
+            <div className="flex items-center justify-between gap-2 pt-1 pb-2">
+              {/* Phía bên trái: Nút quay về key mặc định */}
+              <div>
+                {isCustomKeyActive && (
+                  <button
+                    type="button"
+                    onClick={handleRemoveKey}
+                    className="px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-medium border border-rose-200 dark:border-rose-800/60 transition flex items-center gap-1.5 cursor-pointer"
+                    title="Xóa key cá nhân và dùng lại key mặc định"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Dùng lại mặc định</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Phía bên phải: Cụm thao tác Kiểm tra & Lưu */}
               <div className="flex items-center gap-2">
                 {/* Test Key button */}
                 <button
@@ -350,19 +365,6 @@ export const ApiKeyModal: React.FC = () => {
                   )}
                 </button>
               </div>
-
-              {/* Right: Reset to default — only shown when a custom key is active */}
-              {isCustomKeyActive && (
-                <button
-                  type="button"
-                  onClick={handleRemoveKey}
-                  className="px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-medium border border-rose-200 dark:border-rose-800/60 transition flex items-center gap-1.5 cursor-pointer"
-                  title="Xóa key cá nhân và dùng lại key mặc định"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Dùng lại mặc định</span>
-                </button>
-              )}
             </div>
           </form>
 
