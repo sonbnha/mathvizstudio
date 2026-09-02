@@ -30,29 +30,32 @@ export const ApiKeyModal: React.FC = () => {
 
   const [inputKey, setInputKey] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
-  const [isValidating, setIsValidating] = useState<boolean>(false);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
+  const [isTesting, setIsTesting] = useState<boolean>(false);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [testResult, setTestResult] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
+  const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   useEffect(() => {
     if (isApiKeyModalOpen) {
       setInputKey(customApiKey || '');
-      setFeedback(null);
+      setTestResult(null);
+      setSaveFeedback(null);
     }
   }, [isApiKeyModalOpen, customApiKey]);
 
   if (!isApiKeyModalOpen) return null;
 
-  const handleValidateAndSave = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  /** Test the key without saving */
+  const handleTestKey = async () => {
     const cleanKey = inputKey.trim();
-
     if (!cleanKey) {
-      setFeedback({ type: 'error', text: 'Vui lòng nhập Gemini API Key trước khi lưu.' });
+      setTestResult({ type: 'error', text: 'Vui lòng nhập Gemini API Key trước khi kiểm tra.' });
       return;
     }
 
-    setIsValidating(true);
-    setFeedback(null);
+    setIsTesting(true);
+    setTestResult(null);
+    setSaveFeedback(null);
 
     try {
       const res = await fetch('/api/validate-key', {
@@ -61,41 +64,61 @@ export const ApiKeyModal: React.FC = () => {
         body: JSON.stringify({ apiKey: cleanKey }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(rawText); } catch { /* ignore */ }
 
       if (res.ok && data.success) {
-        setCustomApiKey(cleanKey);
-        setFeedback({
+        setTestResult({
           type: 'success',
-          text: 'Xác thực Gemini API Key thành công! Đã lưu vào trình duyệt của bạn.',
+          text: '✓ API Key hợp lệ và hoạt động tốt! Bấm "Lưu Key" để sử dụng.',
         });
-        setTimeout(() => {
-          closeApiKeyModal();
-        }, 1200);
+      } else if (res.status === 429) {
+        setTestResult({
+          type: 'warning',
+          text: 'Key có vẻ hợp lệ nhưng đang bị giới hạn hạn mức (429 / Quota). Bạn vẫn có thể lưu và thử lại sau.',
+        });
       } else {
-        // Still save if user insists, but warn them
-        setCustomApiKey(cleanKey);
-        setFeedback({
-          type: 'info',
-          text: data.error || 'Đã lưu key vào trình duyệt. Hãy thử tạo hình hoặc soạn bài dạy để kiểm tra.',
+        setTestResult({
+          type: 'error',
+          text: data.error || 'API Key không hợp lệ hoặc không có quyền truy cập Gemini API.',
         });
       }
     } catch {
-      // Offline or network error
-      setCustomApiKey(cleanKey);
-      setFeedback({
-        type: 'info',
-        text: 'Đã lưu key vào trình duyệt (không thể ping máy chủ kiểm tra kết nối lúc này).',
+      setTestResult({
+        type: 'warning',
+        text: 'Không thể kết nối máy chủ kiểm tra lúc này. Bạn vẫn có thể lưu Key và thử tạo hình/soạn bài.',
       });
     } finally {
-      setIsValidating(false);
+      setIsTesting(false);
     }
+  };
+
+  /** Save the key directly (without mandatory test) */
+  const handleSaveKey = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const cleanKey = inputKey.trim();
+
+    if (!cleanKey) {
+      setSaveFeedback({ type: 'error', text: 'Vui lòng nhập Gemini API Key trước khi lưu.' });
+      return;
+    }
+
+    setCustomApiKey(cleanKey);
+    setSaveFeedback({
+      type: 'success',
+      text: 'Đã lưu Key cá nhân vào trình duyệt. Tất cả yêu cầu tiếp theo sẽ dùng Key này.',
+    });
+    setTimeout(() => {
+      closeApiKeyModal();
+    }, 1000);
   };
 
   const handleRemoveKey = () => {
     removeCustomApiKey();
     setInputKey('');
-    setFeedback({
+    setTestResult(null);
+    setSaveFeedback({
       type: 'info',
       text: 'Đã xóa Key cá nhân. Hệ thống sẽ sử dụng lại Gemini Key mặc định.',
     });
@@ -176,7 +199,7 @@ export const ApiKeyModal: React.FC = () => {
           </div>
 
           {/* Key Input Form */}
-          <form onSubmit={handleValidateAndSave} className="space-y-3">
+          <form onSubmit={handleSaveKey} className="space-y-3">
             <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300">
               Nhập mã Gemini API Key của bạn (Google AI Studio):
             </label>
@@ -200,47 +223,81 @@ export const ApiKeyModal: React.FC = () => {
               </div>
             </div>
 
-            {/* Feedback Message */}
-            {feedback && (
+            {/* Test Result */}
+            {testResult && (
+              <div
+                className={`p-2.5 rounded-lg text-xs flex items-start gap-2 ${
+                  testResult.type === 'success'
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                    : testResult.type === 'error'
+                    ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+                    : 'bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800'
+                }`}
+              >
+                {testResult.type === 'success' ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5 text-emerald-500" />
+                ) : testResult.type === 'error' ? (
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                )}
+                <span className="break-words [word-break:break-word]">{testResult.text}</span>
+              </div>
+            )}
+
+            {/* Save Feedback */}
+            {saveFeedback && (
               <div
                 className={`p-2.5 rounded-lg text-xs flex items-center gap-2 ${
-                  feedback.type === 'success'
+                  saveFeedback.type === 'success'
                     ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
-                    : feedback.type === 'error'
+                    : saveFeedback.type === 'error'
                     ? 'bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
                     : 'bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
                 }`}
               >
-                {feedback.type === 'success' ? (
+                {saveFeedback.type === 'success' ? (
                   <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-                ) : feedback.type === 'error' ? (
+                ) : saveFeedback.type === 'error' ? (
                   <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
                 ) : (
                   <Zap className="w-4 h-4 shrink-0 text-blue-500" />
                 )}
-                <span>{feedback.text}</span>
+                <span>{saveFeedback.text}</span>
               </div>
             )}
 
             {/* Action Buttons */}
             <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Test Key button */}
                 <button
-                  type="submit"
-                  disabled={isValidating || !inputKey.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  type="button"
+                  onClick={handleTestKey}
+                  disabled={isTesting || !inputKey.trim()}
+                  className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-medium shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {isValidating ? (
+                  {isTesting ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                       <span>Đang kiểm tra...</span>
                     </>
                   ) : (
                     <>
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>Lưu Key Cá Nhân</span>
+                      <Zap className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Kiểm tra Key</span>
                     </>
                   )}
+                </button>
+
+                {/* Save Key button */}
+                <button
+                  type="submit"
+                  disabled={isSaving || !inputKey.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Lưu Key</span>
                 </button>
 
                 {isCustomKeyActive && (
