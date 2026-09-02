@@ -192,30 +192,55 @@ export default function HomePage() {
   const [historyCardCopiedId, setHistoryCardCopiedId] = useState<string | null>(null);
 
   // Main Active Tab Switcher state ('geometry' | 'lesson-plan')
-  const [mainTab, setMainTab] = useState<'geometry' | 'lesson-plan'>('geometry');
-
-  useEffect(() => {
+  // Lazy initialize synchronously from URL or localStorage to eliminate F5 reload tab-flash
+  const [mainTab, setMainTab] = useState<'geometry' | 'lesson-plan'>(() => {
     if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get('tab');
-      if (tabParam === 'lesson-plan' || tabParam === 'geometry') {
-        setMainTab(tabParam);
-      } else {
-        const savedTab = localStorage.getItem('mathviz_main_tab');
-        if (savedTab === 'lesson-plan' || savedTab === 'geometry') {
-          setMainTab(savedTab);
+      try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const tabParam = urlParams.get('tab');
+        if (tabParam === 'lesson-plan' || tabParam === 'geometry') {
+          return tabParam;
         }
+        const savedTab = localStorage.getItem('active_tab') || localStorage.getItem('mathviz_main_tab');
+        if (savedTab === 'lesson-plan' || savedTab === 'geometry') {
+          return savedTab as 'geometry' | 'lesson-plan';
+        }
+      } catch {
+        /* ignore storage/url errors */
       }
     }
+    return 'geometry';
+  });
+
+  useEffect(() => {
+    // Listen for browser back/forward history navigation
+    const handlePopState = () => {
+      try {
+        const params = new URLSearchParams(window.location.search);
+        const tabParam = params.get('tab');
+        if (tabParam === 'lesson-plan' || tabParam === 'geometry') {
+          setMainTab(tabParam);
+        }
+      } catch {
+        /* ignore */
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   const handleTabChange = (tab: 'geometry' | 'lesson-plan') => {
     setMainTab(tab);
     if (typeof window !== 'undefined') {
-      localStorage.setItem('mathviz_main_tab', tab);
-      const url = new URL(window.location.href);
-      url.searchParams.set('tab', tab);
-      window.history.replaceState(null, '', url.toString());
+      try {
+        localStorage.setItem('active_tab', tab);
+        localStorage.setItem('mathviz_main_tab', tab);
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', tab);
+        window.history.replaceState(null, '', url.toString());
+      } catch {
+        /* ignore */
+      }
     }
   };
 
@@ -941,6 +966,7 @@ export default function HomePage() {
           {/* Module Navigation Tabs */}
           <nav className="flex items-center gap-1 sm:gap-1.5 ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-slate-200 dark:border-slate-800">
             <button
+              suppressHydrationWarning
               type="button"
               onClick={() => handleTabChange('geometry')}
               className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -953,6 +979,7 @@ export default function HomePage() {
               <span>Vẽ hình học</span>
             </button>
             <button
+              suppressHydrationWarning
               type="button"
               onClick={() => handleTabChange('lesson-plan')}
               className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -1176,7 +1203,10 @@ export default function HomePage() {
       {/* 2. KHÔNG GIAN LÀM VIỆC (Flex-1 min-h-0, không bị tràn ra ngoài) */}
       <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col">
         {/* TAB 1: Vẽ hình học AI (3 Cột Studio) */}
-        <div className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 flex flex-col lg:flex-row gap-4 overflow-hidden ${mainTab === 'geometry' ? 'flex' : 'hidden'}`}>
+        <div
+          suppressHydrationWarning
+          className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 flex flex-col lg:flex-row gap-4 overflow-hidden ${mainTab === 'geometry' ? 'flex' : 'hidden'}`}
+        >
           {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang, h-full, cuộn độc lập) */}
           <section className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full overflow-y-auto pr-1 space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col">
           {/* Preset Buttons */}
@@ -1762,7 +1792,10 @@ export default function HomePage() {
         </div>
 
         {/* TAB 2: Soạn giáo án tự động */}
-        <div className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 overflow-hidden ${mainTab === 'lesson-plan' ? 'flex flex-col' : 'hidden'}`}>
+        <div
+          suppressHydrationWarning
+          className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 overflow-hidden ${mainTab === 'lesson-plan' ? 'flex flex-col' : 'hidden'}`}
+        >
           <LessonPlanView licenseKey={licenseKey} />
         </div>
       </main>
