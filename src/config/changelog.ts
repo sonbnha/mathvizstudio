@@ -10,6 +10,20 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v1.1.0",
+    date: "03/09/2026",
+    title: "Tích hợp Soạn giáo án 5512, Trình xem Word A4 & Đồng bộ Hình vẽ SVG 2 chiều",
+    changes: [
+      { type: "feat", description: "Tích hợp module Soạn Kế hoạch bài dạy (Giáo án) chuẩn Công văn 5512/BGDĐT bổ sung Khung Năng lực số, bám sát SGK Kết nối tri thức với cuộc sống" },
+      { type: "feat", description: "Ra mắt Trình xem trước giáo án dạng trang giấy Word A4 trực quan kèm thước căn lề chuẩn Nghị định 30/2020/NĐ-CP, phóng to/thu nhỏ và xuất bản file .docx" },
+      { type: "feat", description: "Đồng bộ 2 chiều giữa module Vẽ hình học và Giáo án: bấm 'Tạo hình SVG cho bài này' để chuyển sang vẽ và bấm 'Chèn hình này vào Giáo án' để tự động nhúng hình vẽ" },
+      { type: "fix", description: "Khắc phục lỗi mất hình ảnh khi xuất file Word (.docx) bằng bộ chuyển đổi Canvas SVG -> PNG tự động nhúng ImageRun" },
+      { type: "fix", description: "Cấm AI vẽ hình minh họa bằng ký tự ASCII art; thay thế bằng React Component IllustrationBox sư phạm chuẩn mực" },
+      { type: "improve", description: "Khóa chống bẻ dòng và tối ưu giao diện cụm nút Phong cách hiển thị (Bài giảng / Đề thi) trên thanh công cụ" },
+      { type: "improve", description: "Đồng bộ trạng thái License Key, màu sắc Gemini Key và cơ chế chống flash tab khi tải lại trang" },
+    ],
+  },
+  {
     version: "v1.0.0",
     date: "02/09/2026",
     title: "Phát Hành Chính Thức MathViz Studio v1.0.0 (Stable Release)",
