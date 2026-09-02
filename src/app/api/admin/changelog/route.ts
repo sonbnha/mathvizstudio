@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import { CHANGELOG } from '@/config/changelog';
 
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 // GET /api/admin/changelog: Get all changelogs (Admin only)

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { CHANGELOG } from '@/config/changelog';
 
+export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 export async function GET() {

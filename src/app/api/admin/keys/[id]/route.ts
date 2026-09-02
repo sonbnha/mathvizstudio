@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 // DELETE /api/admin/keys/[id]
 export async function DELETE(
   req: NextRequest,

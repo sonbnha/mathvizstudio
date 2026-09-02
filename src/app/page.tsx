@@ -252,17 +252,27 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apiKey: targetKey }),
       });
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        setApiKeyTestResult({
+          success: false,
+          message: `Lỗi phản hồi máy chủ (${res.status}): ${rawText.slice(0, 100)}`,
+        });
+        return;
+      }
       if (res.ok && data.success) {
         setApiKeyTestResult({ success: true, message: 'Kết nối API Key thành công! Key hoạt động tốt.' });
       } else {
         setApiKeyTestResult({
           success: false,
-          message: data.error || 'API Key không hợp lệ hoặc đã hết hạn mức.',
+          message: data.error || data.message || 'API Key không hợp lệ hoặc đã hết hạn mức.',
         });
       }
     } catch (err: any) {
-      setApiKeyTestResult({ success: false, message: 'Lỗi kết nối máy chủ khi kiểm tra key.' });
+      setApiKeyTestResult({ success: false, message: err?.message || 'Lỗi kết nối máy chủ khi kiểm tra key.' });
     } finally {
       setIsTestingApiKey(false);
     }
@@ -296,10 +306,15 @@ export default function HomePage() {
     if (isChangelogOpen) {
       setChangelogLoading(true);
       fetch('/api/changelog')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && Array.isArray(data.changelogs) && data.changelogs.length > 0) {
-            setChangelogList(data.changelogs);
+        .then((res) => res.text())
+        .then((text) => {
+          try {
+            const data = JSON.parse(text);
+            if (data && Array.isArray(data.changelogs) && data.changelogs.length > 0) {
+              setChangelogList(data.changelogs);
+            }
+          } catch (e) {
+            console.warn('Changelog parse fallback:', e);
           }
         })
         .catch((err) => console.error('Error loading public changelogs:', err))
@@ -438,11 +453,22 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ key }),
       });
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        setLicenseStatus({
+          valid: false,
+          message: `Lỗi máy chủ (${res.status})`,
+        });
+        setCustomerName(null);
+        return;
+      }
       if (!res.ok || !data.valid) {
         setLicenseStatus({
           valid: false,
-          message: data.message || 'Key không hợp lệ',
+          message: data.message || data.error || 'Key không hợp lệ',
         });
         setCustomerName(null);
         localStorage.removeItem('mathviz_customer_name');
@@ -459,7 +485,7 @@ export default function HomePage() {
     } catch (err: any) {
       setLicenseStatus({
         valid: false,
-        message: 'Lỗi kiểm tra kết nối',
+        message: err?.message || 'Lỗi kiểm tra kết nối',
       });
       setCustomerName(null);
       localStorage.removeItem('mathviz_customer_name');
@@ -596,7 +622,18 @@ export default function HomePage() {
         }),
       });
 
-      const data = await res.json();
+      // Read text first to prevent unexpected token JSON parsing crash
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.error('Phản hồi server không phải JSON:', rawText);
+        if (!res.ok) {
+          throw new Error(`Lỗi máy chủ (${res.status}): ${rawText.slice(0, 150)}`);
+        }
+        throw new Error(`Phản hồi server không hợp lệ: ${rawText.slice(0, 150)}`);
+      }
 
       if (!res.ok) {
         console.error('DEBUG CHI TIẾT LỖI TỪ SERVER:', data);
@@ -768,9 +805,17 @@ export default function HomePage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.error('TikZ API không trả về JSON:', rawText);
+        throw new Error(`Lỗi tạo TikZ (${res.status}): ${rawText.slice(0, 100)}`);
+      }
+
       if (!res.ok) {
-        throw new Error(data.error || 'Lỗi khi tạo mã TikZ.');
+        throw new Error(data.error || data.message || 'Lỗi khi tạo mã TikZ.');
       }
       setTikzCode(data.tikz);
     } catch (err: any) {

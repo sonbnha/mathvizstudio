@@ -349,7 +349,14 @@ export default function UnifiedAdminPage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        throw new Error(`Lỗi máy chủ (${res.status}): ${rawText.slice(0, 100)}`);
+      }
+
       if (!res.ok) {
         throw new Error(data.error || 'Đăng nhập thất bại.');
       }

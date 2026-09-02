@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 function generateRandomKey(): string {
   const p1 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'X');
   const p2 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'Y');

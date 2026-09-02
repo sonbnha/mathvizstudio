@@ -3,7 +3,8 @@ import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 import { optimizeSvg } from '@/lib/svgOptimizer';
 
-export const maxDuration = 30;
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
