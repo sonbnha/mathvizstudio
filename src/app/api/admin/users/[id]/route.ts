@@ -3,9 +3,6 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
-
 async function checkAdmin(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
   if (!user || user.role !== 'ADMIN') {

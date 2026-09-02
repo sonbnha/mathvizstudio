@@ -3,9 +3,6 @@ import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { signToken } from '@/lib/auth';
 
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
-
 export async function POST(req: NextRequest) {
   try {
     let body: { username?: string; password?: string };

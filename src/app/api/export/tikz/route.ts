@@ -2,19 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
-
 function extractTikzOnly(rawText: string): string {
-  let clean = rawText.trim();
-  if (clean.startsWith('```')) {
-    clean = clean.replace(/^```(?:latex|tex|json|javascript|js)?\n?/i, '').replace(/\n?```$/i, '').trim();
-  }
-  const match = clean.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/i);
+  const match = rawText.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/i);
   if (match) {
     return match[0].trim();
   }
-  return clean.replace(/```latex|```tex|```/gi, '').trim();
+  return rawText.replace(/```latex|```tex|```/g, '').trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -23,8 +16,8 @@ export async function POST(req: NextRequest) {
     const licenseKey = req.headers.get('x-license-key') || req.headers.get('X-License-Key');
     if (!licenseKey) {
       return NextResponse.json(
-        { error: 'MISSING_LICENSE', message: 'Vui lòng nhập License Key để tiếp tục sử dụng.' },
-        { status: 401 }
+        { error: 'Thiếu License Key trong Header X-License-Key.' },
+        { status: 403 }
       );
     }
 
@@ -32,23 +25,16 @@ export async function POST(req: NextRequest) {
       where: { key: licenseKey.trim() },
     });
 
-    if (!keyRecord) {
+    if (!keyRecord || !keyRecord.isActive) {
       return NextResponse.json(
-        { error: 'INVALID_LICENSE', message: 'Mã License Key không hợp lệ hoặc không tồn tại trên hệ thống.' },
-        { status: 401 }
-      );
-    }
-
-    if (!keyRecord.isActive) {
-      return NextResponse.json(
-        { error: 'LICENSE_DISABLED', message: 'Mã License Key của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' },
+        { error: 'License key không hợp lệ hoặc đã bị khóa.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
       return NextResponse.json(
-        { error: 'LICENSE_EXPIRED', message: 'Mã bản quyền của bạn đã hết hạn sử dụng. Vui lòng gia hạn hoặc liên hệ quản trị viên.' },
+        { error: 'License key đã hết hạn sử dụng.' },
         { status: 403 }
       );
     }
@@ -69,18 +55,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 3. Gemini API setup (Priority 1: User custom BYOK key, Priority 2: System GEMINI_API_KEY)
-    const customKey = req.headers.get('x-custom-api-key');
-    const apiKey =
-      customKey && customKey.trim().length > 10
-        ? customKey.trim()
-        : process.env.GEMINI_API_KEY;
-
+    // 3. Gemini API setup
+    const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      console.error('[TikZ API] Thiếu cấu hình API Key: Cả key người dùng và GEMINI_API_KEY đều trống.');
       return NextResponse.json(
-        { error: 'Chưa cấu hình GEMINI_API_KEY trên hệ thống và bạn chưa nhập API Key cá nhân.' },
-        { status: 400 }
+        { error: 'Server chưa thiết lập GEMINI_API_KEY trong môi trường.' },
+        { status: 500 }
       );
     }
 
@@ -112,13 +92,12 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
       svg ? `Mã SVG:\n${svg}\n` : ''
     }${prompt ? `Đề bài:\n${prompt}` : ''}`;
 
-    const DEFAULT_MODEL = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
     const MODELS = [
-      DEFAULT_MODEL,
-      ...(DEFAULT_MODEL !== 'gemini-3.5-flash' ? ['gemini-3.5-flash'] : []),
-      'gemini-3.5-flash-lite',
-      'gemini-3.6-flash',
+      defaultModel,
+      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
       'gemini-3.7-flash',
+      'gemini-3.7-pro',
     ];
 
     let response: any = null;
@@ -127,24 +106,21 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
     for (let i = 0; i < MODELS.length; i++) {
       const currentModel = MODELS[i];
       try {
-        console.info(`[TikZ API] Đang gửi yêu cầu tới model: ${currentModel}...`);
-        const result = await ai.models.generateContent({
+        response = await ai.models.generateContent({
           model: currentModel,
           contents: [userPrompt],
           config: {
             systemInstruction,
           },
         });
-
-        if (result && result.text) {
-          response = result;
+        if (response?.text) {
           break;
         }
       } catch (err: any) {
         lastError = err;
         console.warn(`[TikZ API] Model ${currentModel} error:`, err?.message || err);
         if (i < MODELS.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 800));
+          await new Promise((resolve) => setTimeout(resolve, 1500));
           continue;
         }
       }
@@ -158,17 +134,12 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
     const cleanedTikz = extractTikzOnly(rawTikz);
 
     return NextResponse.json({
-      success: true,
       tikz: cleanedTikz,
     });
   } catch (error: any) {
-    console.error('DEBUG GEMINI TIKZ ERROR:', error);
+    console.error('Error generating TikZ code:', error);
     return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || 'Lỗi khi tạo mã TikZ LaTeX.',
-        details: error?.message,
-      },
+      { error: error?.message || 'Lỗi khi tạo mã TikZ LaTeX.' },
       { status: 500 }
     );
   }

@@ -2,18 +2,19 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { CHANGELOG } from '@/config/changelog';
 
-export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
-    // Ensure all versions in CHANGELOG config are present in database
-    for (const item of [...CHANGELOG].reverse()) {
-      try {
-        const existing = await prisma.changelog.findUnique({
-          where: { version: item.version },
-        });
-        if (!existing) {
+    let changelogs = await prisma.changelog.findMany({
+      where: { isPublished: true },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // If database is empty, seed from default static config
+    if (!changelogs || changelogs.length === 0) {
+      for (const item of [...CHANGELOG].reverse()) {
+        try {
           await prisma.changelog.create({
             data: {
               version: item.version,
@@ -23,16 +24,16 @@ export async function GET() {
               isPublished: true,
             },
           });
+        } catch {
+          // ignore duplicate key errors if race condition
         }
-      } catch {
-        // ignore duplicate
       }
-    }
 
-    const changelogs = await prisma.changelog.findMany({
-      where: { isPublished: true },
-      orderBy: { createdAt: 'desc' },
-    });
+      changelogs = await prisma.changelog.findMany({
+        where: { isPublished: true },
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
     return NextResponse.json({
       changelogs: changelogs.map((c) => ({

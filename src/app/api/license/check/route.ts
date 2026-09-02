@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 
-export const maxDuration = 60;
-export const dynamic = 'force-dynamic';
-
 export async function POST(req: NextRequest) {
   try {
     let body: { key?: string };
@@ -27,28 +24,28 @@ export async function POST(req: NextRequest) {
 
     if (!keyRecord) {
       return NextResponse.json(
-        { valid: false, error: 'INVALID_LICENSE', message: 'Mã License Key không hợp lệ hoặc không tồn tại.' },
-        { status: 401 }
+        { valid: false, message: 'Mã key không tồn tại.' },
+        { status: 404 }
       );
     }
 
     if (!keyRecord.isActive) {
       return NextResponse.json(
-        { valid: false, error: 'LICENSE_DISABLED', message: 'Mã License Key của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.' },
+        { valid: false, message: 'Key đã bị vô hiệu hóa.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
       return NextResponse.json(
-        { valid: false, error: 'LICENSE_EXPIRED', message: 'Mã bản quyền của bạn đã hết hạn sử dụng. Vui lòng gia hạn hoặc liên hệ quản trị viên.' },
+        { valid: false, message: 'Key đã hết hạn sử dụng.' },
         { status: 403 }
       );
     }
 
     if (keyRecord.totalCredits !== -1 && keyRecord.usedCredits >= keyRecord.totalCredits) {
       return NextResponse.json(
-        { valid: false, error: 'LICENSE_LIMIT_REACHED', message: 'Mã bản quyền của bạn đã sử dụng hết số lượt tạo hình cho phép.' },
+        { valid: false, message: 'Key đã sử dụng hết lượt.' },
         { status: 403 }
       );
     }

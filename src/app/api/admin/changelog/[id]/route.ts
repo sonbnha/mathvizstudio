@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 
-export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 async function checkAdmin(req: NextRequest) {

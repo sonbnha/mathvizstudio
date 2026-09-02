@@ -3,7 +3,6 @@ import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import { CHANGELOG } from '@/config/changelog';
 
-export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 // GET /api/admin/changelog: Get all changelogs (Admin only)
@@ -17,13 +16,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    // Ensure all versions in CHANGELOG config are present in database
-    for (const item of [...CHANGELOG].reverse()) {
-      try {
-        const existing = await prisma.changelog.findUnique({
-          where: { version: item.version },
-        });
-        if (!existing) {
+    let changelogs = await prisma.changelog.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+
+    // Auto-seed if empty
+    if (!changelogs || changelogs.length === 0) {
+      for (const item of [...CHANGELOG].reverse()) {
+        try {
           await prisma.changelog.create({
             data: {
               version: item.version,
@@ -33,13 +33,13 @@ export async function GET(req: NextRequest) {
               isPublished: true,
             },
           });
-        }
-      } catch {}
-    }
+        } catch {}
+      }
 
-    const changelogs = await prisma.changelog.findMany({
-      orderBy: { createdAt: 'desc' },
-    });
+      changelogs = await prisma.changelog.findMany({
+        orderBy: { createdAt: 'desc' },
+      });
+    }
 
     return NextResponse.json({ changelogs });
   } catch (error: any) {

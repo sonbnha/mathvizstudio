@@ -10,38 +10,6 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
-    version: "v0.1.6-alpha",
-    date: "31/08/2026",
-    title: "Chẩn đoán chi tiết lỗi AI & Gỡ bỏ thông báo quá tải gán cứng",
-    changes: [
-      { type: "fix", description: "Gỡ bỏ toàn bộ chuỗi thông báo 'Hệ thống đang quá tải' gán cứng khi bắt lỗi API" },
-      { type: "improve", description: "Hiển thị chính xác nguyên nhân lỗi thực tế từ Gemini / máy chủ lên giao diện" },
-      { type: "improve", description: "Cấu hình maxDuration = 30s chống timeout serverless trên Vercel" },
-    ],
-  },
-  {
-    version: "v0.1.5-alpha",
-    date: "31/08/2026",
-    title: "Chuẩn hóa Hình học Toán học SVG & Tối ưu AI Engine",
-    changes: [
-      { type: "feat", description: "Ra mắt Kiến trúc phân lớp SVG (SVG Layering): Đặt khung hình học toán học làm trọng tâm hàng đầu" },
-      { type: "fix", description: "Chuẩn hóa vị trí Mặt Trời thẳng hàng (Collinear Sun Position) với tia sáng trong bài toán bóng nắng" },
-      { type: "improve", description: "Tối ưu System Prompt và bộ lọc loại bỏ 100% chữ thừa, tiêu đề, và ghi chú mô tả trong SVG" },
-      { type: "feat", description: "Tích hợp Gemini 3.5 Flash siêu tốc kèm cơ chế tự động Fallback đa tầng chống nghẽn mạng" },
-      { type: "fix", description: "Phân biệt rõ ràng lỗi License Key hết hạn/hết lượt với lỗi quá tải AI Quota (ngăn chặn popup BYOK nhầm)" },
-    ],
-  },
-  {
-    version: "v0.1.4-alpha",
-    date: "31/08/2026",
-    title: "Hỗ trợ Gemini API Key cá nhân (BYOK) & Nâng cấp Model",
-    changes: [
-      { type: "feat", description: "Bổ sung tính năng tự cấu hình Gemini API Key cá nhân (BYOK) trên giao diện" },
-      { type: "feat", description: "Tự động hiển thị pop-up hướng dẫn lấy key miễn phí khi hệ thống gặp lỗi quá tải" },
-      { type: "fix", description: "Cập nhật model Gemini API mới nhất tương thích hệ thống (gemini-3.6-flash)" },
-    ],
-  },
-  {
     version: "v0.1.3-alpha",
     date: "31/08/2026",
     title: "Tối ưu Quản lý License Keys & Nâng cấp Giao diện Admin",
