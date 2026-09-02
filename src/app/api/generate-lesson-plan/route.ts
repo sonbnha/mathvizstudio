@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { getGeminiClient } from '@/lib/gemini';
+import { getGeminiClient, MODEL_CASCADE } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
 
 export const maxDuration = 60;
@@ -188,9 +188,10 @@ Hãy triển khai thật chi tiết, đầy đủ toàn bộ các phần, bảng
 
     // 4. Call AI with Stream
     const modelsToTry = [
-      process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
+      ...MODEL_CASCADE,
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-3.5-flash',
     ].filter((v, i, a) => a.indexOf(v) === i);
 
     let responseStream: any = null;

@@ -1,10 +1,11 @@
 import { GoogleGenAI } from '@google/genai';
 
 /**
- * Model Fallback Cascade: Primary 3.6-flash -> 3.5-flash
+ * Model Fallback Cascade: Primary 3.6-flash -> 3.7-flash -> 3.5-flash
  */
 export const MODEL_CASCADE = [
   process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+  'gemini-3.7-flash',
   'gemini-3.5-flash',
 ].filter((v, i, a) => a.indexOf(v) === i);
 

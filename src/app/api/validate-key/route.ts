@@ -31,19 +31,23 @@ export async function POST(req: NextRequest) {
 
     const ai = new GoogleGenAI({ apiKey });
 
-    // Lightweight verification call using gemini-3.6-flash
+    // Lightweight verification call using gemini-3.6-flash / 3.7-flash / 3.5-flash
     let result: any = null;
-    try {
-      result = await ai.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: 'Ping test. Reply with OK.',
-        config: {
-          maxOutputTokens: 5,
-          temperature: 0,
-        },
-      });
-    } catch (err) {
-      console.warn('Validate key test ping error with gemini-3.6-flash:', err);
+    const testModels = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash'];
+    for (const testModel of testModels) {
+      try {
+        result = await ai.models.generateContent({
+          model: testModel,
+          contents: 'Ping test. Reply with OK.',
+          config: {
+            maxOutputTokens: 5,
+            temperature: 0,
+          },
+        });
+        if (result && result.text) break;
+      } catch (err) {
+        console.warn(`Validate key test ping error with ${testModel}:`, err);
+      }
     }
 
     if (result && result.text) {
