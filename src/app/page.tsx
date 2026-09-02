@@ -1121,28 +1121,21 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => openApiKeyModal()}
-            className={`h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-3.5 rounded-xl text-xs font-medium border transition-all duration-200 shadow-xs cursor-pointer group shrink-0 ${
-              isCustomKeyActive
-                ? 'bg-emerald-50 hover:bg-emerald-100/60 border-emerald-300 text-emerald-800 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 dark:border-emerald-500/40 dark:text-emerald-200 dark:hover:text-emerald-100'
-                : 'bg-gradient-to-r from-purple-50 via-indigo-50/60 to-sky-50 border-purple-200 hover:border-purple-300 hover:bg-purple-100/50 text-purple-900 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-sky-950/40 dark:border-purple-500/30 dark:hover:border-purple-400/60 dark:hover:bg-purple-950/60 dark:text-purple-200 dark:hover:text-white'
-            }`}
+            className="h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-3.5 rounded-xl text-xs font-medium border transition-all duration-200 shadow-xs cursor-pointer group shrink-0 bg-gradient-to-r from-purple-50 via-indigo-50/60 to-sky-50 border-purple-200 hover:border-purple-300 hover:bg-purple-100/50 text-purple-900 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-sky-950/40 dark:border-purple-500/30 dark:hover:border-purple-400/60 dark:hover:bg-purple-950/60 dark:text-purple-200 dark:hover:text-white"
             title={
               isCustomKeyActive
                 ? 'Đang dùng Gemini Key cá nhân. Bấm để quản lý.'
                 : 'Đang dùng Gemini Key hệ thống (Auto). Bấm để nhập Key cá nhân.'
             }
           >
-            <Key
-              className={`w-3.5 h-3.5 group-hover:rotate-12 transition-transform shrink-0 ${
-                isCustomKeyActive
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-purple-600 dark:text-indigo-400'
-              }`}
-            />
+            <Key className="w-3.5 h-3.5 text-purple-600 dark:text-indigo-400 group-hover:rotate-12 transition-transform shrink-0" />
             {isCustomKeyActive ? (
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-xs text-emerald-800 dark:text-emerald-200">
+                <span className="font-medium text-xs text-purple-900 dark:text-purple-200">
                   Key riêng
+                </span>
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 border border-purple-200/80 dark:bg-purple-500/20 dark:text-purple-300 dark:border-purple-500/30 uppercase tracking-wide">
+                  Cá nhân
                 </span>
               </div>
             ) : (
@@ -1158,7 +1151,7 @@ export default function HomePage() {
             <span
               className={`w-2 h-2 rounded-full shrink-0 transition-all ${
                 isCustomKeyActive
-                  ? 'bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse'
+                  ? 'bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.7)] animate-pulse'
                   : 'bg-purple-500 dark:bg-indigo-400 shadow-[0_0_6px_rgba(168,85,247,0.4)] dark:shadow-[0_0_6px_rgba(129,140,248,0.7)]'
               }`}
             ></span>
