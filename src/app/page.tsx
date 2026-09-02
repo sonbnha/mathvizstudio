@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import {
   Compass,
   Key,
@@ -139,7 +140,7 @@ interface LicenseCheckResult {
   expiresAt?: string | null;
 }
 
-export default function HomePage() {
+function HomeContent() {
   // Gemini API Key Context
   const { isCustomKeyActive, openApiKeyModal, getApiKeyHeaders, handleRateLimitError } = useApiKey();
 
@@ -191,57 +192,39 @@ export default function HomePage() {
   const [selectedTopic, setSelectedTopic] = useState('Tất cả');
   const [historyCardCopiedId, setHistoryCardCopiedId] = useState<string | null>(null);
 
-  // Main Active Tab Switcher state ('geometry' | 'lesson-plan')
-  // Lazy initialize synchronously from URL or localStorage to eliminate F5 reload tab-flash
-  const [mainTab, setMainTab] = useState<'geometry' | 'lesson-plan'>(() => {
-    if (typeof window !== 'undefined') {
-      try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const tabParam = urlParams.get('tab');
-        if (tabParam === 'lesson-plan' || tabParam === 'geometry') {
-          return tabParam;
-        }
-        const savedTab = localStorage.getItem('active_tab') || localStorage.getItem('mathviz_main_tab');
-        if (savedTab === 'lesson-plan' || savedTab === 'geometry') {
-          return savedTab as 'geometry' | 'lesson-plan';
-        }
-      } catch {
-        /* ignore storage/url errors */
-      }
-    }
-    return 'geometry';
-  });
+  // Main Active Tab Switcher: useSearchParams is the Single Source of Truth
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
+  const tabParam = searchParams.get('tab');
+  const mainTab: 'geometry' | 'lesson-plan' = tabParam === 'lesson-plan' ? 'lesson-plan' : 'geometry';
+
+  // Fallback to localStorage active_tab only if URL has no tab param on initial load
   useEffect(() => {
-    // Listen for browser back/forward history navigation
-    const handlePopState = () => {
+    if (typeof window !== 'undefined' && !searchParams.has('tab')) {
       try {
-        const params = new URLSearchParams(window.location.search);
-        const tabParam = params.get('tab');
-        if (tabParam === 'lesson-plan' || tabParam === 'geometry') {
-          setMainTab(tabParam);
+        const savedTab = localStorage.getItem('active_tab') || localStorage.getItem('mathviz_main_tab');
+        if (savedTab === 'lesson-plan') {
+          const params = new URLSearchParams(searchParams.toString());
+          params.set('tab', 'lesson-plan');
+          router.replace(`?${params.toString()}`, { scroll: false });
         }
       } catch {
         /* ignore */
       }
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  const handleTabChange = (tab: 'geometry' | 'lesson-plan') => {
-    setMainTab(tab);
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem('active_tab', tab);
-        localStorage.setItem('mathviz_main_tab', tab);
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', tab);
-        window.history.replaceState(null, '', url.toString());
-      } catch {
-        /* ignore */
-      }
     }
+  }, [searchParams, router]);
+
+  const handleTabChange = (newTab: 'geometry' | 'lesson-plan') => {
+    try {
+      localStorage.setItem('active_tab', newTab);
+      localStorage.setItem('mathviz_main_tab', newTab);
+    } catch {
+      /* ignore */
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', newTab);
+    router.replace(`?${params.toString()}`, { scroll: false });
   };
 
   // TikZ Export Modal state
@@ -2012,5 +1995,20 @@ export default function HomePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 text-slate-500 text-xs gap-2">
+          <Loader2 className="w-5 h-5 animate-spin text-cyan-500" />
+          <span>Đang tải MathViz Studio...</span>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
