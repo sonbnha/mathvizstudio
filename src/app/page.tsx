@@ -292,28 +292,51 @@ export default function HomePage() {
     }
   }, []);
 
+  const MAX_GALLERY_ITEMS = 50;
+
+  const cleanSvgPayload = (svg: string): string => {
+    if (!svg) return '';
+    // Strip HTML/SVG comments and collapse extra whitespace to minimize localStorage size
+    return svg
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
   const saveToHistory = (svgCode: string, promptText: string) => {
     try {
       const topic = classifyTopic(promptText);
       const cleanPrompt = promptText.trim();
       const firstLine = cleanPrompt.split('.')[0] || cleanPrompt;
-      const title = firstLine.length > 55 ? firstLine.substring(0, 55) + '...' : firstLine;
+      const title = firstLine.length > 60 ? firstLine.substring(0, 60) + '...' : firstLine;
+      const optimizedSvg = cleanSvgPayload(svgCode);
 
       const newItem: HistoryItem = {
-        id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        id: `hist_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
         title: title || 'Mô hình hình học',
-        promptText: cleanPrompt,
-        svgCode,
+        promptText: cleanPrompt.length > 250 ? cleanPrompt.substring(0, 250) + '...' : cleanPrompt,
+        svgCode: optimizedSvg,
         timestamp: Date.now(),
         topic,
       };
 
       setHistoryItems((prev) => {
-        const updated = [newItem, ...prev.filter((item) => item.promptText !== cleanPrompt)].slice(
-          0,
-          60
-        );
-        localStorage.setItem('mathviz_history_items', JSON.stringify(updated));
+        // Prevent storing identical SVG diagrams repeatedly
+        const filtered = prev.filter((item) => item.id !== newItem.id && item.svgCode !== optimizedSvg);
+        const updated = [newItem, ...filtered].slice(0, MAX_GALLERY_ITEMS);
+
+        try {
+          localStorage.setItem('mathviz_history_items', JSON.stringify(updated));
+        } catch (storageErr) {
+          console.warn('localStorage full or quota exceeded, auto-trimming history:', storageErr);
+          // Fallback: gracefully trim to 20 items if quota is constrained
+          try {
+            const trimmed = updated.slice(0, 20);
+            localStorage.setItem('mathviz_history_items', JSON.stringify(trimmed));
+          } catch (e2) {
+            console.error('Không thể lưu vào localStorage:', e2);
+          }
+        }
         return updated;
       });
     } catch (e) {
