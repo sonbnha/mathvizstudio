@@ -32,12 +32,15 @@ export const ApiKeyModal: React.FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isTesting, setIsTesting] = useState<boolean>(false);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  // isValidated: true = passed Google check, false/null = not yet or failed
+  const [isValidated, setIsValidated] = useState<boolean>(false);
   const [testResult, setTestResult] = useState<{ type: 'success' | 'error' | 'warning'; text: string } | null>(null);
   const [saveFeedback, setSaveFeedback] = useState<{ type: 'success' | 'error' | 'info'; text: string } | null>(null);
 
   useEffect(() => {
     if (isApiKeyModalOpen) {
       setInputKey(customApiKey || '');
+      setIsValidated(false);
       setTestResult(null);
       setSaveFeedback(null);
     }
@@ -45,7 +48,36 @@ export const ApiKeyModal: React.FC = () => {
 
   if (!isApiKeyModalOpen) return null;
 
-  /** Test the key without saving */
+  /** Shared: call backend to verify key against Google. Returns { valid, message }. */
+  const verifyWithGoogle = async (key: string): Promise<{ valid: boolean; message: string }> => {
+    try {
+      const res = await fetch('/api/validate-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apiKey: key }),
+      });
+      const rawText = await res.text();
+      let data: any = {};
+      try { data = JSON.parse(rawText); } catch { /* ignore */ }
+
+      if (res.ok && data.success) {
+        return { valid: true, message: data.message || 'API Key hợp lệ và hoạt động tốt!' };
+      }
+      // 429 = key tồn tại nhưng hết quota — vẫn coi là valid để cho phép lưu
+      if (res.status === 429) {
+        return {
+          valid: true,
+          message: data.error || 'API Key hợp lệ nhưng tài khoản đang bị giới hạn hạn mức (Quota Exceeded). Bạn vẫn có thể lưu và sử dụng sau.',
+        };
+      }
+      return { valid: false, message: data.error || 'API Key không hợp lệ hoặc bị từ chối bởi Google.' };
+    } catch {
+      // Network error — cannot confirm; treat as inconclusive (not block save)
+      return { valid: false, message: 'Không thể kết nối máy chủ kiểm tra. Vui lòng kiểm tra kết nối mạng và thử lại.' };
+    }
+  };
+
+  /** Button 1: Test only — no save */
   const handleTestKey = async () => {
     const cleanKey = inputKey.trim();
     if (!cleanKey) {
@@ -56,46 +88,23 @@ export const ApiKeyModal: React.FC = () => {
     setIsTesting(true);
     setTestResult(null);
     setSaveFeedback(null);
+    setIsValidated(false);
 
-    try {
-      const res = await fetch('/api/validate-key', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ apiKey: cleanKey }),
-      });
+    const { valid, message } = await verifyWithGoogle(cleanKey);
 
-      const rawText = await res.text();
-      let data: any = {};
-      try { data = JSON.parse(rawText); } catch { /* ignore */ }
-
-      if (res.ok && data.success) {
-        setTestResult({
-          type: 'success',
-          text: '✓ API Key hợp lệ và hoạt động tốt! Bấm "Lưu Key" để sử dụng.',
-        });
-      } else if (res.status === 429) {
-        setTestResult({
-          type: 'warning',
-          text: 'Key có vẻ hợp lệ nhưng đang bị giới hạn hạn mức (429 / Quota). Bạn vẫn có thể lưu và thử lại sau.',
-        });
-      } else {
-        setTestResult({
-          type: 'error',
-          text: data.error || 'API Key không hợp lệ hoặc không có quyền truy cập Gemini API.',
-        });
-      }
-    } catch {
-      setTestResult({
-        type: 'warning',
-        text: 'Không thể kết nối máy chủ kiểm tra lúc này. Bạn vẫn có thể lưu Key và thử tạo hình/soạn bài.',
-      });
-    } finally {
-      setIsTesting(false);
+    if (valid) {
+      setIsValidated(true);
+      setTestResult({ type: 'success', text: `✓ ${message} Bấm "Lưu Key" để sử dụng.` });
+    } else {
+      setIsValidated(false);
+      setTestResult({ type: 'error', text: message });
     }
+
+    setIsTesting(false);
   };
 
-  /** Save the key directly (without mandatory test) */
-  const handleSaveKey = (e?: React.FormEvent) => {
+  /** Button 2: Verify first → save only if Google confirms valid */
+  const handleSaveKey = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const cleanKey = inputKey.trim();
 
@@ -104,19 +113,36 @@ export const ApiKeyModal: React.FC = () => {
       return;
     }
 
-    setCustomApiKey(cleanKey);
-    setSaveFeedback({
-      type: 'success',
-      text: 'Đã lưu Key cá nhân vào trình duyệt. Tất cả yêu cầu tiếp theo sẽ dùng Key này.',
-    });
-    setTimeout(() => {
-      closeApiKeyModal();
-    }, 1000);
+    setIsSaving(true);
+    setSaveFeedback(null);
+    setTestResult(null);
+
+    const { valid, message } = await verifyWithGoogle(cleanKey);
+
+    if (valid) {
+      setIsValidated(true);
+      setCustomApiKey(cleanKey);
+      setSaveFeedback({
+        type: 'success',
+        text: `✓ Xác thực thành công! ${message} Key đã được lưu vào trình duyệt.`,
+      });
+      setTimeout(() => closeApiKeyModal(), 1200);
+    } else {
+      // Block save entirely
+      setIsValidated(false);
+      setSaveFeedback({
+        type: 'error',
+        text: `⛔ Không thể lưu: ${message}`,
+      });
+    }
+
+    setIsSaving(false);
   };
 
   const handleRemoveKey = () => {
     removeCustomApiKey();
     setInputKey('');
+    setIsValidated(false);
     setTestResult(null);
     setSaveFeedback({
       type: 'info',
@@ -207,7 +233,12 @@ export const ApiKeyModal: React.FC = () => {
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={inputKey}
-                onChange={(e) => setInputKey(e.target.value)}
+                onChange={(e) => {
+                  setInputKey(e.target.value);
+                  setIsValidated(false);
+                  setTestResult(null);
+                  setSaveFeedback(null);
+                }}
                 placeholder="AIzaSy..."
                 className="w-full pl-3.5 pr-20 py-2.5 bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-700 rounded-xl text-xs font-mono text-slate-900 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 transition shadow-xs"
               />
@@ -294,10 +325,28 @@ export const ApiKeyModal: React.FC = () => {
                 <button
                   type="submit"
                   disabled={isSaving || !inputKey.trim()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  className={`px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer ${
+                    isValidated
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  }`}
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Lưu Key</span>
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span>Đang xác thực & lưu...</span>
+                    </>
+                  ) : isValidated ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                      <span>Lưu Key ✓</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Lưu Key</span>
+                    </>
+                  )}
                 </button>
 
                 {isCustomKeyActive && (

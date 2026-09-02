@@ -5,6 +5,8 @@ export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 // POST /api/validate-key
+// Body: { apiKey: string }
+// Returns: { success: boolean, message: string }
 export async function POST(req: NextRequest) {
   try {
     let body: { apiKey?: string } = {};
@@ -14,86 +16,90 @@ export async function POST(req: NextRequest) {
       body = {};
     }
 
-    const customKey =
-      (body.apiKey && body.apiKey.trim().length > 10 ? body.apiKey.trim() : null) ||
-      (req.headers.get('x-custom-api-key') && req.headers.get('x-custom-api-key')!.trim().length > 10
-        ? req.headers.get('x-custom-api-key')!.trim()
-        : null);
+    // Accept key from body or header (no prefix/length restriction)
+    const rawKey =
+      (body.apiKey && body.apiKey.trim()) ||
+      (req.headers.get('x-gemini-api-key') && req.headers.get('x-gemini-api-key')!.trim()) ||
+      null;
 
-    const apiKey = customKey || process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
+    if (!rawKey) {
       return NextResponse.json(
-        { error: 'Vui lòng cung cấp Gemini API Key hợp lệ để kiểm tra.' },
+        { success: false, message: 'Vui lòng cung cấp Gemini API Key để kiểm tra.' },
         { status: 400 }
       );
     }
 
-    const ai = new GoogleGenAI({ apiKey });
+    const ai = new GoogleGenAI({ apiKey: rawKey });
 
-    // Lightweight verification call using gemini-3.6-flash / 3.7-flash / 3.5-flash
-    let result: any = null;
+    // Cascade through 3 models — stop at first success
     const testModels = ['gemini-3.6-flash', 'gemini-3.7-flash', 'gemini-3.5-flash'];
+    let lastError: any = null;
+
     for (const testModel of testModels) {
       try {
-        result = await ai.models.generateContent({
+        const result = await ai.models.generateContent({
           model: testModel,
           contents: 'Ping test. Reply with OK.',
-          config: {
-            maxOutputTokens: 5,
-            temperature: 0,
-          },
+          config: { maxOutputTokens: 5, temperature: 0 },
         });
-        if (result && result.text) break;
-      } catch (err) {
-        console.warn(`Validate key test ping error with ${testModel}:`, err);
+        if (result && result.text) {
+          return NextResponse.json({
+            success: true,
+            message: 'API Key hợp lệ và hoạt động tốt!',
+          });
+        }
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = String(err?.message || '').toLowerCase();
+        const errStatus = err?.status || err?.statusCode;
+
+        // Key-level errors — no point trying other models
+        if (
+          errStatus === 400 ||
+          errStatus === 403 ||
+          errMsg.includes('api_key_invalid') ||
+          errMsg.includes('invalid api key') ||
+          errMsg.includes('permission_denied') ||
+          errMsg.includes('not found')
+        ) {
+          break;
+        }
+        // For 404 (model not found) — continue to next model
+        // For 429 (quota) — continue to next model
+        console.warn(`Validate ping failed on ${testModel}:`, err?.message);
       }
     }
 
-    if (result && result.text) {
-      return NextResponse.json({
-        success: true,
-        message: 'Kết nối Gemini API Key thành công!',
-      });
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Kết nối API Key thành công!',
-    });
-  } catch (error: any) {
-    console.error('Error validating Gemini API key:', error);
-    const errorMsg = String(error?.message || '').toLowerCase();
-    const errorStatus = error?.status || error?.statusCode;
+    // Analyse the last error for a user-friendly message
+    const errMsg = String(lastError?.message || '').toLowerCase();
+    const errStatus = lastError?.status || lastError?.statusCode;
 
     if (
-      errorStatus === 429 ||
-      errorMsg.includes('429') ||
-      errorMsg.includes('quota') ||
-      errorMsg.includes('rate limit') ||
-      errorMsg.includes('resource_exhausted')
+      errStatus === 429 ||
+      errMsg.includes('429') ||
+      errMsg.includes('quota') ||
+      errMsg.includes('rate_limit') ||
+      errMsg.includes('resource_exhausted')
     ) {
+      // Key exists but quota exhausted — still a valid key
       return NextResponse.json(
         {
-          success: false,
-          error: 'API Key này đã tạm thời hết hạn mức quota hoặc bị giới hạn tốc độ (Rate Limit).',
+          success: true,
+          message: 'API Key hợp lệ nhưng tài khoản đang bị giới hạn hạn mức (Quota Exceeded). Bạn vẫn có thể lưu và sử dụng sau.',
         },
-        { status: 429 }
+        { status: 200 }
       );
     }
 
     if (
-      errorStatus === 400 ||
-      errorStatus === 403 ||
-      errorMsg.includes('api_key_invalid') ||
-      errorMsg.includes('invalid api key') ||
-      errorMsg.includes('permission_denied')
+      errStatus === 400 ||
+      errStatus === 403 ||
+      errMsg.includes('api_key_invalid') ||
+      errMsg.includes('invalid api key') ||
+      errMsg.includes('permission_denied')
     ) {
       return NextResponse.json(
-        {
-          success: false,
-          error: 'API Key không hợp lệ hoặc không có quyền truy cập Gemini API.',
-        },
+        { success: false, message: 'Mã API Key không chính xác hoặc không có quyền truy cập Gemini API.' },
         { status: 400 }
       );
     }
@@ -101,8 +107,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: error?.message || 'Không thể kết nối đến máy chủ Gemini.',
+        message: lastError?.message || 'Không thể kết nối đến máy chủ Gemini để xác thực Key.',
       },
+      { status: 500 }
+    );
+  } catch (error: any) {
+    console.error('validate-key route error:', error);
+    return NextResponse.json(
+      { success: false, message: error?.message || 'Lỗi máy chủ không xác định.' },
       { status: 500 }
     );
   }
