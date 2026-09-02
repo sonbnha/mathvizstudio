@@ -299,8 +299,9 @@ export const ApiKeyModal: React.FC = () => {
             )}
 
             {/* Action Buttons */}
-            <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-              <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center justify-between gap-2 pt-1 pb-1">
+              {/* Left group: Test + Save */}
+              <div className="flex items-center gap-2">
                 {/* Test Key button */}
                 <button
                   type="button"
@@ -348,27 +349,20 @@ export const ApiKeyModal: React.FC = () => {
                     </>
                   )}
                 </button>
-
-                {isCustomKeyActive && (
-                  <button
-                    type="button"
-                    onClick={handleRemoveKey}
-                    className="px-3 py-2 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-medium border border-rose-200 dark:border-rose-800/60 transition flex items-center gap-1 cursor-pointer"
-                    title="Xóa key cá nhân và dùng lại key mặc định"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Dùng lại mặc định</span>
-                  </button>
-                )}
               </div>
 
-              <button
-                type="button"
-                onClick={closeApiKeyModal}
-                className="px-3 py-2 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-xs font-medium transition cursor-pointer"
-              >
-                Đóng
-              </button>
+              {/* Right: Reset to default — only shown when a custom key is active */}
+              {isCustomKeyActive && (
+                <button
+                  type="button"
+                  onClick={handleRemoveKey}
+                  className="px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl text-xs font-medium border border-rose-200 dark:border-rose-800/60 transition flex items-center gap-1.5 cursor-pointer"
+                  title="Xóa key cá nhân và dùng lại key mặc định"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Dùng lại mặc định</span>
+                </button>
+              )}
             </div>
           </form>
 
