@@ -74,29 +74,53 @@ export const LESSON_PLAN_PRESETS: LessonPlanPreset[] = [
 export function renderMarkdownWithKatex(markdown: string): string {
   if (!markdown) return '';
 
-  // 1. Process Block LaTeX: $$...$$
+  const mathPlaceholders: { token: string; html: string }[] = [];
+  let tokenCounter = 0;
+
+  // 1. Extract and render Block LaTeX: $$...$$ with output: 'html'
   let processed = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+    const token = `%%KATEX_BLOCK_${tokenCounter++}%%`;
     try {
       const rendered = katex.renderToString(math.trim(), {
         displayMode: true,
         throwOnError: false,
+        output: 'html',
+        strict: false,
       });
-      return `<div class="my-3 overflow-x-auto py-1">${rendered}</div>`;
+      mathPlaceholders.push({
+        token,
+        html: `<div class="my-3 overflow-x-auto py-1 text-center">${rendered}</div>`,
+      });
     } catch {
-      return `<div class="font-mono text-cyan-600 dark:text-cyan-400 my-2">$$${math}$$</div>`;
+      mathPlaceholders.push({
+        token,
+        html: `<div class="font-mono text-cyan-600 dark:text-cyan-400 my-2">$$${math}$$</div>`,
+      });
     }
+    return token;
   });
 
-  // 2. Process Inline LaTeX: $...$ (ensure not double $)
+  // 2. Extract and render Inline LaTeX: $...$ with output: 'html'
   processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+    const token = `%%KATEX_INLINE_${tokenCounter++}%%`;
     try {
-      return katex.renderToString(math.trim(), {
+      const rendered = katex.renderToString(math.trim(), {
         displayMode: false,
         throwOnError: false,
+        output: 'html',
+        strict: false,
+      });
+      mathPlaceholders.push({
+        token,
+        html: rendered,
       });
     } catch {
-      return `<span class="font-mono text-cyan-600 dark:text-cyan-400">$${math}$</span>`;
+      mathPlaceholders.push({
+        token,
+        html: `<span class="font-mono text-cyan-600 dark:text-cyan-400">$${math}$</span>`,
+      });
     }
+    return token;
   });
 
   // 3. Process Markdown Headings, Tables, Lists, Bold, Italics, Horizontal Rules
@@ -224,7 +248,14 @@ export function renderMarkdownWithKatex(markdown: string): string {
     htmlLines.push('</tbody></table></div>');
   }
 
-  return htmlLines.join('\n');
+  let finalHtml = htmlLines.join('\n');
+
+  // 4. Safely restore all KaTeX rendered HTML without interference from markdown delimiters
+  for (const item of mathPlaceholders) {
+    finalHtml = finalHtml.replaceAll(item.token, item.html);
+  }
+
+  return finalHtml;
 }
 
 /**
