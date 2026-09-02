@@ -860,15 +860,15 @@ export default function HomePage() {
             </p>
           </div>
 
-          {/* Module Navigation */}
-          <nav className="hidden xl:flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-200 dark:border-slate-800">
+          {/* Module Navigation Tabs */}
+          <nav className="flex items-center gap-1 sm:gap-1.5 ml-2 sm:ml-4 pl-2 sm:pl-4 border-l border-slate-200 dark:border-slate-800">
             <button
               type="button"
               onClick={() => handleTabChange('geometry')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 mainTab === 'geometry'
-                  ? 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400'
+                  ? 'bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
               }`}
             >
               <Compass className="w-3.5 h-3.5" />
@@ -877,10 +877,10 @@ export default function HomePage() {
             <button
               type="button"
               onClick={() => handleTabChange('lesson-plan')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+              className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
                 mainTab === 'lesson-plan'
-                  ? 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80'
-                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400'
+                  ? 'bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 border border-indigo-500/30 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-200 border border-transparent'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
@@ -960,7 +960,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setIsHistoryDrawerOpen(true)}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 transition shadow-sm flex items-center gap-1.5"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-slate-200 transition shadow-sm flex items-center gap-1.5 cursor-pointer"
             title="Bộ sưu tập & Lịch sử hình vẽ"
           >
             <FolderClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -976,7 +976,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={toggleTheme}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-amber-400 transition shadow-sm"
+            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-slate-700 dark:text-amber-400 transition shadow-sm cursor-pointer"
             title={theme === 'dark' ? 'Chuyển sang chế độ Sáng' : 'Chuyển sang chế độ Tối'}
           >
             {theme === 'dark' ? (
@@ -987,36 +987,6 @@ export default function HomePage() {
           </button>
         </div>
       </header>
-
-      {/* Modern Capsule Tab Switcher */}
-      <div className="flex justify-center my-3.5 px-4 z-20 print:hidden">
-        <div className="inline-flex p-1.5 bg-slate-200/80 dark:bg-slate-900/90 rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-sm backdrop-blur-md">
-          <button
-            type="button"
-            onClick={() => handleTabChange('geometry')}
-            className={`flex items-center gap-2 px-5 sm:px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
-              mainTab === 'geometry'
-                ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 shadow-md shadow-cyan-500/10'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <Compass className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
-            <span>Vẽ hình học AI</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => handleTabChange('lesson-plan')}
-            className={`flex items-center gap-2 px-5 sm:px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
-              mainTab === 'lesson-plan'
-                ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 shadow-md shadow-cyan-500/10'
-                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-            }`}
-          >
-            <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-            <span>Soạn giáo án tự động (5512)</span>
-          </button>
-        </div>
-      </div>
 
       {/* TAB 1: Vẽ hình học AI */}
       <div className={mainTab === 'geometry' ? 'block' : 'hidden'}>
