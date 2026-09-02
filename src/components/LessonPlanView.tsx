@@ -169,7 +169,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   ];
 
   return (
-    <div className="w-full h-full flex flex-col md:flex-row gap-4 p-3 md:p-4 overflow-hidden">
+    <div className="w-full h-full min-h-0 flex flex-col md:flex-row gap-4 overflow-hidden">
       {/* Print CSS Stylesheet */}
       <style jsx global>{`
         @media print {

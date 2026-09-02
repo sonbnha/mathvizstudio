@@ -1649,7 +1649,7 @@ export default function HomePage() {
         </div>
 
         {/* TAB 2: Soạn giáo án tự động */}
-        <div className={`flex-1 min-h-0 w-full px-4 md:px-6 py-4 overflow-y-auto ${mainTab === 'lesson-plan' ? 'block' : 'hidden'}`}>
+        <div className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 overflow-hidden ${mainTab === 'lesson-plan' ? 'flex flex-col' : 'hidden'}`}>
           <LessonPlanView licenseKey={licenseKey} />
         </div>
       </main>
