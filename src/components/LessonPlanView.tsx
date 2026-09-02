@@ -26,6 +26,7 @@ import {
   LessonPlanPreset,
   renderMarkdownWithKatex,
   exportToWordDocument,
+  exportToDocx,
 } from '@/lib/lessonPlanUtils';
 
 interface LessonPlanViewProps {
@@ -53,6 +54,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   const [lessonPlan, setLessonPlan] = useState('');
   const [activeTab, setActiveTab] = useState<'rendered' | 'editor'>('rendered');
   const [copied, setCopied] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // Effective key
@@ -138,11 +140,19 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Export Word Action
-  const handleExportWord = () => {
+  // Export Word Action (.docx / .doc)
+  const handleExportWord = async () => {
     if (!lessonPlan) return;
-    const cleanTitle = `Giao_An_${grade}_${topic}`.replace(/\s+/g, '_');
-    exportToWordDocument(lessonPlan, cleanTitle);
+    setIsExporting(true);
+    const cleanTitle = `Giao_An_${grade}_${topic}`.replace(/[\s/\\?%*:|"<>]+/g, '_').slice(0, 45);
+    try {
+      await exportToDocx(lessonPlan, cleanTitle);
+    } catch (e) {
+      console.warn('Lỗi xuất .docx, chuyển sang định dạng Word tiêu chuẩn:', e);
+      exportToWordDocument(lessonPlan, cleanTitle);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   // Print Action
@@ -159,44 +169,87 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   ];
 
   return (
-    <div className="w-full flex flex-col lg:flex-row gap-6 text-slate-900 dark:text-slate-100">
-      {/* KaTeX CDN Stylesheet */}
-      <link
-        rel="stylesheet"
-        href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css"
-        crossOrigin="anonymous"
-      />
+    <div className="w-full h-full flex flex-col md:flex-row gap-4 p-3 md:p-4 overflow-hidden">
+      {/* Print CSS Stylesheet */}
+      <style jsx global>{`
+        @media print {
+          body, html {
+            background: #ffffff !important;
+            color: #000000 !important;
+          }
+          header, footer, .sidebar-form, .action-bar, .print-hidden {
+            display: none !important;
+          }
+          .a4-paper-sheet {
+            box-shadow: none !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            width: 100% !important;
+            min-height: auto !important;
+          }
+          .preview-container {
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+          }
+        }
+      `}</style>
 
-      {/* LEFT COLUMN: Input Form Panel (Fixed Width) */}
-      <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-5 print:hidden">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-md flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-            <div className="flex items-center gap-2">
-              <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                <BookOpen className="w-4 h-4" />
-              </div>
-              <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
-                Thông Tin Bài Học (Công văn 5512)
-              </h2>
+      {/* LEFT COLUMN: Input Form & Lesson Configuration */}
+      <div className="sidebar-form w-full md:w-[380px] xl:w-[420px] shrink-0 h-full flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden print:hidden">
+        {/* Panel Header */}
+        <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50">
+          <div className="flex items-center gap-2">
+            <div className="p-2 rounded-xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+              <BookOpen className="w-5 h-5" />
             </div>
-            <span className="text-[11px] text-cyan-700 dark:text-cyan-400 font-medium px-2 py-0.5 rounded-md bg-cyan-500/10">
-              Toán THCS & THPT
-            </span>
+            <div>
+              <h2 className="font-bold text-slate-900 dark:text-white text-sm">Soạn Giáo Án 5512</h2>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                Chuẩn Bộ GD&ĐT • Xuất file Word (.docx)
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Scrollable Form Content */}
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
+          {/* Preset Quick Chips */}
+          <div className="space-y-1.5">
+            <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+              <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+              <span>Gợi ý bài dạy mẫu (Bấm để nạp nhanh):</span>
+            </label>
+            <div className="flex flex-wrap gap-1.5">
+              {LESSON_PLAN_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => applyPreset(p)}
+                  className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] border border-slate-200 dark:border-slate-700/60 transition cursor-pointer"
+                >
+                  {p.grade}: {p.topic.split(' và ')[0].slice(0, 25)}...
+                </button>
+              ))}
+            </div>
           </div>
 
-          <form onSubmit={handleGenerate} className="flex flex-col gap-4 text-xs">
+          <form onSubmit={handleGenerate} className="space-y-3.5">
             {/* Topic Input */}
             <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                <span>Tên bài học / Chủ đề bài giảng <span className="text-rose-500">*</span></span>
+              <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                <span>Tên Bài học / Chủ đề</span>
+                <span className="text-rose-500">*</span>
               </label>
-              <input
-                type="text"
+              <textarea
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="Ví dụ: Định lý Pythagore và ứng dụng"
+                placeholder="Ví dụ: Định lý Pythagore, Tỉ số lượng giác góc nhọn, Góc nội tiếp..."
+                rows={2}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs resize-none shadow-xs"
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all font-medium text-xs shadow-xs"
               />
             </div>
 
@@ -278,45 +331,37 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                 <span className="text-[10px] text-slate-400 dark:text-slate-500">Tùy chọn</span>
               </label>
               <textarea
-                rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Ví dụ: Thiết kế phiếu học tập nhóm, tích hợp bài toán đo khoảng cách thực tế..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all font-normal text-xs resize-none shadow-xs"
+                placeholder="Ví dụ: Thiết kế trò chơi khởi động, bài toán thực tiễn tính chiều cao cây, tích hợp liên môn..."
+                rows={2}
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs resize-none shadow-xs"
               />
             </div>
 
-            {/* License Key Section (Collapsible) */}
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
+            {/* Custom License Key Accordion */}
+            <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3">
               <button
                 type="button"
                 onClick={() => setIsKeyExpanded(!isKeyExpanded)}
-                className="w-full py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 flex items-center justify-between text-xs cursor-pointer"
+                className="w-full flex items-center justify-between text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 transition py-1 text-xs cursor-pointer"
               >
                 <span className="flex items-center gap-1.5 font-medium">
-                  <Key className="w-3.5 h-3.5 text-amber-500" />
-                  <span>Mã bản quyền / License Key</span>
-                  {effectiveKey && (
-                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold bg-emerald-500/10 px-1.5 py-0.5 rounded">
-                      Đã áp dụng
-                    </span>
-                  )}
+                  <Key className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                  <span>Mã kích hoạt VIP riêng</span>
                 </span>
                 {isKeyExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
 
               {isKeyExpanded && (
-                <div className="mt-2.5 flex flex-col gap-1">
+                <div className="mt-2 pt-1">
                   <input
                     type="text"
                     value={customKey}
-                    onChange={(e) => setCustomKey(e.target.value.toUpperCase())}
-                    placeholder={parentKey || "VD: MATH-PRO-XXXX-XXXX"}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100 placeholder-slate-400"
+                    onChange={(e) => setCustomKey(e.target.value)}
+                    placeholder="Nhập mã MV-VIP-xxxx nếu có..."
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-mono text-xs focus:outline-none focus:ring-2 focus:ring-cyan-500/30 uppercase shadow-xs"
                   />
-                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Sử dụng License Key riêng hoặc dùng chung Key đã nhập ở thanh Header.
-                  </p>
                 </div>
               )}
             </div>
@@ -349,193 +394,189 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
             </button>
           </form>
         </div>
-
-        {/* Quick Preset Topics */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm dark:shadow-md flex flex-col gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
-            <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-            <span>Chủ đề bài giảng gợi ý mẫu</span>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {LESSON_PLAN_PRESETS.map((preset) => (
-              <button
-                key={preset.id}
-                onClick={() => applyPreset(preset)}
-                className="text-left px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 hover:bg-cyan-50 dark:bg-slate-950/60 dark:hover:bg-cyan-950/40 text-slate-700 dark:text-slate-300 hover:text-cyan-700 dark:hover:text-cyan-300 text-xs transition-colors flex items-center gap-1.5 cursor-pointer"
-              >
-                <span className="font-semibold text-[10px] text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded">
-                  {preset.grade}
-                </span>
-                <span className="truncate max-w-[200px]">{preset.topic}</span>
-              </button>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* RIGHT COLUMN: Lesson Plan Output Viewer (Full Flexible Width) */}
-      <div className="flex-1 min-w-0 flex flex-col gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm dark:shadow-md flex flex-col min-h-[640px] overflow-hidden">
-          {/* Action Bar & Mode Switcher */}
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 print:hidden">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl">
-                <button
-                  onClick={() => setActiveTab('rendered')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    activeTab === 'rendered'
-                      ? 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>Xem chuẩn 5512</span>
-                </button>
-                <button
-                  onClick={() => setActiveTab('editor')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                    activeTab === 'editor'
-                      ? 'bg-white dark:bg-slate-900 text-cyan-700 dark:text-cyan-300 shadow-xs'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                  }`}
-                >
-                  <Edit3 className="w-3.5 h-3.5" />
-                  <span>Chỉnh sửa Markdown</span>
-                </button>
-              </div>
-
-              {lessonPlan && (
-                <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg hidden sm:inline-flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Đã hoàn thành
-                </span>
-              )}
-            </div>
-
-            {/* Action Buttons: Copy, Word, Print */}
-            <div className="flex items-center gap-2">
+      {/* RIGHT COLUMN: Lesson Plan Output Viewer (Word-like Virtual A4 Preview) */}
+      <div className="flex-1 min-w-0 flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+        {/* Sticky Action Bar & Mode Switcher */}
+        <div className="action-bar p-3 md:p-3.5 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0 z-10 print:hidden">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
               <button
-                onClick={handleCopy}
-                disabled={!lessonPlan}
-                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
-                title="Sao chép toàn bộ nội dung"
+                onClick={() => setActiveTab('rendered')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'rendered'
+                    ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
               >
-                {copied ? (
-                  <>
-                    <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đã chép</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-3.5 h-3.5" />
-                    <span>Sao chép</span>
-                  </>
-                )}
+                <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <span>Trang Word A4</span>
               </button>
-
               <button
-                onClick={handleExportWord}
-                disabled={!lessonPlan}
-                className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
-                title="Xuất file Microsoft Word (.doc/.docx)"
+                onClick={() => setActiveTab('editor')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+                  activeTab === 'editor'
+                    ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+                }`}
               >
-                <FileDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Xuất file Word</span>
-              </button>
-
-              <button
-                onClick={handlePrint}
-                disabled={!lessonPlan}
-                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
-                title="In hoặc tải định dạng PDF"
-              >
-                <Printer className="w-3.5 h-3.5" />
-                <span>In / PDF</span>
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Chỉnh sửa Markdown</span>
               </button>
             </div>
+
+            {lessonPlan && (
+              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg hidden sm:inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Đã sẵn sàng in / nộp
+              </span>
+            )}
           </div>
 
-          {/* Content Body */}
-          <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
-            {loading ? (
-              /* Animated Loading Skeleton */
-              <div className="py-16 flex flex-col items-center justify-center gap-5 text-center">
-                <div className="relative">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 animate-pulse">
-                    <Sparkles className="w-8 h-8 animate-spin" />
-                  </div>
-                </div>
-                <div className="flex flex-col gap-2 max-w-md">
-                  <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
-                    Đang soạn kế hoạch bài dạy theo Công văn 5512
-                  </h3>
-                  <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">
-                    {stepsText[progressStep - 1] || 'Đang triển khai chi tiết 4 hoạt động sư phạm...'}
-                  </p>
-                  <div className="w-64 h-2 bg-slate-100 dark:bg-slate-800 rounded-full mx-auto overflow-hidden mt-2">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 transition-all duration-500 rounded-full"
-                      style={{ width: `${progressStep * 25}%` }}
-                    ></div>
-                  </div>
+          {/* Action Buttons: Copy, Word (.docx), Print */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleCopy}
+              disabled={!lessonPlan}
+              className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+              title="Sao chép toàn bộ nội dung"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-3.5 h-3.5 text-emerald-500" />
+                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đã chép</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Sao chép</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleExportWord}
+              disabled={!lessonPlan || isExporting}
+              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs shadow-blue-500/20"
+              title="Tải file Microsoft Word (.docx chuẩn mực)"
+            >
+              {isExporting ? (
+                <>
+                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                  <span>Đang tạo .docx...</span>
+                </>
+              ) : (
+                <>
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>Tải file .docx</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handlePrint}
+              disabled={!lessonPlan}
+              className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
+              title="In trực tiếp hoặc Lưu dưới dạng file PDF chuẩn A4"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>In / Xuất PDF</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body: Word-like A4 Virtual Paper Preview */}
+        <div className="preview-container flex-1 overflow-y-auto bg-slate-200/80 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col items-center">
+          {loading ? (
+            /* Animated Loading inside A4 Sheet */
+            <div className="w-full max-w-[800px] min-h-[680px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-8 sm:p-12 shadow-2xl rounded-xs border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-5 text-center my-4 font-sans">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 animate-pulse">
+                  <Sparkles className="w-8 h-8 animate-spin" />
                 </div>
               </div>
-            ) : lessonPlan ? (
-              activeTab === 'rendered' ? (
-                /* Rendered HTML + KaTeX View */
+              <div className="flex flex-col gap-2 max-w-md">
+                <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
+                  Đang soạn kế hoạch bài dạy theo Công văn 5512
+                </h3>
+                <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">
+                  {stepsText[progressStep - 1] || 'Đang triển khai chi tiết 4 hoạt động sư phạm...'}
+                </p>
+                <div className="w-64 h-2 bg-slate-100 dark:bg-slate-800 rounded-full mx-auto overflow-hidden mt-2">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-500 to-indigo-500 transition-all duration-500 rounded-full"
+                    style={{ width: `${progressStep * 25}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          ) : lessonPlan ? (
+            activeTab === 'rendered' ? (
+              /* Virtual A4 Paper Sheet */
+              <div className="w-full max-w-[800px] min-h-[1100px] bg-white text-black p-8 sm:p-12 md:p-16 shadow-2xl rounded-xs border border-slate-300 dark:border-slate-800 font-serif text-[14px] leading-relaxed select-text my-4 relative transition-all a4-paper-sheet">
+                {/* Decorative Word A4 Sheet Header Marker */}
+                <div className="text-[11px] text-slate-400 font-sans mb-6 pb-2 border-b border-slate-200 flex items-center justify-between select-none print:hidden">
+                  <span className="font-semibold tracking-wider text-slate-500">
+                    KẾ HOẠCH BÀI DẠY THEO CÔNG VĂN 5512/BGDĐT-GDTrH
+                  </span>
+                  <span>MÔN TOÁN • BỘ SÁCH THỐNG NHẤT</span>
+                </div>
                 <article
-                  className="prose prose-slate dark:prose-invert max-w-none text-xs md:text-sm leading-relaxed"
+                  className="max-w-none text-black leading-relaxed"
                   dangerouslySetInnerHTML={{ __html: renderMarkdownWithKatex(lessonPlan) }}
                 />
-              ) : (
-                /* Raw Markdown Editor */
+              </div>
+            ) : (
+              /* Raw Markdown Editor */
+              <div className="w-full max-w-[800px] h-full flex-1 my-4 flex flex-col">
                 <textarea
                   value={lessonPlan}
                   onChange={(e) => setLessonPlan(e.target.value)}
                   rows={28}
-                  className="w-full h-full font-mono text-xs p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 leading-relaxed resize-none"
+                  className="w-full flex-1 font-mono text-xs p-5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 leading-relaxed resize-none shadow-md"
                 />
-              )
-            ) : (
-              /* Empty Initial Guide View */
-              <div className="py-14 flex flex-col items-center justify-center gap-6 text-center max-w-lg mx-auto">
-                <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center">
-                  <BookOpen className="w-7 h-7" />
-                </div>
-                <div className="flex flex-col gap-2">
-                  <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
-                    Trợ Lý Soạn Giáo Án Toán Học AI (CV 5512)
-                  </h3>
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Điền thông tin bài học ở cột bên trái và bấm nút <strong>"Tạo Giáo Án Tự Động"</strong> để nhận Kế hoạch bài dạy chuẩn mực 4 hoạt động của Bộ GD&ĐT kèm công thức Toán LaTeX và phiếu học tập.
+              </div>
+            )
+          ) : (
+            /* Empty Initial Guide View */
+            <div className="w-full max-w-[800px] min-h-[600px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-8 sm:p-12 shadow-xl rounded-xs border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-6 text-center my-4 font-sans">
+              <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shadow-sm">
+                <BookOpen className="w-7 h-7" />
+              </div>
+              <div className="flex flex-col gap-2 max-w-md">
+                <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">
+                  Trợ Lý Soạn Giáo Án Toán Học AI (CV 5512)
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                  Điền thông tin bài học ở cột bên trái và bấm nút <strong>"Tạo Giáo Án Tự Động"</strong> để nhận Kế hoạch bài dạy chuẩn mực hiển thị trực quan trong khung xem trước tờ giấy A4 chuẩn Word.
+                </p>
+              </div>
+
+              {/* Highlights Grid */}
+              <div className="grid grid-cols-2 gap-3 w-full max-w-md text-left text-xs mt-2">
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-1.5">
+                  <span className="font-semibold text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Xem trước chuẩn A4
+                  </span>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Mô phỏng chân thực từng trang Word với Times New Roman và bảng hoạt động 5512.
                   </p>
                 </div>
 
-                {/* Highlights Grid */}
-                <div className="grid grid-cols-2 gap-3 w-full text-left text-xs mt-2">
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-col gap-1.5">
-                    <span className="font-semibold text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Đúng chuẩn 4 Hoạt động
-                    </span>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Mở đầu &rarr; Kiến thức mới &rarr; Luyện tập &rarr; Vận dụng với quy trình 4 bước sư phạm.
-                    </p>
-                  </div>
-
-                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-col gap-1.5">
-                    <span className="font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
-                      <FileDown className="w-3.5 h-3.5" />
-                      Xuất Word (.doc/.docx)
-                    </span>
-                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                      Định dạng Times New Roman 13pt, lề chuẩn 2cm, sẵn sàng để nộp duyệt và in ấn.
-                    </p>
-                  </div>
+                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-1.5">
+                  <span className="font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                    <FileDown className="w-3.5 h-3.5" />
+                    Xuất File .docx
+                  </span>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Định dạng chuẩn lề 2cm, sẵn sàng để nộp ban giám hiệu và in ấn trực tiếp.
+                  </p>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

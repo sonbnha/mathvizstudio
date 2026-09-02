@@ -1,4 +1,5 @@
 import katex from 'katex';
+export { exportToDocx } from './docxExport';
 
 export interface LessonPlanPreset {
   id: string;
@@ -114,7 +115,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
         inTable = true;
         tableHeaderParsed = false;
         htmlLines.push(
-          '<div class="overflow-x-auto my-4 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xs"><table class="w-full text-left text-sm border-collapse">'
+          '<div class="overflow-x-auto my-4"><table class="w-full text-left text-[12.5px] border-collapse border border-black shadow-xs">'
         );
       }
 
@@ -130,15 +131,15 @@ export function renderMarkdownWithKatex(markdown: string): string {
         .map((c) => c.trim());
 
       if (!tableHeaderParsed) {
-        htmlLines.push('<thead class="bg-slate-100 dark:bg-slate-900/80 font-semibold text-slate-800 dark:text-slate-200 border-b border-slate-200 dark:border-slate-800"><tr>');
+        htmlLines.push('<thead class="bg-[#f2f2f2] font-bold text-black border-b border-black"><tr>');
         for (const cell of cells) {
-          htmlLines.push(`<th class="px-4 py-2.5 border-r border-slate-200 dark:border-slate-800 last:border-r-0">${cell}</th>`);
+          htmlLines.push(`<th class="p-2 border border-black text-center font-bold text-[12.5px] align-middle">${formatInline(cell)}</th>`);
         }
         htmlLines.push('</tr></thead><tbody>');
       } else {
-        htmlLines.push('<tr class="border-b border-slate-100 dark:border-slate-800/60 hover:bg-slate-50/50 dark:hover:bg-slate-900/40">');
+        htmlLines.push('<tr class="border-b border-black">');
         for (const cell of cells) {
-          htmlLines.push(`<td class="px-4 py-2.5 border-r border-slate-200/60 dark:border-slate-800/60 last:border-r-0 text-slate-700 dark:text-slate-300">${cell}</td>`);
+          htmlLines.push(`<td class="p-2 border border-black text-black text-[12.5px] align-top leading-snug">${formatInline(cell)}</td>`);
         }
         htmlLines.push('</tr>');
       }
@@ -150,14 +151,14 @@ export function renderMarkdownWithKatex(markdown: string): string {
 
     // Horizontal divider ---
     if (/^---+$/.test(trimmed)) {
-      htmlLines.push('<hr class="my-6 border-slate-200 dark:border-slate-800" />');
+      htmlLines.push('<hr class="my-5 border-t border-slate-300" />');
       continue;
     }
 
     // Headings #, ##, ###, ####
     if (trimmed.startsWith('# ')) {
       htmlLines.push(
-        `<h1 class="text-xl md:text-2xl font-black text-slate-900 dark:text-slate-100 mt-6 mb-3 pb-2 border-b border-slate-200 dark:border-slate-800">${formatInline(
+        `<h1 class="text-[17px] md:text-[18px] font-bold text-black text-center uppercase tracking-normal mt-4 mb-3 pb-2 border-b border-black">${formatInline(
           trimmed.slice(2)
         )}</h1>`
       );
@@ -165,7 +166,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
     if (trimmed.startsWith('## ')) {
       htmlLines.push(
-        `<h2 class="text-lg md:text-xl font-bold text-cyan-700 dark:text-cyan-400 mt-5 mb-2.5 flex items-center gap-2">${formatInline(
+        `<h2 class="text-[15px] md:text-[16px] font-bold text-[#002060] uppercase mt-5 mb-2">${formatInline(
           trimmed.slice(3)
         )}</h2>`
       );
@@ -173,7 +174,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
     if (trimmed.startsWith('### ')) {
       htmlLines.push(
-        `<h3 class="text-base md:text-lg font-semibold text-slate-800 dark:text-slate-200 mt-4 mb-2">${formatInline(
+        `<h3 class="text-[14px] font-bold text-black mt-3.5 mb-1.5">${formatInline(
           trimmed.slice(4)
         )}</h3>`
       );
@@ -181,7 +182,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
     if (trimmed.startsWith('#### ')) {
       htmlLines.push(
-        `<h4 class="text-sm md:text-base font-semibold text-slate-700 dark:text-slate-300 mt-3 mb-1.5">${formatInline(
+        `<h4 class="text-[13.5px] font-bold italic text-black mt-3 mb-1">${formatInline(
           trimmed.slice(5)
         )}</h4>`
       );
@@ -191,7 +192,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     // Bullet points / lists
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       htmlLines.push(
-        `<li class="ml-5 list-disc text-slate-700 dark:text-slate-300 leading-relaxed my-1">${formatInline(
+        `<li class="ml-6 list-disc text-black text-[13.5px] leading-relaxed text-justify my-1">${formatInline(
           trimmed.slice(2)
         )}</li>`
       );
@@ -202,7 +203,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
     if (numMatch) {
       htmlLines.push(
-        `<li class="ml-5 list-decimal text-slate-700 dark:text-slate-300 leading-relaxed my-1" value="${numMatch[1]}">${formatInline(
+        `<li class="ml-6 list-decimal text-black text-[13.5px] leading-relaxed text-justify my-1" value="${numMatch[1]}">${formatInline(
           numMatch[2]
         )}</li>`
       );
@@ -216,7 +217,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
 
     // Regular paragraph
-    htmlLines.push(`<p class="text-slate-700 dark:text-slate-300 leading-relaxed my-1.5">${formatInline(trimmed)}</p>`);
+    htmlLines.push(`<p class="text-black text-[13.5px] leading-[1.45] text-justify my-1.5">${formatInline(trimmed)}</p>`);
   }
 
   if (inTable) {
@@ -231,8 +232,8 @@ export function renderMarkdownWithKatex(markdown: string): string {
  */
 function formatInline(text: string): string {
   return text
-    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-slate-100">$1</strong>')
-    .replace(/\*(.*?)\*/g, '<em class="italic text-slate-800 dark:text-slate-200">$1</em>');
+    .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-black">$1</strong>')
+    .replace(/\*(.*?)\*/g, '<em class="italic text-black">$1</em>');
 }
 
 /**
