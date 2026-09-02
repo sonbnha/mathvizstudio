@@ -15,9 +15,10 @@ export const CHANGELOG: VersionRelease[] = [
     title: "Phát Hành Chính Thức MathViz Studio v1.0.0 (Stable Release)",
     changes: [
       { type: "feat", description: "Phát hành phiên bản ổn định chính thức MathViz Studio v1.0.0" },
-      { type: "feat", description: "Tích hợp Chuỗi Fallback Đa Tầng Tự Động (Model Fallback Cascade: 3.6 -> 3.5 -> 2.5) chống quá tải và gián đoạn AI" },
-      { type: "improve", description: "Tối ưu hóa toàn diện hiệu năng và độ ổn định khi tạo hình học vector SVG và mã TikZ LaTeX" },
-      { type: "feat", description: "Hoàn thiện hệ thống xác thực bản quyền License Key và bảng điều khiển quản trị viên" },
+      { type: "feat", description: "Tích hợp Chuỗi Model Cascade Gemini 3 (3.6-flash -> 3.5-flash) kèm cơ chế tự động Retry với Random Jitter chống quá tải" },
+      { type: "fix", description: "Loại bỏ model cũ đã ngừng cung cấp và nâng cấp toàn diện thuật toán xử lý lỗi kết nối AI" },
+      { type: "improve", description: "Tối ưu hóa toàn diện hiệu năng và độ chuẩn xác khi tạo hình học phẳng, đường tròn, toán thực tế và mã TikZ LaTeX" },
+      { type: "feat", description: "Hoàn thiện hệ thống quản lý và xác thực bản quyền License Key, bảng điều khiển quản trị viên và đồng bộ phiên bản" },
     ],
   },
   {
