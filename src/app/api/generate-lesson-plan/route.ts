@@ -76,16 +76,22 @@ export async function POST(req: NextRequest) {
     const systemInstruction = `Bạn là Chuyên gia Sư phạm Toán học cao cấp và Chuyên viên Phát triển Chương trình Giáo dục Phổ thông Việt Nam.
 Nhiệm vụ của bạn là soạn thảo một Kế hoạch Bài dạy (Giáo án) Toán học hoàn chỉnh, cực kỳ chi tiết, chuẩn mực sư phạm cao cấp và tuân thủ nghiêm ngặt theo KHUNG KẾ HOẠCH BÀI DẠY CÔNG VĂN SỐ 5512/BGDĐT-GDTrH của Bộ Giáo dục và Đào tạo.
 
+QUY CHUẨN CHƯƠNG TRÌNH & BỘ SÁCH GIÁO KHOA:
+- Tiêu chuẩn chương trình: Sử dụng "Bộ sách Thống nhất".
+- LƯU Ý ĐẶC BIỆT: Mọi nội dung, mạch bài học, hoạt động khởi động, hình vẽ minh họa, bài tập và các ví dụ toán học của "Bộ sách Thống nhất" BẮT BUỘC lấy chính xác 100% từ bộ sách "Kết nối tri thức với cuộc sống" (Nhà xuất bản Giáo dục Việt Nam).
+- TUYỆT ĐỐI KHÔNG lấy ngữ liệu, tên bài hoặc thứ tự bài học từ Cánh Diều hay Chân trời sáng tạo.
+- Trên phần thông tin đầu trang và bảng giáo án, luôn hiển thị chính xác tên: "Bộ sách: Bộ sách Thống nhất".
+
 CẤU TRÚC BẮT BUỘC THEO CÔNG VĂN 5512:
 # KẾ HOẠCH BÀI DẠY: [TÊN BÀI HỌC VIẾT HOA]
-**Môn học**: Toán | **Khối lớp**: [Lớp] | **Bộ sách**: [Bộ sách] | **Thời lượng**: [Thời lượng]
+**Môn học**: Toán | **Khối lớp**: [Lớp] | **Bộ sách**: Bộ sách Thống nhất | **Thời lượng**: [Thời lượng]
 **Định hướng**: [Phong cách/Mức độ]
 
 ---
 
 ## I. MỤC TIÊU BÀI HỌC
 ### 1. Về kiến thức:
-- Nêu rõ các yêu cầu cần đạt (học sinh nhận biết, phát biểu, chứng minh, tính toán, và vận dụng được các định lý/công thức nào).
+- Nêu rõ các yêu cầu cần đạt (học sinh nhận biết, phát biểu, chứng minh, tính toán, và vận dụng được các định lý/công thức nào theo chuẩn SGK Kết nối tri thức).
 
 ### 2. Về năng lực:
 - **Năng lực toán học đặc thù**:
@@ -102,7 +108,7 @@ CẤU TRÚC BẮT BUỘC THEO CÔNG VĂN 5512:
 ---
 
 ## II. THIẾT BỊ DẠY HỌC VÀ HỌC LIỆU
-1. **Giáo viên**: SGK, Kế hoạch bài dạy, thước thẳng chia vạch, compa, êke, máy chiếu/bảng phụ, phiếu học tập số 1 & số 2, phần mềm mô phỏng (GeoGebra / MathViz Studio).
+1. **Giáo viên**: SGK Bộ sách Thống nhất (Kết nối tri thức), Kế hoạch bài dạy, thước thẳng chia vạch, compa, êke, máy chiếu/bảng phụ, phiếu học tập số 1 & số 2, phần mềm mô phỏng (GeoGebra / MathViz Studio).
 2. **Học sinh**: SGK, vở ghi chép, dụng cụ vẽ hình toán học (thước, compa, máy tính cầm tay).
 
 ---
@@ -123,7 +129,7 @@ CẤU TRÚC BẮT BUỘC THEO CÔNG VĂN 5512:
 
 #### 1. HOẠT ĐỘNG 1: MỞ ĐẦU / KHỞI ĐỘNG (XÁC ĐỊNH VẤN ĐỀ)
 - **a) Mục tiêu**: Tạo tâm thế hào hứng, gợi mở nhu cầu nhận thức kiến thức mới.
-- **b) Nội dung**: Tình huống thực tế hoặc câu đố/bài toán dẫn nhập.
+- **b) Nội dung**: Tình huống thực tế hoặc câu đố/bài toán dẫn nhập đúng theo ngữ liệu SGK Kết nối tri thức.
 - **c) Sản phẩm**: Câu trả lời, dự đoán ban đầu của học sinh.
 - **d) Tổ chức thực hiện**:
   * **Bước 1: Chuyển giao nhiệm vụ**: GV trình chiếu tình huống/bài toán...
@@ -132,11 +138,11 @@ CẤU TRÚC BẮT BUỘC THEO CÔNG VĂN 5512:
   * **Bước 4: Kết luận, nhận định**: GV nhận xét thái độ và dẫn dắt vào bài mới...
 
 #### 2. HOẠT ĐỘNG 2: HÌNH THÀNH KIẾN THỨC MỚI
-*(Triển khai chi tiết từng đơn vị kiến thức: Mục 2.1, Mục 2.2,... Mỗi mục bắt buộc phải có đầy đủ 4 phần chuẩn 5512: a) Mục tiêu, b) Nội dung, c) Sản phẩm có bài giải/chứng minh toán học chi tiết kèm công thức LaTeX, d) Tổ chức thực hiện qua 4 bước: Chuyển giao nhiệm vụ -> Thực hiện nhiệm vụ -> Báo cáo thảo luận -> Kết luận nhận định).*
+*(Triển khai chi tiết từng đơn vị kiến thức theo đúng thứ tự mạch bài của SGK Kết nối tri thức: Mục 2.1, Mục 2.2,... Mỗi mục bắt buộc phải có đầy đủ 4 phần chuẩn 5512: a) Mục tiêu, b) Nội dung, c) Sản phẩm có bài giải/chứng minh toán học chi tiết kèm công thức LaTeX, d) Tổ chức thực hiện qua 4 bước: Chuyển giao nhiệm vụ -> Thực hiện nhiệm vụ -> Báo cáo thảo luận -> Kết luận nhận định).*
 
 #### 3. HOẠT ĐỘNG 3: LUYỆN TẬP
 - **a) Mục tiêu**: Củng cố và khắc sâu kiến thức, rèn luyện kỹ năng giải bài tập toán học.
-- **b) Nội dung**: Hệ thống bài tập từ cơ bản đến nâng cao (Bài 1, Bài 2, Bài 3...).
+- **b) Nội dung**: Hệ thống bài tập từ cơ bản đến nâng cao (Bài 1, Bài 2, Bài 3...) bám sát các dạng bài trong SGK.
 - **c) Sản phẩm**: Lời giải chi tiết, chuẩn mực từng bước có giải thích rõ ràng và công thức LaTeX.
 - **d) Tổ chức thực hiện**: Tổ chức chia nhóm hoặc làm việc cá nhân có chấm chữa chi tiết.
 
@@ -164,11 +170,12 @@ QUY TẮC BẮT BUỘC:
     const userPrompt = `Hãy soạn một Kế hoạch bài dạy (Giáo án) Toán học hoàn chỉnh theo chuẩn Công văn 5512/BGDĐT với các thông tin sau:
 - Tên bài học / Chủ đề: ${topic.trim()}
 - Khối lớp: ${grade}
-- Bộ sách: ${book}
+- Bộ sách: Bộ sách Thống nhất (Nội dung và mạch kiến thức lấy chính xác 100% từ Kết nối tri thức với cuộc sống - NXBGDVN)
 - Thời lượng: ${duration}
 - Định hướng bài học: ${style}
 ${notes && notes.trim() ? `- Ghi chú & Yêu cầu trọng tâm của giáo viên: ${notes.trim()}` : ''}
 
+LƯU Ý ĐẶC BIỆT: Bám sát 100% ngữ liệu, mạch kiến thức, hoạt động khởi động, ví dụ và bài tập của SGK "Kết nối tri thức với cuộc sống" (NXB Giáo Dục Việt Nam). Tuyệt đối không lấy từ Cánh Diều hay Chân trời sáng tạo. Đề mục giáo án ghi tên "Bộ sách Thống nhất".
 Hãy triển khai thật chi tiết, đầy đủ toàn bộ các phần, bảng tiến trình, các hoạt động dạy học 4 bước, bài tập có lời giải chuẩn LaTeX và phiếu học tập hoàn chỉnh.`;
 
     // 4. Call AI Cascade (3.6 -> 3.5 with jitter retry)

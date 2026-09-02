@@ -36,7 +36,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   // Form states
   const [topic, setTopic] = useState('Định lý Pythagore (Pytago) và ứng dụng thực tế');
   const [grade, setGrade] = useState('Lớp 8');
-  const [book, setBook] = useState('Kết Nối Tri Thức Với Cuộc Sống');
+  const [book, setBook] = useState('Bộ sách Thống nhất');
   const [duration, setDuration] = useState('2 tiết (90 phút)');
   const [style, setStyle] = useState('Chuẩn 5512');
   const [notes, setNotes] = useState(
@@ -231,6 +231,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                   onChange={(e) => setBook(e.target.value)}
                   className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer shadow-xs"
                 >
+                  <option value="Bộ sách Thống nhất">Bộ sách Thống nhất</option>
                   <option value="Kết Nối Tri Thức Với Cuộc Sống">Kết Nối Tri Thức</option>
                   <option value="Cánh Diều">Cánh Diều</option>
                   <option value="Chân Trời Sáng Tạo">Chân Trời Sáng Tạo</option>
