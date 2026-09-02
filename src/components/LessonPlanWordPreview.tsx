@@ -11,6 +11,9 @@ interface LessonPlanWordPreviewProps {
   onExportPdf?: () => void;
   onCopyMarkdown?: () => void;
   isCopied?: boolean;
+  isMaxTokensReached?: boolean;
+  onContinue?: () => void;
+  isContinuing?: boolean;
 }
 
 export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
@@ -21,13 +24,23 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
   onExportPdf,
   onCopyMarkdown,
   isCopied = false,
+  isMaxTokensReached = false,
+  onContinue,
+  isContinuing = false,
 }) => {
   const [zoomLevel, setZoomLevel] = useState<number>(100);
   const [showRuler, setShowRuler] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<'word' | 'raw'>('word');
   const previewRef = useRef<HTMLDivElement>(null);
 
-  const renderedHtml = renderMarkdownWithKatex(markdown);
+  const renderedHtml = React.useMemo(() => {
+    try {
+      return renderMarkdownWithKatex(markdown);
+    } catch (err) {
+      console.error('Lỗi khi chuyển đổi Markdown sang HTML:', err);
+      return `<div class="whitespace-pre-wrap font-mono text-sm">${markdown}</div>`;
+    }
+  }, [markdown]);
 
   const handleZoomIn = () => {
     setZoomLevel((prev) => Math.min(prev + 10, 150));
@@ -254,6 +267,47 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
                 className="lesson-plan-word-body text-black text-[13pt] leading-[1.38] text-justify space-y-1 [&_*]:text-black"
                 dangerouslySetInnerHTML={{ __html: renderedHtml }}
               />
+
+              {/* Continuation Callout / Button at bottom of Word paper */}
+              {(isMaxTokensReached || (onContinue && !isStreaming && markdown && markdown.length > 800)) && (
+                <div className="mt-8 p-4 bg-amber-50/90 border border-amber-300/80 rounded-xl text-amber-900 font-sans shadow-xs">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-xs text-amber-900 flex items-center gap-1.5">
+                        <span>{isMaxTokensReached ? '⚠️ Đã chạm giới hạn độ dài 1 lượt' : '💡 Soạn thảo thêm'}</span>
+                        <span>
+                          {isMaxTokensReached
+                            ? 'Giáo án có dung lượng lớn và đã chạm giới hạn 8.192 token của một lượt sinh.'
+                            : 'Bạn muốn viết tiếp các hoạt động dạy học hoặc phụ lục còn lại?'}
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-amber-700 mt-1">
+                        Bấm nút <strong>"Viết tiếp nội dung"</strong> để AI viết nối tiếp ngay từ điểm dừng mà không mất dữ liệu đã có.
+                      </p>
+                    </div>
+                    {onContinue && (
+                      <button
+                        type="button"
+                        onClick={onContinue}
+                        disabled={isContinuing || isStreaming}
+                        className="shrink-0 px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-lg text-xs font-bold shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-50 cursor-pointer active:scale-95"
+                      >
+                        {isContinuing ? (
+                          <>
+                            <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                            <span>Đang viết tiếp...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>✍️</span>
+                            <span>Viết tiếp nội dung</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Bottom Document Page Number */}
               <div className="pt-8 mt-12 border-t border-slate-200 text-center text-[11pt] text-slate-500 font-['Times_New_Roman',serif]">

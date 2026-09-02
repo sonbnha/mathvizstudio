@@ -74,210 +74,217 @@ export const LESSON_PLAN_PRESETS: LessonPlanPreset[] = [
 export function renderMarkdownWithKatex(markdown: string): string {
   if (!markdown) return '';
 
-  const mathPlaceholders: { token: string; html: string }[] = [];
-  let tokenCounter = 0;
+  try {
+    const mathPlaceholders: { token: string; html: string }[] = [];
+    let tokenCounter = 0;
 
-  // 1. Extract and render Block LaTeX: $$...$$ with output: 'html'
-  let processed = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
-    const token = `%%KATEX_BLOCK_${tokenCounter++}%%`;
-    try {
-      const rendered = katex.renderToString(math.trim(), {
-        displayMode: true,
-        throwOnError: false,
-        output: 'html',
-        strict: false,
-      });
-      mathPlaceholders.push({
-        token,
-        html: `<div class="my-3 overflow-x-auto py-1 text-center">${rendered}</div>`,
-      });
-    } catch {
-      mathPlaceholders.push({
-        token,
-        html: `<div class="font-mono text-cyan-600 dark:text-cyan-400 my-2">$$${math}$$</div>`,
-      });
-    }
-    return token;
-  });
+    // 1. Extract and render Block LaTeX: $$...$$ with output: 'html'
+    let processed = markdown.replace(/\$\$([\s\S]*?)\$\$/g, (_, math) => {
+      const token = `%%KATEX_BLOCK_${tokenCounter++}%%`;
+      try {
+        const rendered = katex.renderToString(math.trim(), {
+          displayMode: true,
+          throwOnError: false,
+          output: 'html',
+          strict: false,
+        });
+        mathPlaceholders.push({
+          token,
+          html: `<div class="my-3 overflow-x-auto py-1 text-center">${rendered}</div>`,
+        });
+      } catch {
+        mathPlaceholders.push({
+          token,
+          html: `<div class="font-mono text-cyan-600 dark:text-cyan-400 my-2">$$${math}$$</div>`,
+        });
+      }
+      return token;
+    });
 
-  // 2. Extract and render Inline LaTeX: $...$ with output: 'html'
-  processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
-    const token = `%%KATEX_INLINE_${tokenCounter++}%%`;
-    try {
-      const rendered = katex.renderToString(math.trim(), {
-        displayMode: false,
-        throwOnError: false,
-        output: 'html',
-        strict: false,
-      });
-      mathPlaceholders.push({
-        token,
-        html: rendered,
-      });
-    } catch {
-      mathPlaceholders.push({
-        token,
-        html: `<span class="font-mono text-cyan-600 dark:text-cyan-400">$${math}$</span>`,
-      });
-    }
-    return token;
-  });
+    // 2. Extract and render Inline LaTeX: $...$ with output: 'html'
+    processed = processed.replace(/\$([^\$\n]+?)\$/g, (_, math) => {
+      const token = `%%KATEX_INLINE_${tokenCounter++}%%`;
+      try {
+        const rendered = katex.renderToString(math.trim(), {
+          displayMode: false,
+          throwOnError: false,
+          output: 'html',
+          strict: false,
+        });
+        mathPlaceholders.push({
+          token,
+          html: rendered,
+        });
+      } catch {
+        mathPlaceholders.push({
+          token,
+          html: `<span class="font-mono text-cyan-600 dark:text-cyan-400">$${math}$</span>`,
+        });
+      }
+      return token;
+    });
 
-  // 3. Process Markdown Headings, Tables, Lists, Bold, Italics, Horizontal Rules
-  const lines = processed.split('\n');
-  const htmlLines: string[] = [];
-  let inTable = false;
-  let tableHeaderParsed = false;
+    // 3. Process Markdown Headings, Tables, Lists, Bold, Italics, Horizontal Rules
+    const lines = processed.split('\n');
+    const htmlLines: string[] = [];
+    let inTable = false;
+    let tableHeaderParsed = false;
 
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const trimmed = line.trim();
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
 
-    // Table Row detection
-    if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
-      if (!inTable) {
-        inTable = true;
-        tableHeaderParsed = false;
-        htmlLines.push(
-          '<div class="overflow-x-auto my-4"><table class="w-full text-left text-[12.5px] border-collapse border border-black shadow-xs">'
-        );
+      // Table Row detection
+      if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+        if (!inTable) {
+          inTable = true;
+          tableHeaderParsed = false;
+          htmlLines.push(
+            '<div class="overflow-x-auto my-4"><table class="w-full text-left text-[12.5px] border-collapse border border-black shadow-xs">'
+          );
+        }
+
+        // Check separator line |---|---|
+        if (/^\|(\s*[-:]+[-| :]*)\|$/.test(trimmed)) {
+          tableHeaderParsed = true;
+          continue;
+        }
+
+        const cells = trimmed
+          .slice(1, -1)
+          .split('|')
+          .map((c) => c.trim());
+
+        if (!tableHeaderParsed) {
+          htmlLines.push('<thead class="bg-[#f2f2f2] font-bold text-black border-b border-black"><tr>');
+          for (const cell of cells) {
+            htmlLines.push(`<th class="p-2 border border-black text-center font-bold text-[12.5px] align-middle">${formatInline(cell)}</th>`);
+          }
+          htmlLines.push('</tr></thead><tbody>');
+        } else {
+          htmlLines.push('<tr class="border-b border-black">');
+          for (const cell of cells) {
+            htmlLines.push(`<td class="p-2 border border-black text-black text-[12.5px] align-top leading-snug">${formatInline(cell)}</td>`);
+          }
+          htmlLines.push('</tr>');
+        }
+        continue;
+      } else if (inTable) {
+        inTable = false;
+        htmlLines.push('</tbody></table></div>');
       }
 
-      // Check separator line |---|---|
-      if (/^\|(\s*[-:]+[-| :]*)\|$/.test(trimmed)) {
-        tableHeaderParsed = true;
+      // Horizontal divider ---
+      if (/^---+$/.test(trimmed)) {
+        htmlLines.push('<hr class="my-5 border-t border-slate-300" />');
         continue;
       }
 
-      const cells = trimmed
-        .slice(1, -1)
-        .split('|')
-        .map((c) => c.trim());
-
-      if (!tableHeaderParsed) {
-        htmlLines.push('<thead class="bg-[#f2f2f2] font-bold text-black border-b border-black"><tr>');
-        for (const cell of cells) {
-          htmlLines.push(`<th class="p-2 border border-black text-center font-bold text-[12.5px] align-middle">${formatInline(cell)}</th>`);
-        }
-        htmlLines.push('</tr></thead><tbody>');
-      } else {
-        htmlLines.push('<tr class="border-b border-black">');
-        for (const cell of cells) {
-          htmlLines.push(`<td class="p-2 border border-black text-black text-[12.5px] align-top leading-snug">${formatInline(cell)}</td>`);
-        }
-        htmlLines.push('</tr>');
+      // Headings #, ##, ###, ####
+      if (trimmed.startsWith('# ')) {
+        htmlLines.push(
+          `<h1 class="text-[15pt] font-bold text-black text-center uppercase tracking-normal mt-4 mb-3 pb-2 border-b border-black leading-snug">${formatInline(
+            trimmed.slice(2)
+          )}</h1>`
+        );
+        continue;
       }
-      continue;
-    } else if (inTable) {
-      inTable = false;
+      if (trimmed.startsWith('## ')) {
+        htmlLines.push(
+          `<h2 class="text-[13.5pt] font-bold text-[#1A365D] uppercase mt-5 mb-2 pb-1 border-b border-slate-200 leading-snug">${formatInline(
+            trimmed.slice(3)
+          )}</h2>`
+        );
+        continue;
+      }
+      if (trimmed.startsWith('### ')) {
+        htmlLines.push(
+          `<h3 class="text-[13pt] font-bold text-black mt-3.5 mb-1.5 leading-snug">${formatInline(
+            trimmed.slice(4)
+          )}</h3>`
+        );
+        continue;
+      }
+      if (trimmed.startsWith('#### ')) {
+        htmlLines.push(
+          `<h4 class="text-[13pt] font-bold text-[#1A365D] bg-[#F1F5F9] border-l-4 border-[#1A365D] px-3 py-1.5 my-3 rounded-xs leading-snug">${formatInline(
+            trimmed.slice(5)
+          )}</h4>`
+        );
+        continue;
+      }
+
+      // Sub-items a) Mục tiêu, b) Nội dung, c) Sản phẩm, d) Tổ chức thực hiện
+      const subItemMatch = trimmed.match(/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i);
+      if (subItemMatch) {
+        htmlLines.push(
+          `<p class="text-black text-[13pt] leading-relaxed text-justify my-1 pl-4"><strong class="font-bold italic text-black">${subItemMatch[1]} ${subItemMatch[2]}: </strong>${formatInline(
+            (subItemMatch[3] || '').trim()
+          )}</p>`
+        );
+        continue;
+      }
+
+      // Steps: * Bước 1: Chuyển giao nhiệm vụ...
+      const stepMatch = trimmed.match(/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i);
+      if (stepMatch) {
+        htmlLines.push(
+          `<p class="text-black text-[13pt] leading-relaxed text-justify my-1 pl-8"><strong class="font-bold text-black">• Bước ${stepMatch[1]}: ${stepMatch[2].trim()}</strong>${
+            stepMatch[3] ? ` ${formatInline(stepMatch[3].trim())}` : ''
+          }</p>`
+        );
+        continue;
+      }
+
+      // Bullet points / lists
+      if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
+        htmlLines.push(
+          `<li class="ml-6 list-disc text-black text-[13pt] leading-relaxed text-justify my-1">${formatInline(
+            trimmed.slice(2)
+          )}</li>`
+        );
+        continue;
+      }
+
+      // Numbered lists 1., 2., etc.
+      const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
+      if (numMatch) {
+        htmlLines.push(
+          `<li class="ml-6 list-decimal text-black text-[13pt] leading-relaxed text-justify my-1" value="${numMatch[1]}">${formatInline(
+            numMatch[2]
+          )}</li>`
+        );
+        continue;
+      }
+
+      // Empty line
+      if (!trimmed) {
+        htmlLines.push('<div class="h-2"></div>');
+        continue;
+      }
+
+      // Regular paragraph
+      htmlLines.push(`<p class="text-black text-[13pt] leading-[1.38] text-justify my-1.5">${formatInline(trimmed)}</p>`);
+    }
+
+    if (inTable) {
       htmlLines.push('</tbody></table></div>');
     }
 
-    // Horizontal divider ---
-    if (/^---+$/.test(trimmed)) {
-      htmlLines.push('<hr class="my-5 border-t border-slate-300" />');
-      continue;
+    let finalHtml = htmlLines.join('\n');
+
+    // 4. Safely restore all KaTeX rendered HTML without interference from markdown delimiters
+    for (const item of mathPlaceholders) {
+      finalHtml = finalHtml.replaceAll(item.token, item.html);
     }
 
-    // Headings #, ##, ###, ####
-    if (trimmed.startsWith('# ')) {
-      htmlLines.push(
-        `<h1 class="text-[15pt] font-bold text-black text-center uppercase tracking-normal mt-4 mb-3 pb-2 border-b border-black leading-snug">${formatInline(
-          trimmed.slice(2)
-        )}</h1>`
-      );
-      continue;
-    }
-    if (trimmed.startsWith('## ')) {
-      htmlLines.push(
-        `<h2 class="text-[13.5pt] font-bold text-[#1A365D] uppercase mt-5 mb-2 pb-1 border-b border-slate-200 leading-snug">${formatInline(
-          trimmed.slice(3)
-        )}</h2>`
-      );
-      continue;
-    }
-    if (trimmed.startsWith('### ')) {
-      htmlLines.push(
-        `<h3 class="text-[13pt] font-bold text-black mt-3.5 mb-1.5 leading-snug">${formatInline(
-          trimmed.slice(4)
-        )}</h3>`
-      );
-      continue;
-    }
-    if (trimmed.startsWith('#### ')) {
-      htmlLines.push(
-        `<h4 class="text-[13pt] font-bold text-[#1A365D] bg-[#F1F5F9] border-l-4 border-[#1A365D] px-3 py-1.5 my-3 rounded-xs leading-snug">${formatInline(
-          trimmed.slice(5)
-        )}</h4>`
-      );
-      continue;
-    }
-
-    // Sub-items a) Mục tiêu, b) Nội dung, c) Sản phẩm, d) Tổ chức thực hiện
-    if (/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i.test(trimmed)) {
-      const match = trimmed.match(/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i)!;
-      htmlLines.push(
-        `<p class="text-black text-[13pt] leading-relaxed text-justify my-1 pl-4"><strong class="font-bold italic text-black">${match[1]} ${match[2]}: </strong>${formatInline(
-          match[3].trim()
-        )}</p>`
-      );
-      continue;
-    }
-
-    // Steps: * Bước 1: Chuyển giao nhiệm vụ...
-    if (/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i.test(trimmed)) {
-      const match = trimmed.match(/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i)!;
-      htmlLines.push(
-        `<p class="text-black text-[13pt] leading-relaxed text-justify my-1 pl-8"><strong class="font-bold text-black">• Bước ${match[1]}: ${match[2].trim()}</strong>${
-          match[3] ? ` ${formatInline(match[3].trim())}` : ''
-        }</p>`
-      );
-      continue;
-    }
-
-    // Bullet points / lists
-    if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
-      htmlLines.push(
-        `<li class="ml-6 list-disc text-black text-[13pt] leading-relaxed text-justify my-1">${formatInline(
-          trimmed.slice(2)
-        )}</li>`
-      );
-      continue;
-    }
-
-    // Numbered lists 1., 2., etc.
-    const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
-    if (numMatch) {
-      htmlLines.push(
-        `<li class="ml-6 list-decimal text-black text-[13pt] leading-relaxed text-justify my-1" value="${numMatch[1]}">${formatInline(
-          numMatch[2]
-        )}</li>`
-      );
-      continue;
-    }
-
-    // Empty line
-    if (!trimmed) {
-      htmlLines.push('<div class="h-2"></div>');
-      continue;
-    }
-
-    // Regular paragraph
-    htmlLines.push(`<p class="text-black text-[13pt] leading-[1.38] text-justify my-1.5">${formatInline(trimmed)}</p>`);
+    return finalHtml;
+  } catch (renderError) {
+    console.warn('renderMarkdownWithKatex partial render fallback:', renderError);
+    return `<div class="whitespace-pre-wrap font-['Times_New_Roman',serif] text-[13pt] leading-relaxed">${markdown
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')}</div>`;
   }
-
-  if (inTable) {
-    htmlLines.push('</tbody></table></div>');
-  }
-
-  let finalHtml = htmlLines.join('\n');
-
-  // 4. Safely restore all KaTeX rendered HTML without interference from markdown delimiters
-  for (const item of mathPlaceholders) {
-    finalHtml = finalHtml.replaceAll(item.token, item.html);
-  }
-
-  return finalHtml;
 }
 
 /**

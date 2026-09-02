@@ -2,7 +2,7 @@ import { NextRequest } from 'next/server';
 import { getGeminiClient, MODEL_CASCADE } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
 
-export const maxDuration = 60;
+export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
       notes = '',
       style = 'Chuẩn 5512',
       licenseKey,
+      continueFromText,
     } = body;
 
     if (!topic || !topic.trim()) {
@@ -24,6 +25,8 @@ export async function POST(req: NextRequest) {
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
+
+    const isContinue = Boolean(continueFromText && typeof continueFromText === 'string' && continueFromText.trim());
 
     // 1. License key validation & credit deduction (if provided)
     let keyRecord: any = null;
@@ -60,8 +63,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Deduct credit
-      if (keyRecord.totalCredits !== -1) {
+      // Deduct credit only for new generation, NOT when continuing cut-off text
+      if (!isContinue && keyRecord.totalCredits !== -1) {
         await prisma.licenseKey.update({
           where: { id: keyRecord.id },
           data: { usedCredits: { increment: 1 } },
@@ -196,7 +199,19 @@ QUY TẮC ĐỊNH DẠNG BẮT BUỘC (TRIỆT TIÊU LỖI BỐ CỤC KHI XUẤT
 3. BẢNG BIỂU: Dùng cú pháp bảng Markdown chuẩn (| Cột 1 | Cột 2 |) để các bước và phiếu học tập chuyển sang Word hiển thị viền sắc nét.
 4. ĐẦY ĐỦ 100% NỘI DUNG: Tuyệt đối không viết tắt, không dùng dấu ba chấm "..." để bỏ lửng. Mọi hoạt động, ví dụ, bài tập và phiếu học tập đều phải có nội dung và lời giải hoàn chỉnh 100%.`;
 
-    const userPrompt = `Hãy soạn một Kế hoạch bài dạy (Giáo án) Toán học hoàn chỉnh theo chuẩn Công văn 5512/BGDĐT (bổ sung Năng lực số) với các thông tin sau:
+    let userPrompt = '';
+    if (isContinue) {
+      userPrompt = `Dưới đây là phần Kế hoạch bài dạy (Giáo án 5512) của bài học "${topic}" (${grade}) đang soạn dở dang do chạm giới hạn độ dài ký tự:
+---
+${continueFromText.slice(-3000)}
+---
+Nhiệm vụ: Bạn hãy VIẾT TIẾP TỤC NGAY TỪ ĐIỂM DỪNG Ở TRÊN cho đến hết toàn bộ giáo án (hoàn thành đầy đủ các hoạt động còn thiếu theo chuẩn Công văn 5512, Phụ lục Phiếu học tập số 1, 2 và bài tập đánh giá).
+QUY TẮC BẮT BUỘC:
+1. Tiếp tục mạch văn bản/bảng biểu ngay lập tức. TUYỆT ĐỐI KHÔNG lặp lại bất kỳ đoạn nào đã viết ở trên.
+2. TUYỆT ĐỐI KHÔNG chào hỏi, không viết câu mở đầu như "Dưới đây là phần tiếp theo...". Bắt đầu viết thẳng vào phần nội dung kế tiếp.
+3. Đảm bảo chuẩn công thức LaTeX và cấu trúc Công văn 5512.`;
+    } else {
+      userPrompt = `Hãy soạn một Kế hoạch bài dạy (Giáo án) Toán học hoàn chỉnh theo chuẩn Công văn 5512/BGDĐT (bổ sung Năng lực số) với các thông tin sau:
 - Tên bài học / Chủ đề: ${topic.trim()}
 - Khối lớp: ${grade}
 - Bộ sách: Bộ sách Thống nhất (Nội dung và mạch kiến thức lấy chính xác 100% từ Kết nối tri thức với cuộc sống - NXBGDVN)
@@ -206,6 +221,7 @@ ${notes && notes.trim() ? `- Ghi chú & Yêu cầu trọng tâm của giáo viê
 
 LƯU Ý ĐẶC BIỆT: Bám sát 100% ngữ liệu, mạch kiến thức, hoạt động khởi động, ví dụ và bài tập của SGK "Kết nối tri thức với cuộc sống" (NXB Giáo Dục Việt Nam). Tuyệt đối không lấy từ Cánh Diều hay Chân trời sáng tạo. Đề mục giáo án ghi tên "Bộ sách Thống nhất".
 Tuyệt đối không vẽ khung ASCII Art. Hãy triển khai thật chi tiết, đầy đủ toàn bộ 4 phần, bảng tiến trình, các hoạt động dạy học 4 bước chuẩn mực, bài tập có lời giải chuẩn LaTeX và phiếu học tập hoàn chỉnh.`;
+    }
 
     // 4. Call AI with Stream
     const modelsToTry = [
@@ -220,13 +236,14 @@ Tuyệt đối không vẽ khung ASCII Art. Hãy triển khai thật chi tiết,
 
     for (const modelName of modelsToTry) {
       try {
-        console.log(`[AI Stream] Bắt đầu tạo luồng giáo án với model: ${modelName}...`);
+        console.log(`[AI Stream] Bắt đầu tạo luồng giáo án với model: ${modelName} (maxOutputTokens: 8192)...`);
         responseStream = await ai.models.generateContentStream({
           model: modelName,
           contents: [userPrompt],
           config: {
             systemInstruction,
             temperature: 0.2,
+            maxOutputTokens: 8192,
           },
         });
         if (responseStream) {
@@ -248,12 +265,23 @@ Tuyệt đối không vẽ khung ASCII Art. Hãy triển khai thật chi tiết,
       async start(controller) {
         const encoder = new TextEncoder();
         try {
+          let finishReasonDetected: string | null = null;
           for await (const chunk of responseStream) {
             const text = chunk.text;
             if (text) {
               controller.enqueue(encoder.encode(text));
             }
+            const candidate = chunk.candidates?.[0];
+            if (candidate?.finishReason) {
+              finishReasonDetected = candidate.finishReason;
+            }
           }
+
+          if (finishReasonDetected === 'MAX_TOKENS') {
+            console.log('[AI Stream] Detected finishReason: MAX_TOKENS');
+            controller.enqueue(encoder.encode('\n\n<!-- FINISH_REASON: MAX_TOKENS -->'));
+          }
+
           controller.close();
         } catch (err: any) {
           console.error('[AI Stream] Lỗi khi stream chunk:', err);

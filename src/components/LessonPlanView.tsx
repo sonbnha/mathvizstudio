@@ -56,6 +56,8 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   // Generation & Result states
   const [loading, setLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isContinuing, setIsContinuing] = useState(false);
+  const [isMaxTokensReached, setIsMaxTokensReached] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [lessonPlan, setLessonPlan] = useState('');
   const [activeTab, setActiveTab] = useState<'rendered' | 'editor'>('rendered');
@@ -86,6 +88,8 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
     setLoading(true);
     setIsStreaming(false);
+    setIsContinuing(false);
+    setIsMaxTokensReached(false);
     setErrorMsg(null);
     setProgressStep(1);
     setLessonPlan('');
@@ -162,7 +166,13 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
           setActiveTab('rendered');
         }
 
-        setLessonPlan(accumulatedText);
+        if (accumulatedText.includes('<!-- FINISH_REASON: MAX_TOKENS -->')) {
+          setIsMaxTokensReached(true);
+          const cleanText = accumulatedText.replace('<!-- FINISH_REASON: MAX_TOKENS -->', '').trimEnd();
+          setLessonPlan(cleanText);
+        } else {
+          setLessonPlan(accumulatedText);
+        }
       }
     } catch (err: any) {
       console.error('Lỗi sinh giáo án:', err);
@@ -172,6 +182,90 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
       setLoading(false);
       setIsStreaming(false);
       setProgressStep(0);
+    }
+  };
+
+  // Continue generating action for long documents that reached token limit
+  const handleContinueGenerate = async () => {
+    if (!lessonPlan || isStreaming || isContinuing) return;
+
+    setIsContinuing(true);
+    setIsStreaming(true);
+    setErrorMsg(null);
+
+    try {
+      const res = await fetch('/api/generate-lesson-plan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...getApiKeyHeaders(),
+        },
+        body: JSON.stringify({
+          topic,
+          grade,
+          book: BOOK_SERIES,
+          duration,
+          style,
+          notes,
+          licenseKey: effectiveKey,
+          continueFromText: lessonPlan,
+        }),
+      });
+
+      if (!res.ok) {
+        let errMsg = `Lỗi máy chủ (${res.status})`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errMsg;
+        } catch {
+          const errText = await res.text();
+          if (errText) errMsg = errText;
+        }
+
+        if (
+          res.status === 429 ||
+          errMsg.toLowerCase().includes('429') ||
+          errMsg.toLowerCase().includes('quota') ||
+          errMsg.toLowerCase().includes('resource_exhausted')
+        ) {
+          handleRateLimitError(errMsg);
+        }
+
+        throw new Error(errMsg);
+      }
+
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('Trình duyệt không hỗ trợ nhận luồng dữ liệu trực tiếp.');
+      }
+
+      const decoder = new TextDecoder();
+      let currentFullText = lessonPlan.trimEnd() + '\n\n';
+      let reachedLimitAgain = false;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        currentFullText += chunk;
+
+        if (currentFullText.includes('<!-- FINISH_REASON: MAX_TOKENS -->')) {
+          reachedLimitAgain = true;
+          const cleanText = currentFullText.replace('<!-- FINISH_REASON: MAX_TOKENS -->', '').trimEnd();
+          setLessonPlan(cleanText);
+        } else {
+          setLessonPlan(currentFullText);
+        }
+      }
+
+      setIsMaxTokensReached(reachedLimitAgain);
+    } catch (err: any) {
+      console.error('Lỗi khi viết tiếp giáo án:', err);
+      setErrorMsg(err.message || 'Có lỗi xảy ra khi viết tiếp giáo án.');
+    } finally {
+      setIsContinuing(false);
+      setIsStreaming(false);
     }
   };
 
@@ -524,6 +618,9 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
             onExportPdf={handlePrint}
             onCopyMarkdown={handleCopy}
             isCopied={copied}
+            isMaxTokensReached={isMaxTokensReached}
+            onContinue={handleContinueGenerate}
+            isContinuing={isContinuing}
           />
         ) : (
           /* Empty Initial Guide View */
