@@ -38,6 +38,7 @@ import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG, mergeAndSortChangelogs } from '@/config/changelog';
 import LessonPlanView from '@/components/LessonPlanView';
+import { useApiKey } from '@/context/ApiKeyContext';
 
 const PRESETS = [
   {
@@ -139,6 +140,9 @@ interface LicenseCheckResult {
 }
 
 export default function HomePage() {
+  // Gemini API Key Context
+  const { isCustomKeyActive, openApiKeyModal, getApiKeyHeaders, handleRateLimitError } = useApiKey();
+
   // Theme State (Default to Light Mode)
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
@@ -540,6 +544,7 @@ export default function HomePage() {
         headers: {
           'Content-Type': 'application/json',
           'X-License-Key': licenseKey.trim(),
+          ...getApiKeyHeaders(),
         },
         body: JSON.stringify({
           prompt: activePrompt,
@@ -549,10 +554,33 @@ export default function HomePage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        if (res.status === 429) {
+          handleRateLimitError();
+          throw new Error('Hệ thống đang quá tải lượt gọi AI. Vui lòng nhập Gemini API Key cá nhân để tiếp tục.');
+        }
+        if (!res.ok) {
+          throw new Error(rawText || `Lỗi máy chủ (${res.status})`);
+        }
+        throw new Error(`Dữ liệu máy chủ phản hồi không đúng định dạng JSON: ${rawText.slice(0, 120)}...`);
+      }
 
       if (!res.ok) {
-        throw new Error(data.error || 'Đã có lỗi xảy ra khi tạo hình.');
+        if (
+          res.status === 429 ||
+          data.isRateLimit ||
+          String(data.error || '').toLowerCase().includes('429') ||
+          String(data.error || '').toLowerCase().includes('quota') ||
+          String(data.error || '').toLowerCase().includes('resource_exhausted')
+        ) {
+          handleRateLimitError(data.error);
+          throw new Error(data.error || 'Hệ thống đang quá tải lượt gọi AI. Vui lòng nhập Gemini API Key cá nhân để tiếp tục.');
+        }
+        throw new Error(data.error || `Đã có lỗi xảy ra khi tạo hình (${res.status}).`);
       }
 
       setSvgOutput(data.svg);
@@ -689,6 +717,7 @@ export default function HomePage() {
         headers: {
           'Content-Type': 'application/json',
           'X-License-Key': licenseKey.trim(),
+          ...getApiKeyHeaders(),
         },
         body: JSON.stringify({
           svg: svgOutput || undefined,
@@ -696,8 +725,25 @@ export default function HomePage() {
         }),
       });
 
-      const data = await res.json();
+      const rawText = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(rawText);
+      } catch {
+        if (res.status === 429) {
+          handleRateLimitError();
+          throw new Error('Hệ thống đang quá tải lượt gọi AI. Vui lòng nhập Gemini API Key cá nhân.');
+        }
+        if (!res.ok) {
+          throw new Error(rawText || `Lỗi máy chủ (${res.status})`);
+        }
+        throw new Error('Dữ liệu TikZ phản hồi không đúng định dạng JSON');
+      }
+
       if (!res.ok) {
+        if (res.status === 429) {
+          handleRateLimitError(data.error);
+        }
         throw new Error(data.error || 'Lỗi khi tạo mã TikZ.');
       }
       setTikzCode(data.tikz);
@@ -1071,6 +1117,28 @@ export default function HomePage() {
               )}
             </div>
           )}
+
+          {/* Gemini API Key Configuration Button */}
+          <button
+            type="button"
+            onClick={() => openApiKeyModal()}
+            className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold border transition shadow-xs cursor-pointer ${
+              isCustomKeyActive
+                ? 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800'
+                : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/80'
+            }`}
+            title="Cấu hình Gemini API Key cá nhân (khi hệ thống quá tải)"
+          >
+            <Key className={`w-3.5 h-3.5 ${isCustomKeyActive ? 'text-emerald-600 dark:text-emerald-400' : 'text-blue-600 dark:text-blue-400'}`} />
+            <span className="hidden sm:inline">
+              {isCustomKeyActive ? 'Key riêng' : 'Gemini Key'}
+            </span>
+            <span
+              className={`w-2 h-2 rounded-full ${
+                isCustomKeyActive ? 'bg-emerald-500 animate-pulse' : 'bg-blue-400'
+              }`}
+            ></span>
+          </button>
 
           {/* Theme Toggle Button */}
           <button

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { getGeminiClient } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
+
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
 
 function extractTikzOnly(rawText: string): string {
   const match = rawText.match(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/i);
@@ -56,15 +59,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Gemini API setup
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    const userGeminiKey = req.headers.get('x-gemini-api-key') || req.headers.get('X-Gemini-Api-Key');
+    let ai;
+    try {
+      ai = getGeminiClient(userGeminiKey || undefined);
+    } catch (e: any) {
       return NextResponse.json(
-        { error: 'Server chưa thiết lập GEMINI_API_KEY trong môi trường.' },
+        { error: 'Lỗi cấu hình AI Server: ' + (e?.message || 'Chưa thiết lập API Key') },
         { status: 500 }
       );
     }
-
-    const ai = new GoogleGenAI({ apiKey });
 
     const systemInstruction = `Bạn là chuyên gia LaTeX và gói đồ họa TikZ hàng đầu phục vụ soạn thảo tài liệu toán học THCS/THPT tại Việt Nam.
 Nhiệm vụ của bạn là chuyển đổi mô hình hình học từ mã SVG hoặc đề bài toán sang MÃ TIKZ / LATEX CHUẨN XÁC để giáo viên có thể dán trực tiếp vào Overleaf hoặc tài liệu LaTeX mà không bị lỗi biên dịch.

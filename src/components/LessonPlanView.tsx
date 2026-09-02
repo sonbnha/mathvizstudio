@@ -29,12 +29,16 @@ import {
   exportToDocx,
 } from '@/lib/lessonPlanUtils';
 import { LessonPlanWordPreview } from './LessonPlanWordPreview';
+import { useApiKey } from '@/context/ApiKeyContext';
 
 interface LessonPlanViewProps {
   licenseKey?: string;
 }
 
 export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPlanViewProps) {
+  // Gemini API Key Context
+  const { isCustomKeyActive, openApiKeyModal, getApiKeyHeaders, handleRateLimitError } = useApiKey();
+
   // Form states
   const [topic, setTopic] = useState('Định lý Pythagore (Pytago) và ứng dụng thực tế');
   const [grade, setGrade] = useState('Lớp 8');
@@ -97,7 +101,10 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
     try {
       const res = await fetch('/api/generate-lesson-plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getApiKeyHeaders(),
+        },
         body: JSON.stringify({
           topic,
           grade,
@@ -118,6 +125,16 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
           const errText = await res.text();
           if (errText) errMsg = errText;
         }
+
+        if (
+          res.status === 429 ||
+          errMsg.toLowerCase().includes('429') ||
+          errMsg.toLowerCase().includes('quota') ||
+          errMsg.toLowerCase().includes('resource_exhausted')
+        ) {
+          handleRateLimitError(errMsg);
+        }
+
         throw new Error(errMsg);
       }
 
@@ -365,8 +382,28 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               />
             </div>
 
-            {/* Custom License Key Accordion */}
-            <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3">
+            {/* Gemini API Key & License Key section */}
+            <div className="border-t border-slate-200/60 dark:border-slate-800 pt-3 space-y-2">
+              {/* Gemini API Key Quick Button */}
+              <button
+                type="button"
+                onClick={() => openApiKeyModal()}
+                className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition cursor-pointer ${
+                  isCustomKeyActive
+                    ? 'bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300'
+                    : 'bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-700/60 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <span className="flex items-center gap-1.5 font-medium">
+                  <Key className={`w-3.5 h-3.5 ${isCustomKeyActive ? 'text-emerald-500' : 'text-blue-500'}`} />
+                  <span>
+                    {isCustomKeyActive ? '✅ Đang dùng Gemini Key cá nhân' : '🔑 Cấu hình Gemini API Key riêng'}
+                  </span>
+                </span>
+                <span className={`w-2 h-2 rounded-full ${isCustomKeyActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300 dark:bg-slate-600'}`}></span>
+              </button>
+
+              {/* Custom License Key Accordion */}
               <button
                 type="button"
                 onClick={() => setIsKeyExpanded(!isKeyExpanded)}
@@ -380,7 +417,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </button>
 
               {isKeyExpanded && (
-                <div className="mt-2 pt-1">
+                <div className="pt-1">
                   <input
                     type="text"
                     value={customKey}

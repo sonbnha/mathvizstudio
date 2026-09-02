@@ -70,9 +70,10 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Initialize Gemini Client
+    const userGeminiKey = req.headers.get('x-gemini-api-key') || req.headers.get('X-Gemini-Api-Key');
     let ai;
     try {
-      ai = getGeminiClient();
+      ai = getGeminiClient(userGeminiKey || undefined);
     } catch (e: any) {
       return new Response(
         JSON.stringify({ error: 'Lỗi cấu hình AI Server: ' + (e?.message || 'Chưa thiết lập API Key') }),

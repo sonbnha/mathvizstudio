@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { getGeminiClient, generateContentWithCascade } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
 
 export const maxDuration = 60;
@@ -112,15 +112,16 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Gemini API setup
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
+    const userGeminiKey = req.headers.get('x-gemini-api-key') || req.headers.get('X-Gemini-Api-Key');
+    let ai;
+    try {
+      ai = getGeminiClient(userGeminiKey || undefined);
+    } catch (e: any) {
       return NextResponse.json(
-        { error: 'Server chưa thiết lập GEMINI_API_KEY trong môi trường.' },
+        { error: 'Lỗi cấu hình AI Server: ' + (e?.message || 'Chưa thiết lập API Key') },
         { status: 500 }
       );
     }
-
-    const ai = new GoogleGenAI({ apiKey });
 
     const colorPaletteInstruction =
       styleMode === 'monochrome'
@@ -215,75 +216,14 @@ Yêu cầu kỹ thuật đồ họa SVG:
       });
     }
 
-    const MODEL_CASCADE = [
-      process.env.GEMINI_MODEL || 'gemini-3.6-flash',
-      'gemini-3.7-flash',
-      'gemini-3.5-flash',
-    ].filter((v, i, a) => a.indexOf(v) === i);
+    const result = await generateContentWithCascade({
+      ai,
+      contents,
+      systemInstruction,
+      temperature: 0.1,
+    });
 
-    let response: any = null;
-    let lastError: any = null;
-    let usedModel = MODEL_CASCADE[0];
-    const maxRetriesPerModel = 2;
-
-    for (const modelName of MODEL_CASCADE) {
-      for (let attempt = 0; attempt <= maxRetriesPerModel; attempt++) {
-        try {
-          console.log(
-            `[AI Cascade] Đang thử với model: ${modelName} (Lần thử ${attempt + 1}/${maxRetriesPerModel + 1})...`
-          );
-          response = await ai.models.generateContent({
-            model: modelName,
-            contents,
-            config: {
-              systemInstruction,
-              temperature: 0.1,
-            },
-          });
-          if (response?.text) {
-            usedModel = modelName;
-            console.log(`[AI Cascade] Thành công với model: ${modelName}`);
-            break;
-          }
-        } catch (err: any) {
-          lastError = err;
-          const statusCode = err?.status || err?.statusCode || err?.response?.status;
-          const errMsg = String(err?.message || '').toLowerCase();
-
-          const isSpike =
-            statusCode === 503 ||
-            statusCode === 429 ||
-            errMsg.includes('503') ||
-            errMsg.includes('429') ||
-            errMsg.includes('high demand') ||
-            errMsg.includes('overloaded') ||
-            errMsg.includes('resource exhausted');
-
-          if (isSpike && attempt < maxRetriesPerModel) {
-            const delay = (attempt + 1) * 1200 + Math.random() * 500;
-            console.warn(
-              `[AI Cascade] Model ${modelName} gặp lỗi tạm thời (${statusCode || 'Spike'}). Thử lại sau ${Math.round(delay)}ms...`
-            );
-            await new Promise((res) => setTimeout(res, delay));
-            continue;
-          }
-
-          console.warn(
-            `[AI Cascade] Model ${modelName} gặp lỗi (${statusCode || 'Unknown'}): ${err?.message || ''}. Chuyển model kế tiếp trong chuỗi cascade...`
-          );
-          break;
-        }
-      }
-      if (response?.text) {
-        break;
-      }
-    }
-
-    if (!response || !response.text) {
-      throw lastError || new Error('Toàn bộ cụm model đều không khả dụng.');
-    }
-
-    const rawText = response.text || '';
+    const rawText = result.text || '';
     const cleanedSvg = sanitizeSvg(rawText);
 
     // 4. Update usage credits
@@ -306,9 +246,19 @@ Yêu cầu kỹ thuật đồ họa SVG:
     });
   } catch (error: any) {
     console.error('Error generating math SVG:', error);
+    const statusCode = error?.status || error?.statusCode || error?.response?.status || 500;
+    const isRateLimit =
+      statusCode === 429 ||
+      String(error?.message || '').toLowerCase().includes('429') ||
+      String(error?.message || '').toLowerCase().includes('quota') ||
+      String(error?.message || '').toLowerCase().includes('resource_exhausted');
+
     return NextResponse.json(
-      { error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.' },
-      { status: 500 }
+      {
+        error: error?.message || 'Đã xảy ra lỗi trong quá trình sinh hình SVG.',
+        isRateLimit,
+      },
+      { status: isRateLimit ? 429 : 500 }
     );
   }
 }
