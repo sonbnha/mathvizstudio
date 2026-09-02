@@ -96,8 +96,6 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
     const MODELS = [
       defaultModel,
       ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
-      'gemini-3.7-flash',
-      'gemini-3.7-pro',
     ];
 
     let response: any = null;
@@ -111,6 +109,7 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
           contents: [userPrompt],
           config: {
             systemInstruction,
+            temperature: 0.1,
           },
         });
         if (response?.text) {

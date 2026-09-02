@@ -157,8 +157,6 @@ Yêu cầu kỹ thuật đồ họa SVG:
     const MODELS = [
       defaultModel,
       ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
-      'gemini-3.7-flash',
-      'gemini-3.7-pro',
     ];
 
     let response: any = null;
@@ -172,6 +170,7 @@ Yêu cầu kỹ thuật đồ họa SVG:
           contents,
           config: {
             systemInstruction,
+            temperature: 0.1,
           },
         });
         if (response?.text) {
