@@ -192,10 +192,15 @@ export default function HomePage() {
     if (isChangelogOpen) {
       setChangelogLoading(true);
       fetch('/api/changelog')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data && Array.isArray(data.changelogs) && data.changelogs.length > 0) {
-            setChangelogList(data.changelogs);
+        .then((res) => res.text())
+        .then((text) => {
+          try {
+            const data = JSON.parse(text);
+            if (data && Array.isArray(data.changelogs) && data.changelogs.length > 0) {
+              setChangelogList(data.changelogs);
+            }
+          } catch (e) {
+            console.warn('Error parsing changelogs, keeping static CHANGELOG:', e);
           }
         })
         .catch((err) => console.error('Error loading public changelogs:', err))
