@@ -227,6 +227,19 @@ function HomeContent() {
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
+  // Listen for switch-to-geometry event from Lesson Plan Word Preview
+  useEffect(() => {
+    const handleSwitchToGeometry = (e: any) => {
+      const targetPrompt = e.detail?.prompt;
+      if (targetPrompt && typeof targetPrompt === 'string') {
+        setPrompt(targetPrompt);
+      }
+      handleTabChange('geometry');
+    };
+    window.addEventListener('switch-to-geometry', handleSwitchToGeometry);
+    return () => window.removeEventListener('switch-to-geometry', handleSwitchToGeometry);
+  }, []);
+
   // TikZ Export Modal state
   const [isTikzModalOpen, setIsTikzModalOpen] = useState(false);
   const [tikzCode, setTikzCode] = useState('');

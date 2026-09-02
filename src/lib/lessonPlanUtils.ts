@@ -257,6 +257,49 @@ export function renderMarkdownWithKatex(markdown: string): string {
         continue;
       }
 
+      // Filter out residual code blocks that may contain ASCII art
+      if (trimmed.startsWith('```')) {
+        continue;
+      }
+
+      // Illustration placeholder: [HÌNH MINH HỌA: ...]
+      const illustMatch = trimmed.match(/\[HÌNH MINH HỌA:\s*([^\]]+)\]/i);
+      if (illustMatch) {
+        const desc = illustMatch[1].trim();
+        const safeDesc = desc.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        htmlLines.push(
+          `<div class="my-4 p-3.5 sm:p-4 bg-slate-50/90 dark:bg-slate-800/60 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl text-slate-800 dark:text-slate-200 font-sans select-none flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div class="flex items-start gap-2.5">
+              <span class="text-xl shrink-0 mt-0.5" role="img" aria-label="triangle">📐</span>
+              <div>
+                <div class="text-[10.5px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+                  <span>Khung vị trí hình minh họa</span>
+                  <span class="px-1.5 py-0.2 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 text-[9.5px] rounded font-semibold">Sư phạm</span>
+                </div>
+                <div class="text-[12.5px] font-medium text-slate-800 dark:text-slate-100 leading-snug mt-1">${formatInline(desc)}</div>
+              </div>
+            </div>
+            <button
+              type="button"
+              data-prompt="${safeDesc}"
+              onclick="(function(btn){
+                var p = btn.getAttribute('data-prompt');
+                try { sessionStorage.setItem('pending_geometry_prompt', p); } catch(e){}
+                window.dispatchEvent(new CustomEvent('switch-to-geometry', { detail: { prompt: p } }));
+              })(this)"
+              class="shrink-0 inline-flex items-center justify-center gap-1.5 px-3.5 py-2 bg-gradient-to-r from-cyan-600 to-indigo-600 hover:from-cyan-500 hover:to-indigo-500 text-white rounded-lg text-xs font-semibold shadow-xs transition-all cursor-pointer active:scale-95 group"
+              title="Chuyển sang module Vẽ hình và nạp mô tả này vào khung vẽ"
+            >
+              <svg class="w-3.5 h-3.5 group-hover:rotate-12 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+              <span>Tạo hình SVG cho bài này</span>
+            </button>
+          </div>`
+        );
+        continue;
+      }
+
       // Empty line
       if (!trimmed) {
         htmlLines.push('<div class="h-2"></div>');
@@ -300,7 +343,9 @@ function formatInline(text: string): string {
  * Export Markdown content to a clean, professionally styled Microsoft Word document (.doc)
  */
 export function exportToWordDocument(markdown: string, title: string = 'Ke_Hoach_Bai_Day_5512') {
-  const htmlBody = renderMarkdownWithKatex(markdown);
+  let htmlBody = renderMarkdownWithKatex(markdown);
+  // Strip interactive buttons from exported Word document
+  htmlBody = htmlBody.replace(/<button[\s\S]*?<\/button>/gi, '');
 
   const wordTemplate = `<!DOCTYPE html>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">

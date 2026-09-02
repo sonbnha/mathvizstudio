@@ -355,9 +355,49 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
       continue;
     }
 
+    // Filter code blocks (blocks residual ASCII art)
+    if (trimmed.startsWith('```')) {
+      continue;
+    }
+
+    // Illustration placeholder: [HÌNH MINH HỌA: ...]
+    const illustMatch = trimmed.match(/\[HÌNH MINH HỌA:\s*([^\]]+)\]/i);
+    if (illustMatch) {
+      const desc = illustMatch[1].trim();
+      children.push(
+        new Paragraph({
+          spacing: { before: 140, after: 140, line: 280 },
+          alignment: AlignmentType.CENTER,
+          border: {
+            top: { style: BorderStyle.DASHED, size: 8, color: '94A3B8' },
+            bottom: { style: BorderStyle.DASHED, size: 8, color: '94A3B8' },
+            left: { style: BorderStyle.DASHED, size: 8, color: '94A3B8' },
+            right: { style: BorderStyle.DASHED, size: 8, color: '94A3B8' },
+          },
+          children: [
+            new TextRun({
+              text: '[KHUNG VỊ TRÍ HÌNH MINH HỌA SƯ PHẠM]',
+              bold: true,
+              font: 'Times New Roman',
+              size: 24,
+              color: '475569',
+            }),
+            new TextRun({
+              text: `\nMô tả chi tiết: ${desc}`,
+              italics: true,
+              font: 'Times New Roman',
+              size: 24,
+              color: '1E293B',
+            }),
+          ],
+        })
+      );
+      continue;
+    }
+
     // Sub-items a) Mục tiêu, b) Nội dung, c) Sản phẩm, d) Tổ chức thực hiện (Bold Italic)
-    if (/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i.test(trimmed)) {
-      const match = trimmed.match(/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i)!;
+    const subItemMatch = trimmed.match(/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i);
+    if (subItemMatch) {
       children.push(
         new Paragraph({
           spacing: { before: 80, after: 40, line: 280 },
@@ -365,14 +405,14 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
           indent: { left: 280 },
           children: [
             new TextRun({
-              text: `${match[1]} ${match[2]}: `,
+              text: `${subItemMatch[1]} ${subItemMatch[2]}: `,
               bold: true,
               italics: true,
               font: 'Times New Roman',
               size: 26,
               color: '000000',
             }),
-            ...parseInlineTextRuns(match[3].trim(), 26),
+            ...parseInlineTextRuns((subItemMatch[3] || '').trim(), 26),
           ],
         })
       );
@@ -380,8 +420,8 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
     }
 
     // Steps: * Bước 1: Chuyển giao nhiệm vụ...
-    if (/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i.test(trimmed)) {
-      const match = trimmed.match(/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i)!;
+    const stepMatch = trimmed.match(/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i);
+    if (stepMatch) {
       children.push(
         new Paragraph({
           spacing: { before: 60, after: 40, line: 280 },
@@ -389,13 +429,13 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
           indent: { left: 420 },
           children: [
             new TextRun({
-              text: `• Bước ${match[1]}: ${match[2].trim()}`,
+              text: `• Bước ${stepMatch[1]}: ${stepMatch[2].trim()}`,
               bold: true,
               font: 'Times New Roman',
               size: 26,
               color: '000000',
             }),
-            ...parseInlineTextRuns(match[3] ? ` ${match[3].trim()}` : '', 26),
+            ...parseInlineTextRuns(stepMatch[3] ? ` ${stepMatch[3].trim()}` : '', 26),
           ],
         })
       );

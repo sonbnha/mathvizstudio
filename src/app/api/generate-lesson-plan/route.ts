@@ -194,7 +194,14 @@ MỖI HOẠT ĐỘNG BẮT BUỘC TRÌNH BÀY ĐỦ 4 MỤC CHỮ CÁI (a, b, c,
 ---
 
 QUY TẮC ĐỊNH DẠNG BẮT BUỘC (TRIỆT TIÊU LỖI BỐ CỤC KHI XUẤT FILE WORD):
-1. TUYỆT ĐỐI KHÔNG VẼ ASCII ART: Không dùng bất kỳ ký tự viền đơn cách nào (như ┌ ─ ┐ │ ▼ ├ ┤ ╭ ╮ ╯ ╰ hoặc khung code blocks) để làm sơ đồ tư duy hay đóng khung văn bản. Sơ đồ tư duy, củng cố kiến thức PHẢI trình bày bằng danh sách gạch đầu dòng Markdown (- , *) có phân cấp logic hoặc dùng Bảng Markdown chuẩn.
+1. NGHIÊM CẤM 100% VẼ HÌNH BẰNG KÝ TỰ ASCII HOẶC KHỐI CODE:
+   - TUYỆT ĐỐI KHÔNG vẽ hình minh họa bằng ký tự văn bản, ASCII art, hoặc khối code (cấm dùng các ký tự |, \, _, /, +, -, *, # để dựng khung hình tam giác, hình thang, chiếc thang, ngọn hải đăng, cây cối, mặt đất...).
+   - TUYỆT ĐỐI KHÔNG tạo các khối code block rỗng chỉ chứa ký tự vẽ vời thô sơ.
+   - Khi bài toán cần hình minh họa thực tế, AI BẮT BUỘC dùng một thẻ placeholder chuẩn định dạng như sau:
+     [HÌNH MINH HỌA: <Mô tả chi tiết hình vẽ minh họa thực tế, các yếu tố hình học tương ứng>]
+     Ví dụ:
+     [HÌNH MINH HỌA: Hình tam giác vuông mô phỏng chiếc thang tựa vào tường. Cạnh huyền là thang dài 4m, cạnh đáy trên mặt đất tạo với thang góc nghiêng 60 độ, cạnh đứng là chiều cao thang đạt được trên tường.]
+   - Hoặc trình bày thành lời văn sư phạm chuẩn mực: "(Học sinh quan sát hình vẽ mô phỏng chiếc thang tựa vào tường góc vuông tạo thành tam giác vuông ABC...)".
 2. CÔNG THỨC TOÁN HỌC: Toàn bộ biến ($x, y$), số mũ ($x^2$), căn thức ($\sqrt{a}$), tên hình ($\Delta ABC$), góc ($\widehat{A}$), vector ($\vec{a}$), đẳng thức... PHẢI được đặt trong cặp dấu đô-la ($...$ cho inline hoặc $$...$$ cho block) để KaTeX render chuẩn LaTeX. Tuyệt đối không gõ text thô bên trong code block.
 3. BẢNG BIỂU: Dùng cú pháp bảng Markdown chuẩn (| Cột 1 | Cột 2 |) để các bước và phiếu học tập chuyển sang Word hiển thị viền sắc nét.
 4. ĐẦY ĐỦ 100% NỘI DUNG: Tuyệt đối không viết tắt, không dùng dấu ba chấm "..." để bỏ lửng. Mọi hoạt động, ví dụ, bài tập và phiếu học tập đều phải có nội dung và lời giải hoàn chỉnh 100%.`;
@@ -209,7 +216,8 @@ Nhiệm vụ: Bạn hãy VIẾT TIẾP TỤC NGAY TỪ ĐIỂM DỪNG Ở TRÊN 
 QUY TẮC BẮT BUỘC:
 1. Tiếp tục mạch văn bản/bảng biểu ngay lập tức. TUYỆT ĐỐI KHÔNG lặp lại bất kỳ đoạn nào đã viết ở trên.
 2. TUYỆT ĐỐI KHÔNG chào hỏi, không viết câu mở đầu như "Dưới đây là phần tiếp theo...". Bắt đầu viết thẳng vào phần nội dung kế tiếp.
-3. Đảm bảo chuẩn công thức LaTeX và cấu trúc Công văn 5512.`;
+3. TUYỆT ĐỐI KHÔNG vẽ hình bằng ASCII art (ký tự |, \, _, /). Nếu cần minh họa bài toán, dùng thẻ [HÌNH MINH HỌA: <Mô tả hình>] hoặc lời văn sư phạm.
+4. Đảm bảo chuẩn công thức LaTeX và cấu trúc Công văn 5512.`;
     } else {
       userPrompt = `Hãy soạn một Kế hoạch bài dạy (Giáo án) Toán học hoàn chỉnh theo chuẩn Công văn 5512/BGDĐT (bổ sung Năng lực số) với các thông tin sau:
 - Tên bài học / Chủ đề: ${topic.trim()}
@@ -219,8 +227,10 @@ QUY TẮC BẮT BUỘC:
 - Định hướng bài học: ${style}
 ${notes && notes.trim() ? `- Ghi chú & Yêu cầu trọng tâm của giáo viên: ${notes.trim()}` : ''}
 
-LƯU Ý ĐẶC BIỆT: Bám sát 100% ngữ liệu, mạch kiến thức, hoạt động khởi động, ví dụ và bài tập của SGK "Kết nối tri thức với cuộc sống" (NXB Giáo Dục Việt Nam). Tuyệt đối không lấy từ Cánh Diều hay Chân trời sáng tạo. Đề mục giáo án ghi tên "Bộ sách Thống nhất".
-Tuyệt đối không vẽ khung ASCII Art. Hãy triển khai thật chi tiết, đầy đủ toàn bộ 4 phần, bảng tiến trình, các hoạt động dạy học 4 bước chuẩn mực, bài tập có lời giải chuẩn LaTeX và phiếu học tập hoàn chỉnh.`;
+LƯU Ý ĐẶC BIỆT:
+1. Bám sát 100% ngữ liệu, mạch kiến thức, hoạt động khởi động, ví dụ và bài tập của SGK "Kết nối tri thức với cuộc sống" (NXB Giáo Dục Việt Nam). Tuyệt đối không lấy từ Cánh Diều hay Chân trời sáng tạo. Đề mục giáo án ghi tên "Bộ sách Thống nhất".
+2. TUYỆT ĐỐI CẤM VẼ HÌNH BẰNG KÝ TỰ ASCII HOẶC KHỐI CODE: Nghiêm cấm dùng các ký tự |, \\, _, / để vẽ hình thô sơ. Nếu bài toán có hình minh họa thực tế, BẮT BUỘC dùng định dạng: [HÌNH MINH HỌA: <Mô tả chi tiết hình vẽ>] hoặc mô tả bằng lời văn sư phạm.
+3. Triển khai thật chi tiết, đầy đủ toàn bộ 4 phần, bảng tiến trình, các hoạt động dạy học 4 bước chuẩn mực, bài tập có lời giải chuẩn LaTeX và phiếu học tập hoàn chỉnh.`;
     }
 
     // 4. Call AI with Stream
