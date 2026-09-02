@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { prisma } from '@/lib/prisma';
 
+export const maxDuration = 60;
+export const dynamic = 'force-dynamic';
+
 // Helper function to sanitize and extract ONLY valid, clean SVG content
 function sanitizeSvg(svgString: string): string {
   // 1. Trích xuất đúng khối <svg>...</svg>
