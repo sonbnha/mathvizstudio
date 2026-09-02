@@ -158,7 +158,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   ];
 
   return (
-    <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 text-slate-900 dark:text-slate-100">
+    <div className="w-full flex flex-col lg:flex-row gap-6 text-slate-900 dark:text-slate-100">
       {/* KaTeX CDN Stylesheet */}
       <link
         rel="stylesheet"
@@ -166,8 +166,8 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
         crossOrigin="anonymous"
       />
 
-      {/* LEFT COLUMN: Input Form Panel (5 Cols on LG) */}
-      <div className="lg:col-span-5 flex flex-col gap-5 print:hidden">
+      {/* LEFT COLUMN: Input Form Panel (Fixed Width) */}
+      <div className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-5 print:hidden">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-md flex flex-col gap-4">
           <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
@@ -378,8 +378,8 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Lesson Plan Output Viewer (7 Cols on LG) */}
-      <div className="lg:col-span-7 flex flex-col gap-4">
+      {/* RIGHT COLUMN: Lesson Plan Output Viewer (Full Flexible Width) */}
+      <div className="flex-1 min-w-0 flex flex-col gap-4">
         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm dark:shadow-md flex flex-col min-h-[640px] overflow-hidden">
           {/* Action Bar & Mode Switcher */}
           <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 print:hidden">

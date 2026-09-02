@@ -975,7 +975,7 @@ export default function HomePage() {
       {/* TAB 1: Vẽ hình học AI */}
       <div className={mainTab === 'geometry' ? 'block' : 'hidden'}>
         {/* Floating/Action Pill Button for Collection */}
-        <div className="max-w-7xl w-full mx-auto px-4 lg:px-6 pt-3 pb-1 flex justify-end print:hidden">
+        <div className="w-full px-4 md:px-6 pt-3 pb-1 flex justify-end print:hidden">
           <button
             type="button"
             onClick={() => setIsHistoryDrawerOpen(!isHistoryDrawerOpen)}
@@ -989,11 +989,11 @@ export default function HomePage() {
         </div>
 
         {/* Flex Push Container */}
-        <div className="max-w-7xl w-full mx-auto p-4 lg:p-6 pt-2 relative flex gap-6 overflow-hidden transition-all duration-300">
+        <div className="w-full px-4 md:px-6 pt-2 pb-6 relative flex flex-col lg:flex-row gap-6 overflow-hidden transition-all duration-300">
           {/* 1. KHU VỰC VẼ HÌNH CHÍNH (Tự co giãn khi panel mở/đóng) */}
-          <main className="flex-1 min-w-0 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10 transition-all duration-300">
-        {/* LEFT COLUMN: Input & Upload & Styles (5 Cols) */}
-        <section className="lg:col-span-5 flex flex-col gap-5">
+          <main className="flex-1 min-w-0 flex flex-col lg:flex-row gap-6 z-10 transition-all duration-300">
+        {/* LEFT COLUMN: Input & Upload & Styles (Fixed Width) */}
+        <section className="w-full lg:w-[380px] xl:w-[420px] shrink-0 flex flex-col gap-5">
           {/* Preset Buttons */}
           <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg transition-colors">
             <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
@@ -1184,8 +1184,8 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* RIGHT COLUMN: Canvas & Export & Refinement (7 Cols) */}
-        <section className="lg:col-span-7 flex flex-col gap-5">
+        {/* RIGHT COLUMN: Canvas & Export & Refinement (Full Flexible Width) */}
+        <section className="flex-1 min-w-0 flex flex-col gap-5">
           {/* Main Canvas Box */}
           <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg flex-1 flex flex-col min-h-[460px] transition-colors">
             {/* Toolbar */}
@@ -1424,7 +1424,7 @@ export default function HomePage() {
       <aside
         className={`transition-all duration-300 ease-in-out border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-2xl overflow-hidden flex flex-col shrink-0 ${
           isHistoryDrawerOpen
-            ? 'w-80 sm:w-96 opacity-100 p-4 shadow-lg sticky top-20 max-h-[calc(100vh-140px)] z-20'
+            ? 'w-full lg:w-[320px] xl:w-[340px] opacity-100 p-4 shadow-lg sticky top-20 max-h-[calc(100vh-140px)] z-20'
             : 'w-0 p-0 m-0 border-none opacity-0 pointer-events-none hidden'
         }`}
       >
@@ -1579,7 +1579,7 @@ export default function HomePage() {
 
       {/* TAB 2: Soạn giáo án tự động */}
       <div className={mainTab === 'lesson-plan' ? 'block' : 'hidden'}>
-        <div className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 z-10">
+        <div className="w-full px-4 md:px-6 py-4 z-10">
           <LessonPlanView licenseKey={licenseKey} />
         </div>
       </div>
@@ -1676,7 +1676,7 @@ export default function HomePage() {
       )}
 
       {/* Footer */}
-      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 flex flex-wrap items-center justify-between gap-2 max-w-7xl mx-auto w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
+      <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 md:px-6 flex flex-wrap items-center justify-between gap-2 w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
         <span>MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Toán học</span>
         <button
           type="button"

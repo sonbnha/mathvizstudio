@@ -102,7 +102,7 @@ export default function LessonPlanPage() {
       </header>
 
       {/* Main Container */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6">
+      <main className="flex-1 w-full px-4 md:px-6 py-4">
         <LessonPlanView />
       </main>
     </div>
