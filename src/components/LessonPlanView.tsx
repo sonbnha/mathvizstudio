@@ -487,10 +487,10 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
         </div>
 
         {/* Content Body: Word-like A4 Virtual Paper Preview */}
-        <div className="preview-container flex-1 overflow-y-auto bg-slate-200/80 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col items-center">
+        <div className="preview-container flex-1 min-h-0 w-full overflow-y-auto bg-slate-200/90 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col items-center">
           {loading ? (
             /* Animated Loading inside A4 Sheet */
-            <div className="w-full max-w-[800px] min-h-[680px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-8 sm:p-12 shadow-2xl rounded-xs border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-5 text-center my-4 font-sans">
+            <div className="w-full max-w-[850px] min-h-[680px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-8 sm:p-12 shadow-2xl rounded-sm border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-5 text-center my-4 font-sans shrink-0">
               <div className="relative">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 animate-pulse">
                   <Sparkles className="w-8 h-8 animate-spin" />
@@ -514,22 +514,24 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
           ) : lessonPlan ? (
             activeTab === 'rendered' ? (
               /* Virtual A4 Paper Sheet */
-              <div className="w-full max-w-[800px] min-h-[1100px] bg-white text-black p-8 sm:p-12 md:p-16 shadow-2xl rounded-xs border border-slate-300 dark:border-slate-800 font-serif text-[14px] leading-relaxed select-text my-4 relative transition-all a4-paper-sheet">
+              <div className="w-full max-w-[850px] min-h-[1150px] h-auto bg-white text-slate-900 mx-auto my-4 p-8 sm:p-12 md:p-16 shadow-2xl rounded-sm border border-slate-300 dark:border-slate-800 font-['Times_New_Roman',serif] text-[14px] leading-relaxed select-text shrink-0 a4-paper-sheet">
                 {/* Decorative Word A4 Sheet Header Marker */}
-                <div className="text-[11px] text-slate-400 font-sans mb-6 pb-2 border-b border-slate-200 flex items-center justify-between select-none print:hidden">
-                  <span className="font-semibold tracking-wider text-slate-500">
+                <div className="text-[11px] text-slate-500 font-sans mb-6 pb-2 border-b border-slate-300 flex items-center justify-between select-none print:hidden">
+                  <span className="font-semibold tracking-wider text-slate-600">
                     KẾ HOẠCH BÀI DẠY THEO CÔNG VĂN 5512/BGDĐT-GDTrH
                   </span>
-                  <span>MÔN TOÁN • BỘ SÁCH THỐNG NHẤT</span>
+                  <span className="font-medium text-slate-500">MÔN TOÁN • BỘ SÁCH THỐNG NHẤT</span>
                 </div>
-                <article
-                  className="max-w-none text-black leading-relaxed"
-                  dangerouslySetInnerHTML={{ __html: renderMarkdownWithKatex(lessonPlan) }}
-                />
+                <div className="prose prose-slate max-w-none text-black [&_*]:text-black [&_h2]:!text-[#002060] [&_table]:!border-collapse [&_table]:!border [&_table]:!border-black [&_td]:!border [&_td]:!border-black [&_th]:!border [&_th]:!border-black [&_th]:!bg-[#f2f2f2] [&_th]:!text-black [&_td]:!text-black">
+                  <article
+                    className="max-w-none leading-relaxed"
+                    dangerouslySetInnerHTML={{ __html: renderMarkdownWithKatex(lessonPlan) }}
+                  />
+                </div>
               </div>
             ) : (
               /* Raw Markdown Editor */
-              <div className="w-full max-w-[800px] h-full flex-1 my-4 flex flex-col">
+              <div className="w-full max-w-[850px] h-full flex-1 my-4 flex flex-col shrink-0">
                 <textarea
                   value={lessonPlan}
                   onChange={(e) => setLessonPlan(e.target.value)}
