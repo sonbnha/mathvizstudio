@@ -848,15 +848,15 @@ export default function HomePage() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans selection:bg-cyan-500 selection:text-white transition-colors duration-200">
+    <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-cyan-500 selection:text-white transition-colors duration-200">
       {/* Background visual elements */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
         <div className="absolute -top-40 -left-40 w-96 h-96 bg-cyan-600/10 dark:bg-cyan-600/15 rounded-full blur-3xl"></div>
         <div className="absolute top-1/3 -right-40 w-96 h-96 bg-indigo-600/10 dark:bg-indigo-600/15 rounded-full blur-3xl"></div>
       </div>
 
-      {/* Header */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-white/85 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800/80 px-4 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4 shadow-sm dark:shadow-xl dark:shadow-slate-950/50 transition-colors">
+      {/* 1. HEADER (Shrink-0) */}
+      <header className="shrink-0 z-30 backdrop-blur-md bg-white/85 dark:bg-slate-900/80 border-b border-slate-200 dark:border-slate-800/80 px-4 lg:px-8 py-2.5 sm:py-3 flex flex-wrap items-center justify-between gap-3 shadow-xs dark:shadow-xl dark:shadow-slate-950/50 transition-colors">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-md dark:shadow-lg shadow-cyan-500/20">
             <Compass className="w-6 h-6 text-white" />
@@ -993,9 +993,10 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* TAB 1: Vẽ hình học AI (Fixed 3-Column Studio Dashboard Layout) */}
-      <div className={mainTab === 'geometry' ? 'block' : 'hidden'}>
-        <div className="w-full px-4 md:px-6 py-3 h-[calc(100vh-76px)] flex flex-col lg:flex-row gap-4 overflow-hidden">
+      {/* 2. KHÔNG GIAN LÀM VIỆC (Flex-1 min-h-0, không bị tràn ra ngoài) */}
+      <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col">
+        {/* TAB 1: Vẽ hình học AI (3 Cột Studio) */}
+        <div className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 flex flex-col lg:flex-row gap-4 overflow-hidden ${mainTab === 'geometry' ? 'flex' : 'hidden'}`}>
           {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang, h-full, cuộn độc lập) */}
           <section className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full overflow-y-auto pr-1 space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col">
           {/* Preset Buttons */}
@@ -1551,14 +1552,12 @@ export default function HomePage() {
           </div>
         </aside>
         </div>
-      </div>
 
-      {/* TAB 2: Soạn giáo án tự động */}
-      <div className={mainTab === 'lesson-plan' ? 'block' : 'hidden'}>
-        <div className="w-full px-4 md:px-6 py-4 z-10">
+        {/* TAB 2: Soạn giáo án tự động */}
+        <div className={`flex-1 min-h-0 w-full px-4 md:px-6 py-4 overflow-y-auto ${mainTab === 'lesson-plan' ? 'block' : 'hidden'}`}>
           <LessonPlanView licenseKey={licenseKey} />
         </div>
-      </div>
+      </main>
 
       {/* TikZ LaTeX Export Modal */}
       {isTikzModalOpen && (
@@ -1651,20 +1650,28 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Footer */}
-      {mainTab === 'lesson-plan' && (
-        <footer className="border-t border-slate-200 dark:border-slate-800/60 py-4 px-4 md:px-6 flex flex-wrap items-center justify-between gap-2 w-full text-xs text-slate-500 dark:text-slate-500 z-10 transition-colors">
-          <span>MathViz Studio &copy; {new Date().getFullYear()} — Hỗ trợ giảng dạy & học tập Toán học</span>
+      {/* 3. FOOTER / STATUS BAR (Shrink-0, luôn hiển thị rõ ràng ở đáy) */}
+      <footer className="shrink-0 h-8 px-4 md:px-6 border-t border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between z-10">
+        <div className="flex items-center gap-3">
+          <span>© {new Date().getFullYear()} MathViz Studio • Nền tảng mô hình hóa Toán học & Soạn giáo án</span>
+          <span className="hidden sm:inline text-slate-300 dark:text-slate-700">|</span>
+          <span className="hidden sm:inline">Chuẩn Công văn 5512 BGD&ĐT</span>
           <button
             type="button"
             onClick={() => setIsChangelogOpen(true)}
-            title="Bấm để xem lịch sử phiên bản (Changelog)"
-            className="font-mono text-[11px] px-2 py-0.5 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800/80 dark:hover:bg-slate-700 text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-700 transition cursor-pointer"
+            className="hover:text-cyan-600 dark:hover:text-cyan-400 underline decoration-dotted transition cursor-pointer"
+            title="Xem Changelog"
           >
-            Phiên bản {APP_VERSION.fullString} ({APP_VERSION.buildDate})
+            v{APP_VERSION.fullString}
           </button>
-        </footer>
-      )}
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="flex items-center gap-1.5 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            AI Engine: Gemini 3.6 Flash
+          </span>
+        </div>
+      </footer>
 
       {/* Changelog / Version History Modal */}
       {isChangelogOpen && (
