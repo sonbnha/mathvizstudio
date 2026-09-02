@@ -936,18 +936,18 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => setIsLicenseExpanded(true)}
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-sky-300/80 dark:border-sky-700/60 bg-sky-50/90 hover:bg-sky-100/90 dark:bg-sky-950/50 dark:hover:bg-sky-900/60 text-sky-800 dark:text-sky-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/90 hover:bg-sky-100/90 dark:bg-sky-950/40 dark:hover:bg-sky-900/50 text-sky-700 dark:text-sky-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group"
                   title="Bấm để xem chi tiết hoặc thay đổi License Key"
                 >
                   <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
-                  <span className="flex items-center gap-1 font-mono text-[11px] text-sky-700 dark:text-sky-400">
+                  <span className="flex items-center gap-1 font-mono text-[11px] text-sky-700 dark:text-sky-300 font-bold">
                     🧪 Trial: {maskKey(licenseKey)}
                   </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-sky-200/60 dark:bg-sky-900/60 text-sky-900 dark:text-sky-200 font-medium">
-                    {customerName ? `${customerName} • ` : ''}
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-sky-200/60 dark:bg-sky-900/60 text-sky-800 dark:text-sky-200 font-medium">
+                    {customerName ? `Chào ${customerName} • ` : ''}
                     {licenseStatus.totalCredits === -1
                       ? 'Dùng thử'
-                      : `Còn ${licenseStatus.remainingCredits} lượt`}
+                      : `Còn ${licenseStatus.remainingCredits}/${licenseStatus.totalCredits} lượt`}
                   </span>
                   <span className="text-[10px] text-sky-600/70 dark:text-sky-400/70 group-hover:text-sky-800 dark:group-hover:text-sky-200 transition font-normal ml-0.5">
                     ⚙️ Đổi key
@@ -1032,10 +1032,10 @@ export default function HomePage() {
 
                   return isTrial ? (
                     /* Expanded Trial Badge */
-                    <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-800 dark:bg-sky-950/40 dark:border-sky-500/30 dark:text-sky-300 shadow-sm">
-                      <span className="text-sky-600 dark:text-sky-400">🧪</span>
+                    <div className="text-xs px-3 py-1.5 rounded-xl font-medium flex items-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300 shadow-sm">
+                      <span className="text-sky-600 dark:text-sky-400 font-bold">🧪</span>
                       <span className="font-semibold">
-                        {customerName ? `👋 Chào ${customerName} • ` : ''}
+                        {customerName ? `Chào ${customerName} • ` : ''}
                         {licenseStatus.totalCredits === -1
                           ? 'Dùng thử: Không giới hạn'
                           : `Dùng thử: Còn ${licenseStatus.remainingCredits}/${licenseStatus.totalCredits} lượt`}

@@ -106,9 +106,15 @@ export async function POST(req: NextRequest) {
       expiresAt.setDate(expiresAt.getDate() + Number(durationDays));
     }
 
+    const defaultName =
+      effectiveType === 'TRIAL'
+        ? `Trial_${Math.random().toString(36).substring(2, 6).toUpperCase()}`
+        : 'Khách hàng';
+    const rawCustomerName = customerName?.trim() || defaultName;
+
     const finalCustomerName = note?.trim()
-      ? `${customerName?.trim() || 'Khách hàng'} (${note.trim()})`
-      : customerName?.trim() || 'Khách hàng';
+      ? `${rawCustomerName} (${note.trim()})`
+      : rawCustomerName;
 
     const newKey = await prisma.licenseKey.create({
       data: {

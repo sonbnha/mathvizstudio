@@ -389,10 +389,17 @@ export default function UnifiedAdminPage() {
   // Handle Create License Key
   const handleCreateKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!customerName.trim()) {
-      setKeyActionError('Vui lòng nhập tên khách hàng / học sinh.');
+    if (keyPackageType === 'VIP' && !customerName.trim()) {
+      setKeyActionError('Vui lòng nhập tên khách hàng / học sinh cho Gói VIP.');
       return;
     }
+
+    const defaultTrialName = `Trial_${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    const effectiveCustomerName = customerName.trim()
+      ? customerName.trim()
+      : keyPackageType === 'TRIAL'
+      ? defaultTrialName
+      : 'Khách hàng';
 
     setKeyActionError(null);
     setCreateKeyLoading(true);
@@ -402,9 +409,11 @@ export default function UnifiedAdminPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          customerName: customerName.trim(),
+          customerName: effectiveCustomerName,
           keyType: keyPackageType,
-          totalCredits: isUnlimitedCredits ? -1 : Number(customCreditCount) || 50,
+          totalCredits: isUnlimitedCredits
+            ? -1
+            : Number(customCreditCount) || (keyPackageType === 'TRIAL' ? 15 : 50),
           durationDays,
           note: keyNote.trim(),
         }),
@@ -1774,17 +1783,28 @@ export default function UnifiedAdminPage() {
 
                   {/* Customer Name */}
                   <div className="flex flex-col gap-1.5">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                      <span>Tên Khách Hàng / Học Sinh</span>
-                    </label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <User className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                        <span>Tên Người Dùng / Khách Hàng</span>
+                      </label>
+                      {keyPackageType === 'TRIAL' && (
+                        <span className="text-[10px] text-sky-600 dark:text-sky-400 font-medium">
+                          (Tùy chọn: Mặc định Trial_[mã])
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="text"
                       value={customerName}
                       onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Ví dụ: Nguyễn Văn A hoặc THCS Lê Lợi"
+                      placeholder={
+                        keyPackageType === 'TRIAL'
+                          ? 'Mặc định: Trial_[mã] (Để trống hệ thống tự sinh)'
+                          : 'Ví dụ: Nguyễn Văn A hoặc THCS Lê Lợi'
+                      }
                       className="w-full h-10 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-medium"
-                      required
+                      required={keyPackageType === 'VIP'}
                     />
                   </div>
 
