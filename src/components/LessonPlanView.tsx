@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   BookOpen,
   Sparkles,
@@ -158,7 +158,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   ];
 
   return (
-    <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 text-slate-900 dark:text-slate-100">
       {/* KaTeX CDN Stylesheet */}
       <link
         rel="stylesheet"
@@ -168,13 +168,13 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
       {/* LEFT COLUMN: Input Form Panel (5 Cols on LG) */}
       <div className="lg:col-span-5 flex flex-col gap-5 print:hidden">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-xs flex flex-col gap-4">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-sm dark:shadow-md flex flex-col gap-4">
+          <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
             <div className="flex items-center gap-2">
               <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
                 <BookOpen className="w-4 h-4" />
               </div>
-              <h2 className="font-bold text-sm text-slate-800 dark:text-slate-100">
+              <h2 className="font-bold text-sm text-slate-900 dark:text-slate-100">
                 Thông Tin Bài Học (Công văn 5512)
               </h2>
             </div>
@@ -186,7 +186,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
           <form onSubmit={handleGenerate} className="flex flex-col gap-4 text-xs">
             {/* Topic Input */}
             <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                 <span>Tên bài học / Chủ đề bài giảng <span className="text-rose-500">*</span></span>
               </label>
               <input
@@ -195,21 +195,21 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="Ví dụ: Định lý Pythagore và ứng dụng"
                 required
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all font-medium text-xs"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all font-medium text-xs shadow-xs"
               />
             </div>
 
             {/* Row: Grade & Book */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                   <GraduationCap className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   <span>Khối lớp</span>
                 </label>
                 <select
                   value={grade}
                   onChange={(e) => setGrade(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer shadow-xs"
                 >
                   <option value="Lớp 6">Lớp 6</option>
                   <option value="Lớp 7">Lớp 7</option>
@@ -222,14 +222,14 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                   <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Bộ sách</span>
                 </label>
                 <select
                   value={book}
                   onChange={(e) => setBook(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer shadow-xs"
                 >
                   <option value="Kết Nối Tri Thức Với Cuộc Sống">Kết Nối Tri Thức</option>
                   <option value="Cánh Diều">Cánh Diều</option>
@@ -242,14 +242,14 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
             {/* Row: Duration & Style */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Thời lượng</span>
                 </label>
                 <select
                   value={duration}
                   onChange={(e) => setDuration(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer shadow-xs"
                 >
                   <option value="1 tiết (45 phút)">1 tiết (45 phút)</option>
                   <option value="2 tiết (90 phút)">2 tiết (90 phút)</option>
@@ -259,14 +259,14 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                   <span>Định hướng</span>
                 </label>
                 <select
                   value={style}
                   onChange={(e) => setStyle(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer"
+                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer shadow-xs"
                 >
                   <option value="Chuẩn 5512">Chuẩn CV 5512</option>
                   <option value="Tích hợp STEM & Trải nghiệm thực tế">Tích hợp STEM / Thực tế</option>
@@ -278,25 +278,25 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
             {/* Notes / Pedagogical Requirements */}
             <div className="flex flex-col gap-1.5">
-              <label className="font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+              <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center justify-between">
                 <span>Ghi chú & Yêu cầu trọng tâm của giáo viên</span>
-                <span className="text-[10px] text-slate-400">Tùy chọn</span>
+                <span className="text-[10px] text-slate-400 dark:text-slate-500">Tùy chọn</span>
               </label>
               <textarea
                 rows={3}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="Ví dụ: Thiết kế phiếu học tập nhóm, tích hợp bài toán đo khoảng cách thực tế..."
-                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all font-normal text-xs resize-none"
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all font-normal text-xs resize-none shadow-xs"
               />
             </div>
 
             {/* License Key Section (Collapsible) */}
-            <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+            <div className="pt-2 border-t border-slate-200 dark:border-slate-800">
               <button
                 type="button"
                 onClick={() => setIsKeyExpanded(!isKeyExpanded)}
-                className="w-full py-1 text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 flex items-center justify-between text-xs"
+                className="w-full py-1 text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 flex items-center justify-between text-xs cursor-pointer"
               >
                 <span className="flex items-center gap-1.5 font-medium">
                   <Key className="w-3.5 h-3.5 text-amber-500" />
@@ -317,9 +317,9 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                     value={customKey}
                     onChange={(e) => setCustomKey(e.target.value.toUpperCase())}
                     placeholder={parentKey || "VD: MATH-PRO-XXXX-XXXX"}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-750 bg-slate-50 dark:bg-slate-950 font-mono text-xs uppercase tracking-wider text-slate-800 dark:text-slate-200"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-950 font-mono text-xs uppercase tracking-wider text-slate-900 dark:text-slate-100 placeholder-slate-400"
                   />
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[10px] text-slate-500 dark:text-slate-400">
                     Sử dụng License Key riêng hoặc dùng chung Key đã nhập ở thanh Header.
                   </p>
                 </div>
@@ -356,8 +356,8 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
         </div>
 
         {/* Quick Preset Topics */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs flex flex-col gap-3">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 dark:text-slate-300">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm dark:shadow-md flex flex-col gap-3">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 dark:text-slate-200">
             <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
             <span>Chủ đề bài giảng gợi ý mẫu</span>
           </div>
@@ -380,11 +380,11 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
       {/* RIGHT COLUMN: Lesson Plan Output Viewer (7 Cols on LG) */}
       <div className="lg:col-span-7 flex flex-col gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs flex flex-col min-h-[640px] overflow-hidden">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm dark:shadow-md flex flex-col min-h-[640px] overflow-hidden">
           {/* Action Bar & Mode Switcher */}
-          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 print:hidden">
+          <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-100/70 dark:bg-slate-950/50 flex flex-wrap items-center justify-between gap-3 print:hidden">
             <div className="flex items-center gap-2">
-              <div className="flex items-center bg-slate-200/70 dark:bg-slate-800 p-1 rounded-xl">
+              <div className="flex items-center bg-slate-200/80 dark:bg-slate-800 p-1 rounded-xl">
                 <button
                   onClick={() => setActiveTab('rendered')}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
@@ -422,13 +422,13 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               <button
                 onClick={handleCopy}
                 disabled={!lessonPlan}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
                 title="Sao chép toàn bộ nội dung"
               >
                 {copied ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-500" />
-                    <span className="text-emerald-600 dark:text-emerald-400">Đã chép</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đã chép</span>
                   </>
                 ) : (
                   <>
@@ -441,7 +441,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               <button
                 onClick={handleExportWord}
                 disabled={!lessonPlan}
-                className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800/80 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900 text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
                 title="Xuất file Microsoft Word (.doc/.docx)"
               >
                 <FileDown className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
@@ -451,7 +451,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               <button
                 onClick={handlePrint}
                 disabled={!lessonPlan}
-                className="px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
                 title="In hoặc tải định dạng PDF"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -461,7 +461,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
           </div>
 
           {/* Content Body */}
-          <div className="flex-1 p-6 overflow-y-auto">
+          <div className="flex-1 p-6 overflow-y-auto bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200">
             {loading ? (
               /* Animated Loading Skeleton */
               <div className="py-16 flex flex-col items-center justify-center gap-5 text-center">
@@ -498,7 +498,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                   value={lessonPlan}
                   onChange={(e) => setLessonPlan(e.target.value)}
                   rows={28}
-                  className="w-full h-full font-mono text-xs p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/60 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 leading-relaxed resize-none"
+                  className="w-full h-full font-mono text-xs p-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/60 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 leading-relaxed resize-none"
                 />
               )
             ) : (
@@ -511,29 +511,29 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                   <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
                     Trợ Lý Soạn Giáo Án Toán Học AI (CV 5512)
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
                     Điền thông tin bài học ở cột bên trái và bấm nút <strong>"Tạo Giáo Án Tự Động"</strong> để nhận Kế hoạch bài dạy chuẩn mực 4 hoạt động của Bộ GD&ĐT kèm công thức Toán LaTeX và phiếu học tập.
                   </p>
                 </div>
 
                 {/* Highlights Grid */}
                 <div className="grid grid-cols-2 gap-3 w-full text-left text-xs mt-2">
-                  <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col gap-1.5">
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-col gap-1.5">
                     <span className="font-semibold text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5" />
                       Đúng chuẩn 4 Hoạt động
                     </span>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
                       Mở đầu &rarr; Kiến thức mới &rarr; Luyện tập &rarr; Vận dụng với quy trình 4 bước sư phạm.
                     </p>
                   </div>
 
-                  <div className="p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40 flex flex-col gap-1.5">
+                  <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-col gap-1.5">
                     <span className="font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
                       <FileDown className="w-3.5 h-3.5" />
                       Xuất Word (.doc/.docx)
                     </span>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
+                    <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
                       Định dạng Times New Roman 13pt, lề chuẩn 2cm, sẵn sàng để nộp duyệt và in ấn.
                     </p>
                   </div>
