@@ -1659,10 +1659,10 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setIsChangelogOpen(true)}
-            className="hover:text-cyan-600 dark:hover:text-cyan-400 underline decoration-dotted transition cursor-pointer"
+            className="hover:text-cyan-600 dark:hover:text-cyan-400 underline decoration-dotted transition cursor-pointer font-mono"
             title="Xem Changelog"
           >
-            v{APP_VERSION.fullString}
+            {APP_VERSION.fullString}
           </button>
         </div>
         <div className="flex items-center gap-3">
