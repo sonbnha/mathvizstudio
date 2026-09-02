@@ -37,6 +37,7 @@ import {
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG, mergeAndSortChangelogs } from '@/config/changelog';
+import LessonPlanView from '@/components/LessonPlanView';
 
 const PRESETS = [
   {
@@ -177,6 +178,34 @@ export default function HomePage() {
   const [historySearch, setHistorySearch] = useState('');
   const [selectedTopic, setSelectedTopic] = useState('Tất cả');
   const [historyCardCopiedId, setHistoryCardCopiedId] = useState<string | null>(null);
+
+  // Main Active Tab Switcher state ('geometry' | 'lesson-plan')
+  const [mainTab, setMainTab] = useState<'geometry' | 'lesson-plan'>('geometry');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get('tab');
+      if (tabParam === 'lesson-plan' || tabParam === 'geometry') {
+        setMainTab(tabParam);
+      } else {
+        const savedTab = localStorage.getItem('mathviz_main_tab');
+        if (savedTab === 'lesson-plan' || savedTab === 'geometry') {
+          setMainTab(savedTab);
+        }
+      }
+    }
+  }, []);
+
+  const handleTabChange = (tab: 'geometry' | 'lesson-plan') => {
+    setMainTab(tab);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('mathviz_main_tab', tab);
+      const url = new URL(window.location.href);
+      url.searchParams.set('tab', tab);
+      window.history.replaceState(null, '', url.toString());
+    }
+  };
 
   // TikZ Export Modal state
   const [isTikzModalOpen, setIsTikzModalOpen] = useState(false);
@@ -833,20 +862,30 @@ export default function HomePage() {
 
           {/* Module Navigation */}
           <nav className="hidden xl:flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-200 dark:border-slate-800">
-            <Link
-              href="/"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80 flex items-center gap-1.5"
+            <button
+              type="button"
+              onClick={() => handleTabChange('geometry')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                mainTab === 'geometry'
+                  ? 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400'
+              }`}
             >
               <Compass className="w-3.5 h-3.5" />
               <span>Vẽ hình học</span>
-            </Link>
-            <Link
-              href="/soan-giao-an"
-              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+            </button>
+            <button
+              type="button"
+              onClick={() => handleTabChange('lesson-plan')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                mainTab === 'lesson-plan'
+                  ? 'bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80'
+                  : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400'
+              }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
               <span>Soạn giáo án 5512</span>
-            </Link>
+            </button>
           </nav>
         </div>
 
@@ -949,8 +988,39 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* Main Grid */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
+      {/* Modern Capsule Tab Switcher */}
+      <div className="flex justify-center my-3.5 px-4 z-20 print:hidden">
+        <div className="inline-flex p-1.5 bg-slate-200/80 dark:bg-slate-900/90 rounded-2xl border border-slate-300/80 dark:border-slate-800 shadow-sm backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => handleTabChange('geometry')}
+            className={`flex items-center gap-2 px-5 sm:px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
+              mainTab === 'geometry'
+                ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 shadow-md shadow-cyan-500/10'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <Compass className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+            <span>Vẽ hình học AI</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleTabChange('lesson-plan')}
+            className={`flex items-center gap-2 px-5 sm:px-7 py-2.5 rounded-xl font-bold text-xs sm:text-sm transition-all duration-200 cursor-pointer ${
+              mainTab === 'lesson-plan'
+                ? 'bg-white dark:bg-slate-800 text-cyan-700 dark:text-cyan-300 shadow-md shadow-cyan-500/10'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
+            }`}
+          >
+            <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+            <span>Soạn giáo án tự động (5512)</span>
+          </button>
+        </div>
+      </div>
+
+      {/* TAB 1: Vẽ hình học AI */}
+      <div className={mainTab === 'geometry' ? 'block' : 'hidden'}>
+        <main className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 z-10">
         {/* LEFT COLUMN: Input & Upload & Styles (5 Cols) */}
         <section className="lg:col-span-5 flex flex-col gap-5">
           {/* Preset Buttons */}
@@ -1378,6 +1448,14 @@ export default function HomePage() {
           </div>
         </section>
       </main>
+      </div>
+
+      {/* TAB 2: Soạn giáo án tự động */}
+      <div className={mainTab === 'lesson-plan' ? 'block' : 'hidden'}>
+        <div className="flex-1 max-w-7xl w-full mx-auto p-4 lg:p-6 z-10">
+          <LessonPlanView licenseKey={licenseKey} />
+        </div>
+      </div>
 
       {/* TikZ LaTeX Export Modal */}
       {isTikzModalOpen && (
