@@ -37,10 +37,11 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
   // Parse markdown into interleaved segments of formatted HTML and IllustrationBox React components
   const segments = React.useMemo(() => {
     if (!markdown) return [];
-    const list: Array<{ type: 'html' | 'illustration'; content: string }> = [];
+    const list: Array<{ type: 'html' | 'illustration'; content: string; figureId?: string }> = [];
     const regex = /\[HÌNH MINH HỌA:\s*([^\]]+)\]/gi;
     let lastIdx = 0;
     let match: RegExpExecArray | null;
+    let illustCount = 0;
 
     while ((match = regex.exec(markdown)) !== null) {
       if (match.index > lastIdx) {
@@ -53,7 +54,14 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
           }
         }
       }
-      list.push({ type: 'illustration', content: match[1].trim() });
+      illustCount++;
+      const descText = match[1].trim();
+      const figureId = `fig_${illustCount}_${descText.slice(0, 16).replace(/[^a-zA-Z0-9]/g, '_')}`;
+      list.push({
+        type: 'illustration',
+        content: descText,
+        figureId,
+      });
       lastIdx = regex.lastIndex;
     }
 
@@ -297,8 +305,9 @@ export const LessonPlanWordPreview: React.FC<LessonPlanWordPreviewProps> = ({
                   if (seg.type === 'illustration') {
                     return (
                       <IllustrationBox
-                        key={`illust-${sIdx}`}
+                        key={`illust-${seg.figureId || sIdx}`}
                         description={seg.content}
+                        figureId={seg.figureId || `fig_${sIdx}`}
                       />
                     );
                   }

@@ -227,18 +227,61 @@ function HomeContent() {
     router.replace(`?${params.toString()}`, { scroll: false });
   };
 
+  // Pending target figure ID from Lesson Plan module
+  const [pendingTargetFigureId, setPendingTargetFigureId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const storedFigureId = sessionStorage.getItem('pending_target_figure_id');
+        if (storedFigureId) {
+          setPendingTargetFigureId(storedFigureId);
+        }
+      } catch {}
+    }
+  }, []);
+
   // Listen for switch-to-geometry event from Lesson Plan Word Preview
   useEffect(() => {
     const handleSwitchToGeometry = (e: any) => {
       const targetPrompt = e.detail?.prompt;
+      const figureId = e.detail?.figureId;
       if (targetPrompt && typeof targetPrompt === 'string') {
         setPrompt(targetPrompt);
+      }
+      if (figureId && typeof figureId === 'string') {
+        setPendingTargetFigureId(figureId);
+        try {
+          sessionStorage.setItem('pending_target_figure_id', figureId);
+        } catch {}
       }
       handleTabChange('geometry');
     };
     window.addEventListener('switch-to-geometry', handleSwitchToGeometry);
     return () => window.removeEventListener('switch-to-geometry', handleSwitchToGeometry);
   }, []);
+
+  const handleInsertFigureToLessonPlan = () => {
+    if (!svgOutput || !pendingTargetFigureId) return;
+
+    try {
+      const storedFigures = JSON.parse(localStorage.getItem('lesson_plan_figures') || '{}');
+      storedFigures[pendingTargetFigureId] = svgOutput;
+      localStorage.setItem('lesson_plan_figures', JSON.stringify(storedFigures));
+      sessionStorage.removeItem('pending_target_figure_id');
+      const targetId = pendingTargetFigureId;
+      setPendingTargetFigureId(null);
+      window.dispatchEvent(
+        new CustomEvent('lesson-plan-figure-updated', {
+          detail: { figureId: targetId, svgCode: svgOutput },
+        })
+      );
+    } catch (e) {
+      console.error('Lỗi khi chèn hình vào giáo án:', e);
+    }
+
+    handleTabChange('lesson-plan');
+  };
 
   // TikZ Export Modal state
   const [isTikzModalOpen, setIsTikzModalOpen] = useState(false);
@@ -1510,6 +1553,19 @@ function HomeContent() {
                 <FileCode className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                 <span>Xuất TikZ (LaTeX)</span>
               </button>
+
+              {/* Insert into Lesson Plan Button (when coming from Lesson Plan) */}
+              {pendingTargetFigureId && svgOutput && !isGenerating && (
+                <button
+                  type="button"
+                  onClick={handleInsertFigureToLessonPlan}
+                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs flex items-center gap-1.5 shadow-md transition-all animate-pulse active:scale-95 cursor-pointer shrink-0"
+                  title="Chèn hình vẽ này trực tiếp vào vị trí khung minh họa trong Kế hoạch bài dạy"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span>📥 Chèn hình này vào Giáo án</span>
+                </button>
+              )}
             </div>
           </div>
 
