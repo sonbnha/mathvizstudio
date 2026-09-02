@@ -92,20 +92,20 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
       svg ? `Mã SVG:\n${svg}\n` : ''
     }${prompt ? `Đề bài:\n${prompt}` : ''}`;
 
-    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-    const MODELS = [
-      defaultModel,
-      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
-    ];
+    const MODEL_CASCADE = [
+      process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-2.5-flash',
+    ].filter((v, i, a) => a.indexOf(v) === i);
 
     let response: any = null;
     let lastError: any = null;
 
-    for (let i = 0; i < MODELS.length; i++) {
-      const currentModel = MODELS[i];
+    for (const modelName of MODEL_CASCADE) {
       try {
+        console.log(`[TikZ API Cascade] Đang thử với model: ${modelName}...`);
         response = await ai.models.generateContent({
-          model: currentModel,
+          model: modelName,
           contents: [userPrompt],
           config: {
             systemInstruction,
@@ -113,20 +113,21 @@ TUYỆT ĐỐI KHÔNG viết lời mở đầu, không giải thích, không kè
           },
         });
         if (response?.text) {
+          console.log(`[TikZ API Cascade] Thành công với model: ${modelName}`);
           break;
         }
       } catch (err: any) {
         lastError = err;
-        console.warn(`[TikZ API] Model ${currentModel} error:`, err?.message || err);
-        if (i < MODELS.length - 1) {
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          continue;
-        }
+        const statusCode = err?.status || err?.statusCode || err?.response?.status;
+        const errMsg = err?.message || '';
+        console.warn(
+          `[TikZ API Cascade] Model ${modelName} gặp lỗi (${statusCode || 'Unknown'}): ${errMsg}. Tự động chuyển model kế tiếp...`
+        );
       }
     }
 
     if (!response || !response.text) {
-      throw lastError || new Error('Không thể sinh mã TikZ vào lúc này.');
+      throw lastError || new Error('Không thể sinh mã TikZ vào lúc này. Toàn bộ model đều không khả dụng.');
     }
 
     const rawTikz = response.text || '';

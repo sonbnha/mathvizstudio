@@ -153,20 +153,21 @@ Yêu cầu kỹ thuật đồ họa SVG:
       });
     }
 
-    const defaultModel = process.env.GEMINI_MODEL || 'gemini-3.6-flash';
-    const MODELS = [
-      defaultModel,
-      ...(defaultModel !== 'gemini-3.6-flash' ? ['gemini-3.6-flash'] : []),
-    ];
+    const MODEL_CASCADE = [
+      process.env.GEMINI_MODEL || 'gemini-3.6-flash',
+      'gemini-3.5-flash',
+      'gemini-2.5-flash',
+    ].filter((v, i, a) => a.indexOf(v) === i);
 
     let response: any = null;
     let lastError: any = null;
+    let usedModel = MODEL_CASCADE[0];
 
-    for (let i = 0; i < MODELS.length; i++) {
-      const currentModel = MODELS[i];
+    for (const modelName of MODEL_CASCADE) {
       try {
+        console.log(`[AI Cascade] Đang thử với model: ${modelName}...`);
         response = await ai.models.generateContent({
-          model: currentModel,
+          model: modelName,
           contents,
           config: {
             systemInstruction,
@@ -174,35 +175,22 @@ Yêu cầu kỹ thuật đồ họa SVG:
           },
         });
         if (response?.text) {
+          usedModel = modelName;
+          console.log(`[AI Cascade] Thành công với model: ${modelName}`);
           break;
         }
       } catch (err: any) {
         lastError = err;
-        console.warn(`[Gemini API] Model ${currentModel} gặp sự cố:`, err?.message || err);
-
-        const errorStatus = err?.status || err?.statusCode;
-        const errorMsg = String(err?.message || '').toLowerCase();
-        const isRetryable =
-          errorStatus === 503 ||
-          errorStatus === 429 ||
-          errorStatus === 500 ||
-          errorMsg.includes('503') ||
-          errorMsg.includes('429') ||
-          errorMsg.includes('overloaded') ||
-          errorMsg.includes('high demand') ||
-          errorMsg.includes('rate limit') ||
-          errorMsg.includes('resource exhausted');
-
-        if (i < MODELS.length - 1 && (isRetryable || true)) {
-          console.info(`[Gemini API] Chờ 1.5s và tự động fallback sang model ${MODELS[i + 1]}...`);
-          await new Promise((resolve) => setTimeout(resolve, 1500));
-          continue;
-        }
+        const statusCode = err?.status || err?.statusCode || err?.response?.status;
+        const errMsg = err?.message || '';
+        console.warn(
+          `[AI Cascade] Model ${modelName} gặp lỗi (${statusCode || 'Unknown'}): ${errMsg}. Tự động chuyển model kế tiếp trong chuỗi cascade...`
+        );
       }
     }
 
     if (!response || !response.text) {
-      throw lastError || new Error('Tất cả các model trong danh sách fallback đều không thể phản hồi.');
+      throw lastError || new Error('Toàn bộ cụm model đều không khả dụng.');
     }
 
     const rawText = response.text || '';
