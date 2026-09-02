@@ -1123,8 +1123,8 @@ export default function HomePage() {
             onClick={() => openApiKeyModal()}
             className={`h-10 inline-flex items-center justify-center gap-2 px-3 sm:px-3.5 rounded-xl text-xs font-medium border transition-all duration-200 shadow-xs cursor-pointer group shrink-0 ${
               isCustomKeyActive
-                ? 'bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/40 dark:hover:bg-emerald-900/40 border-emerald-300 dark:border-emerald-500/40 hover:border-emerald-400 text-emerald-800 dark:text-emerald-200'
-                : 'bg-gradient-to-r from-indigo-50/90 via-purple-50/80 to-sky-50/90 hover:from-indigo-100/90 hover:via-purple-100/90 hover:to-sky-100/90 dark:from-indigo-950/40 dark:via-purple-950/30 dark:to-sky-950/40 border-purple-200 dark:border-purple-500/30 hover:border-purple-300 dark:hover:border-purple-400/60 text-purple-700 dark:text-purple-200 hover:text-purple-900 dark:hover:text-white'
+                ? 'bg-emerald-950/40 hover:bg-emerald-950/60 border-emerald-500/40 hover:border-emerald-400/70 hover:shadow-[0_0_12px_rgba(52,211,153,0.25)] text-emerald-200 hover:text-emerald-100'
+                : 'bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-sky-950/40 border-purple-500/30 hover:bg-purple-950/60 hover:border-purple-400/70 hover:shadow-[0_0_12px_rgba(168,85,247,0.25)] text-purple-200 hover:text-white'
             }`}
             title={
               isCustomKeyActive
@@ -1135,22 +1135,22 @@ export default function HomePage() {
             <Key
               className={`w-3.5 h-3.5 group-hover:rotate-12 transition-transform shrink-0 ${
                 isCustomKeyActive
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-indigo-600 dark:text-indigo-400'
+                  ? 'text-emerald-400 group-hover:text-emerald-300'
+                  : 'text-indigo-400 group-hover:text-purple-200'
               }`}
             />
             {isCustomKeyActive ? (
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-xs text-emerald-800 dark:text-emerald-200">
+                <span className="font-medium text-xs text-emerald-200 group-hover:text-emerald-100">
                   Key riêng
                 </span>
               </div>
             ) : (
               <div className="flex items-center gap-1.5">
-                <span className="font-medium text-xs text-purple-700 dark:text-purple-200">
+                <span className="font-medium text-xs text-purple-200 group-hover:text-white">
                   Gemini Key
                 </span>
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/15 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/30 uppercase tracking-wide">
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 uppercase tracking-wide">
                   Auto
                 </span>
               </div>
@@ -1158,8 +1158,8 @@ export default function HomePage() {
             <span
               className={`w-2 h-2 rounded-full shrink-0 transition-all ${
                 isCustomKeyActive
-                  ? 'bg-emerald-500 dark:bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse'
-                  : 'bg-indigo-500 dark:bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.7)]'
+                  ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse'
+                  : 'bg-indigo-400 shadow-[0_0_6px_rgba(129,140,248,0.7)]'
               }`}
             ></span>
           </button>
