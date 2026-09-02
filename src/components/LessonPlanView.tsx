@@ -28,6 +28,7 @@ import {
   exportToWordDocument,
   exportToDocx,
 } from '@/lib/lessonPlanUtils';
+import { LessonPlanWordPreview } from './LessonPlanWordPreview';
 
 interface LessonPlanViewProps {
   licenseKey?: string;
@@ -423,104 +424,10 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
       {/* RIGHT COLUMN: Lesson Plan Output Viewer (Word-like Virtual A4 Preview) */}
       <div className="flex-1 min-w-0 flex flex-col h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-        {/* Sticky Action Bar & Mode Switcher */}
-        <div className="action-bar p-3 md:p-3.5 border-b border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md flex flex-wrap items-center justify-between gap-3 shrink-0 z-10 print:hidden">
-          <div className="flex items-center gap-2">
-            <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/80 dark:border-slate-700/80">
-              <button
-                onClick={() => setActiveTab('rendered')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'rendered'
-                    ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <Eye className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
-                <span>Trang Word A4</span>
-              </button>
-              <button
-                onClick={() => setActiveTab('editor')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                  activeTab === 'editor'
-                    ? 'bg-white dark:bg-slate-900 text-blue-700 dark:text-blue-400 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200'
-                }`}
-              >
-                <Edit3 className="w-3.5 h-3.5" />
-                <span>Chỉnh sửa Markdown</span>
-              </button>
-            </div>
-
-            {isStreaming ? (
-              <span className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 animate-pulse">
-                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                <span>Đang viết trực tiếp...</span>
-              </span>
-            ) : lessonPlan ? (
-              <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg hidden sm:inline-flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                Đã sẵn sàng in / nộp
-              </span>
-            ) : null}
-          </div>
-
-          {/* Action Buttons: Copy, Word (.docx), Print */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopy}
-              disabled={!lessonPlan}
-              className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
-              title="Sao chép toàn bộ nội dung"
-            >
-              {copied ? (
-                <>
-                  <Check className="w-3.5 h-3.5 text-emerald-500" />
-                  <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Đã chép</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Sao chép</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handleExportWord}
-              disabled={!lessonPlan || isExporting}
-              className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs shadow-blue-500/20"
-              title="Tải file Microsoft Word (.docx chuẩn mực)"
-            >
-              {isExporting ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>Đang tạo .docx...</span>
-                </>
-              ) : (
-                <>
-                  <FileDown className="w-3.5 h-3.5" />
-                  <span>Tải file .docx</span>
-                </>
-              )}
-            </button>
-
-            <button
-              onClick={handlePrint}
-              disabled={!lessonPlan}
-              className="px-3 py-1.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 text-xs font-medium transition-colors flex items-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer shadow-xs"
-              title="In trực tiếp hoặc Lưu dưới dạng file PDF chuẩn A4"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>In / Xuất PDF</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Content Body: Word-like A4 Virtual Paper Preview */}
-        <div className="preview-container flex-1 min-h-0 w-full overflow-y-auto bg-slate-200/90 dark:bg-slate-950 p-4 sm:p-6 md:p-8 flex flex-col items-center">
-          {loading ? (
-            /* Animated Loading inside A4 Sheet */
-            <div className="w-full max-w-[850px] min-h-[680px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-8 sm:p-12 shadow-2xl rounded-sm border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-5 text-center my-4 font-sans shrink-0">
+        {loading && !lessonPlan ? (
+          /* Animated Loading before first chunk */
+          <div className="h-full w-full bg-[#f3f2f1] dark:bg-slate-950 p-8 flex flex-col items-center justify-center">
+            <div className="w-full max-w-[794px] min-h-[500px] bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-8 sm:p-12 shadow-2xl rounded-xs border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-5 text-center my-4 font-sans">
               <div className="relative">
                 <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-cyan-600 to-indigo-600 flex items-center justify-center text-white shadow-xl shadow-cyan-500/20 animate-pulse">
                   <Sparkles className="w-8 h-8 animate-spin" />
@@ -528,10 +435,10 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </div>
               <div className="flex flex-col gap-2 max-w-md">
                 <h3 className="font-bold text-base text-slate-900 dark:text-slate-100">
-                  Đang soạn kế hoạch bài dạy theo Công văn 5512
+                  Đang khởi tạo luồng soạn giáo án Công văn 5512
                 </h3>
                 <p className="text-xs text-cyan-600 dark:text-cyan-400 font-medium">
-                  {stepsText[progressStep - 1] || 'Đang triển khai chi tiết 4 hoạt động sư phạm...'}
+                  {stepsText[progressStep - 1] || 'Đang kết nối AI và chuẩn bị dữ liệu Bộ sách Thống nhất...'}
                 </p>
                 <div className="w-64 h-2 bg-slate-100 dark:bg-slate-800 rounded-full mx-auto overflow-hidden mt-2">
                   <div
@@ -541,75 +448,59 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                 </div>
               </div>
             </div>
-          ) : lessonPlan ? (
-            activeTab === 'rendered' ? (
-              /* Virtual A4 Paper Sheet */
-              <div className="w-full max-w-[850px] min-h-[1150px] h-auto bg-white text-slate-900 mx-auto my-4 p-8 sm:p-12 md:p-16 shadow-2xl rounded-sm border border-slate-300 dark:border-slate-800 font-['Times_New_Roman',serif] text-[14px] leading-relaxed select-text shrink-0 a4-paper-sheet">
-                {/* Decorative Word A4 Sheet Header Marker */}
-                <div className="text-[11px] text-slate-500 font-sans mb-6 pb-2 border-b border-slate-300 flex items-center justify-between select-none print:hidden">
-                  <span className="font-semibold tracking-wider text-slate-600">
-                    KẾ HOẠCH BÀI DẠY THEO CÔNG VĂN 5512/BGDĐT-GDTrH
-                  </span>
-                  <span className="font-medium text-slate-500">MÔN TOÁN • BỘ SÁCH THỐNG NHẤT</span>
-                </div>
-                <div className="prose prose-slate max-w-none text-black [&_*]:text-black [&_h2]:!text-[#002060] [&_table]:!border-collapse [&_table]:!border [&_table]:!border-black [&_td]:!border [&_td]:!border-black [&_th]:!border [&_th]:!border-black [&_th]:!bg-[#f2f2f2] [&_th]:!text-black [&_td]:!text-black">
-                  <article
-                    className="max-w-none leading-relaxed"
-                    dangerouslySetInnerHTML={{ __html: renderMarkdownWithKatex(lessonPlan) }}
-                  />
-                </div>
-              </div>
-            ) : (
-              /* Raw Markdown Editor */
-              <div className="w-full max-w-[850px] h-full flex-1 my-4 flex flex-col shrink-0">
-                <textarea
-                  value={lessonPlan}
-                  onChange={(e) => setLessonPlan(e.target.value)}
-                  rows={28}
-                  className="w-full flex-1 font-mono text-xs p-5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 leading-relaxed resize-none shadow-md"
-                />
-              </div>
-            )
-          ) : (
-            /* Empty Initial Guide View */
-            <div className="w-full max-w-[800px] min-h-[600px] bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 p-8 sm:p-12 shadow-xl rounded-xs border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-6 text-center my-4 font-sans">
+          </div>
+        ) : lessonPlan || isStreaming ? (
+          /* Full Featured Word A4 Document Viewer */
+          <LessonPlanWordPreview
+            markdown={lessonPlan}
+            isStreaming={isStreaming}
+            topic={topic}
+            onExportDocx={handleExportWord}
+            onExportPdf={handlePrint}
+            onCopyMarkdown={handleCopy}
+            isCopied={copied}
+          />
+        ) : (
+          /* Empty Initial Guide View */
+          <div className="h-full w-full bg-[#f3f2f1] dark:bg-slate-950 p-6 md:p-8 flex flex-col items-center justify-center overflow-y-auto">
+            <div className="w-full max-w-[794px] min-h-[580px] bg-white text-slate-800 dark:bg-slate-900 dark:text-slate-200 p-8 sm:p-12 shadow-xl rounded-xs border border-slate-300 dark:border-slate-800 flex flex-col items-center justify-center gap-6 text-center my-4 font-sans">
               <div className="w-14 h-14 rounded-2xl bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 flex items-center justify-center shadow-sm">
                 <BookOpen className="w-7 h-7" />
               </div>
               <div className="flex flex-col gap-2 max-w-md">
                 <h3 className="font-bold text-lg text-slate-900 dark:text-slate-100">
-                  Trợ Lý Soạn Giáo Án Toán Học AI (CV 5512)
+                  Trợ Lý Soạn Kế Hoạch Bài Dạy Toán Học (CV 5512)
                 </h3>
                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                  Điền thông tin bài học ở cột bên trái và bấm nút <strong>"Tạo Giáo Án Tự Động"</strong> để nhận Kế hoạch bài dạy chuẩn mực hiển thị trực quan trong khung xem trước tờ giấy A4 chuẩn Word.
+                  Chọn mẫu bài học ở cột bên trái hoặc nhập chủ đề mới, sau đó bấm nút <strong>"Tạo Giáo Án Tự Động"</strong> để nhận giáo án hiển thị trực tiếp trên giao diện tờ giấy Word A4 thực thụ.
                 </p>
               </div>
 
               {/* Highlights Grid */}
-              <div className="grid grid-cols-2 gap-3 w-full max-w-md text-left text-xs mt-2">
-                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-1.5">
+              <div className="grid grid-cols-2 gap-3.5 w-full max-w-md text-left text-xs mt-2">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-1.5 shadow-xs">
                   <span className="font-semibold text-cyan-700 dark:text-cyan-400 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5" />
-                    Xem trước chuẩn A4
+                    Xem trước trang Word A4
                   </span>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Mô phỏng chân thực từng trang Word với Times New Roman và bảng hoạt động 5512.
+                    Mô phỏng chân thực thước kẻ Word, lề 3-2-2-2cm, Times New Roman 13pt và bảng 5512.
                   </p>
                 </div>
 
-                <div className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-1.5">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 flex flex-col gap-1.5 shadow-xs">
                   <span className="font-semibold text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
                     <FileDown className="w-3.5 h-3.5" />
                     Xuất File .docx
                   </span>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
-                    Định dạng chuẩn lề 2cm, sẵn sàng để nộp ban giám hiệu và in ấn trực tiếp.
+                    Định dạng chuẩn Nghị định 30/2020/NĐ-CP, sẵn sàng để in ấn và nộp ngay lập tức.
                   </p>
                 </div>
               </div>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );

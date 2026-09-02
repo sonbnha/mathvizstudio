@@ -182,7 +182,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     // Headings #, ##, ###, ####
     if (trimmed.startsWith('# ')) {
       htmlLines.push(
-        `<h1 class="text-[17px] md:text-[18px] font-bold text-black text-center uppercase tracking-normal mt-4 mb-3 pb-2 border-b border-black">${formatInline(
+        `<h1 class="text-[15pt] font-bold text-black text-center uppercase tracking-normal mt-4 mb-3 pb-2 border-b border-black leading-snug">${formatInline(
           trimmed.slice(2)
         )}</h1>`
       );
@@ -190,7 +190,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
     if (trimmed.startsWith('## ')) {
       htmlLines.push(
-        `<h2 class="text-[15px] md:text-[16px] font-bold text-[#002060] uppercase mt-5 mb-2">${formatInline(
+        `<h2 class="text-[13.5pt] font-bold text-[#1A365D] uppercase mt-5 mb-2 pb-1 border-b border-slate-200 leading-snug">${formatInline(
           trimmed.slice(3)
         )}</h2>`
       );
@@ -198,7 +198,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
     if (trimmed.startsWith('### ')) {
       htmlLines.push(
-        `<h3 class="text-[14px] font-bold text-black mt-3.5 mb-1.5">${formatInline(
+        `<h3 class="text-[13pt] font-bold text-black mt-3.5 mb-1.5 leading-snug">${formatInline(
           trimmed.slice(4)
         )}</h3>`
       );
@@ -206,9 +206,31 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
     if (trimmed.startsWith('#### ')) {
       htmlLines.push(
-        `<h4 class="text-[13.5px] font-bold italic text-black mt-3 mb-1">${formatInline(
+        `<h4 class="text-[13pt] font-bold text-[#1A365D] bg-[#F1F5F9] border-l-4 border-[#1A365D] px-3 py-1.5 my-3 rounded-xs leading-snug">${formatInline(
           trimmed.slice(5)
         )}</h4>`
+      );
+      continue;
+    }
+
+    // Sub-items a) Mục tiêu, b) Nội dung, c) Sản phẩm, d) Tổ chức thực hiện
+    if (/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i.test(trimmed)) {
+      const match = trimmed.match(/^-\s+\*\*([a-d]\))\s+([^:]+):?\*\*(.*)$/i)!;
+      htmlLines.push(
+        `<p class="text-black text-[13pt] leading-relaxed text-justify my-1 pl-4"><strong class="font-bold italic text-black">${match[1]} ${match[2]}: </strong>${formatInline(
+          match[3].trim()
+        )}</p>`
+      );
+      continue;
+    }
+
+    // Steps: * Bước 1: Chuyển giao nhiệm vụ...
+    if (/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i.test(trimmed)) {
+      const match = trimmed.match(/^\*\s+\*\*Bước\s+(\d+):?\s*([^*]+)\*\*(.*)$/i)!;
+      htmlLines.push(
+        `<p class="text-black text-[13pt] leading-relaxed text-justify my-1 pl-8"><strong class="font-bold text-black">• Bước ${match[1]}: ${match[2].trim()}</strong>${
+          match[3] ? ` ${formatInline(match[3].trim())}` : ''
+        }</p>`
       );
       continue;
     }
@@ -216,7 +238,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     // Bullet points / lists
     if (trimmed.startsWith('- ') || trimmed.startsWith('* ')) {
       htmlLines.push(
-        `<li class="ml-6 list-disc text-black text-[13.5px] leading-relaxed text-justify my-1">${formatInline(
+        `<li class="ml-6 list-disc text-black text-[13pt] leading-relaxed text-justify my-1">${formatInline(
           trimmed.slice(2)
         )}</li>`
       );
@@ -227,7 +249,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     const numMatch = trimmed.match(/^(\d+)\.\s+(.*)$/);
     if (numMatch) {
       htmlLines.push(
-        `<li class="ml-6 list-decimal text-black text-[13.5px] leading-relaxed text-justify my-1" value="${numMatch[1]}">${formatInline(
+        `<li class="ml-6 list-decimal text-black text-[13pt] leading-relaxed text-justify my-1" value="${numMatch[1]}">${formatInline(
           numMatch[2]
         )}</li>`
       );
@@ -241,7 +263,7 @@ export function renderMarkdownWithKatex(markdown: string): string {
     }
 
     // Regular paragraph
-    htmlLines.push(`<p class="text-black text-[13.5px] leading-[1.45] text-justify my-1.5">${formatInline(trimmed)}</p>`);
+    htmlLines.push(`<p class="text-black text-[13pt] leading-[1.38] text-justify my-1.5">${formatInline(trimmed)}</p>`);
   }
 
   if (inTable) {
