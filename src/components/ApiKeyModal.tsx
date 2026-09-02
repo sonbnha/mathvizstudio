@@ -136,11 +136,25 @@ export const ApiKeyModal: React.FC = () => {
         <div className="p-6 space-y-5 max-h-[80vh] overflow-y-auto custom-scrollbar">
           {/* Overload / Rate Limit Notice if triggered */}
           {rateLimitNotice && (
-            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex items-start gap-2.5 shadow-xs animate-pulse">
-              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="leading-relaxed">
-                <strong>Hệ thống phát hiện quá tải lượt gọi miễn phí!</strong>
-                <p className="mt-0.5">{rateLimitNotice}</p>
+            <div className="p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs shadow-xs w-full overflow-hidden">
+              <div className="flex items-start gap-2.5">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1 leading-relaxed break-words [word-break:break-word]">
+                  <strong>Hệ thống phát hiện quá tải lượt gọi miễn phí!</strong>
+                  <p className="mt-0.5 text-amber-700 dark:text-amber-300">
+                    Vui lòng cấu hình Gemini API Key cá nhân bên dưới để tiếp tục sử dụng không bị gián đoạn.
+                  </p>
+                  {rateLimitNotice.length > 60 && (
+                    <details className="mt-1.5">
+                      <summary className="text-[11px] text-amber-500/80 dark:text-amber-400/70 cursor-pointer hover:text-amber-600 dark:hover:text-amber-300 transition select-none">
+                        Xem chi tiết mã lỗi kỹ thuật
+                      </summary>
+                      <pre className="mt-1 text-[11px] p-2 bg-black/10 dark:bg-black/40 rounded-lg overflow-x-auto break-all whitespace-pre-wrap text-amber-800 dark:text-amber-200 max-h-24">
+                        {rateLimitNotice}
+                      </pre>
+                    </details>
+                  )}
+                </div>
               </div>
             </div>
           )}
