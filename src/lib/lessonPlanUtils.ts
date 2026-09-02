@@ -4,7 +4,7 @@ export interface LessonPlanPreset {
   id: string;
   topic: string;
   grade: string;
-  book: string;
+  book?: string;
   duration: string;
   style: string;
   notes: string;

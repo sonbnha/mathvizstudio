@@ -36,7 +36,6 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   // Form states
   const [topic, setTopic] = useState('Định lý Pythagore (Pytago) và ứng dụng thực tế');
   const [grade, setGrade] = useState('Lớp 8');
-  const [book, setBook] = useState('Bộ sách Thống nhất');
   const [duration, setDuration] = useState('2 tiết (90 phút)');
   const [style, setStyle] = useState('Chuẩn 5512');
   const [notes, setNotes] = useState(
@@ -44,6 +43,9 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   );
   const [customKey, setCustomKey] = useState('');
   const [isKeyExpanded, setIsKeyExpanded] = useState(false);
+
+  // Default Universal Textbook Series
+  const BOOK_SERIES = 'Bộ sách Thống nhất';
 
   // Generation & Result states
   const [loading, setLoading] = useState(false);
@@ -60,7 +62,6 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   const applyPreset = (preset: LessonPlanPreset) => {
     setTopic(preset.topic);
     setGrade(preset.grade);
-    setBook(preset.book);
     setDuration(preset.duration);
     setStyle(preset.style);
     setNotes(preset.notes);
@@ -93,7 +94,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
         body: JSON.stringify({
           topic,
           grade,
-          book,
+          book: BOOK_SERIES,
           duration,
           style,
           notes,
@@ -199,7 +200,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               />
             </div>
 
-            {/* Row: Grade & Book */}
+            {/* Row 1: Grade & Duration */}
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
@@ -223,27 +224,6 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
               <div className="flex flex-col gap-1.5">
                 <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
-                  <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                  <span>Bộ sách</span>
-                </label>
-                <select
-                  value={book}
-                  onChange={(e) => setBook(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/80 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 font-medium text-xs cursor-pointer shadow-xs"
-                >
-                  <option value="Bộ sách Thống nhất">Bộ sách Thống nhất</option>
-                  <option value="Kết Nối Tri Thức Với Cuộc Sống">Kết Nối Tri Thức</option>
-                  <option value="Cánh Diều">Cánh Diều</option>
-                  <option value="Chân Trời Sáng Tạo">Chân Trời Sáng Tạo</option>
-                  <option value="Cùng Khám Phá">Cùng Khám Phá</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Row: Duration & Style */}
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                   <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                   <span>Thời lượng</span>
                 </label>
@@ -258,7 +238,10 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                   <option value="4 tiết (180 phút)">4 tiết (180 phút)</option>
                 </select>
               </div>
+            </div>
 
+            {/* Row 2: Style & Universal Curriculum Badge */}
+            <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
@@ -274,6 +257,17 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
                   <option value="Nâng cao & Học sinh giỏi">Nâng cao & Bồi dưỡng</option>
                   <option value="Ôn tập & Luyện thi">Ôn tập & Luyện thi</option>
                 </select>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-1">
+                  <Layers className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <span>Chương trình</span>
+                </label>
+                <div className="flex items-center gap-2 text-xs text-slate-700 dark:text-slate-300 bg-slate-100/90 dark:bg-slate-800/80 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs h-[38px]">
+                  <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0"></span>
+                  <span className="truncate font-semibold">Bộ sách Thống nhất</span>
+                </div>
               </div>
             </div>
 
