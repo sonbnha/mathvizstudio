@@ -10,6 +10,17 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v1.0.0",
+    date: "02/09/2026",
+    title: "Phát Hành Chính Thức MathViz Studio v1.0.0 (Stable Release)",
+    changes: [
+      { type: "feat", description: "Phát hành phiên bản ổn định chính thức MathViz Studio v1.0.0" },
+      { type: "feat", description: "Tích hợp Chuỗi Fallback Đa Tầng Tự Động (Model Fallback Cascade: 3.6 -> 3.5 -> 2.5) chống quá tải và gián đoạn AI" },
+      { type: "improve", description: "Tối ưu hóa toàn diện hiệu năng và độ ổn định khi tạo hình học vector SVG và mã TikZ LaTeX" },
+      { type: "feat", description: "Hoàn thiện hệ thống xác thực bản quyền License Key và bảng điều khiển quản trị viên" },
+    ],
+  },
+  {
     version: "v0.1.3-alpha",
     date: "31/08/2026",
     title: "Tối ưu Quản lý License Keys & Nâng cấp Giao diện Admin",
