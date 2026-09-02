@@ -430,12 +430,40 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
             </div>
 
             {/* Error Notification */}
-            {errorMsg && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 flex items-start gap-2 text-xs">
-                <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{errorMsg}</span>
-              </div>
-            )}
+            {errorMsg && (() => {
+              const is429 =
+                errorMsg.includes('429') ||
+                errorMsg.toLowerCase().includes('quota') ||
+                errorMsg.toLowerCase().includes('resource_exhausted') ||
+                errorMsg.toLowerCase().includes('quá tải');
+              const friendlyMsg = is429
+                ? "Hệ thống đang quá tải lượt gọi AI miễn phí. Vui lòng bấm nút 'Gemini Key' ở góc trên bên phải để nhập Key cá nhân."
+                : errorMsg.length > 120
+                ? errorMsg.slice(0, 120) + '…'
+                : errorMsg;
+              const showDetail = errorMsg.length > 120 && !is429;
+
+              return (
+                <div className="w-full max-w-full overflow-hidden p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-xs">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="min-w-0 flex-1 break-words [word-break:break-word]">
+                      <span>{friendlyMsg}</span>
+                      {showDetail && (
+                        <details className="mt-1">
+                          <summary className="text-[11px] text-rose-400/70 cursor-pointer hover:text-rose-500 transition select-none">
+                            Xem chi tiết lỗi kỹ thuật
+                          </summary>
+                          <pre className="mt-1 text-[11px] p-1.5 bg-black/10 dark:bg-black/30 rounded overflow-x-auto break-all whitespace-pre-wrap max-h-20">
+                            {errorMsg}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Generate Button */}
             <button
