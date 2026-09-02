@@ -3,6 +3,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   HeadingLevel,
   Table,
   TableRow,
@@ -150,6 +151,88 @@ function parseInlineTextRuns(rawText: string, baseSize = 26, isItalicDefault = f
 }
 
 /**
+ * Convert SVG markup string into PNG data URL using HTML5 Canvas (Browser Client-side)
+ */
+export async function svgToPngBase64(svgString: string, width = 600, height = 450): Promise<string> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      return reject('Chỉ hỗ trợ trên môi trường trình duyệt');
+    }
+
+    const img = new Image();
+    let cleanSvg = svgString.trim();
+    if (!cleanSvg.includes('xmlns=')) {
+      cleanSvg = cleanSvg.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
+    }
+
+    let targetWidth = width;
+    let targetHeight = height;
+
+    const viewBoxMatch = cleanSvg.match(/viewBox=["']\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*["']/i);
+    if (viewBoxMatch) {
+      const vbWidth = parseFloat(viewBoxMatch[3]);
+      const vbHeight = parseFloat(viewBoxMatch[4]);
+      if (vbWidth > 0 && vbHeight > 0) {
+        targetWidth = width;
+        targetHeight = Math.round((vbHeight / vbWidth) * width);
+      }
+    }
+
+    const svgBlob = new Blob([cleanSvg], { type: 'image/svg+xml;charset=utf-8' });
+    const URL = window.URL || window.webkitURL || window;
+    const blobURL = URL.createObjectURL(svgBlob);
+
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = targetWidth;
+        canvas.height = targetHeight;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          URL.revokeObjectURL(blobURL);
+          return reject('Không thể tạo canvas 2D context');
+        }
+
+        // Nền trắng cho tài liệu Word chuẩn
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, targetWidth, targetHeight);
+        ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+
+        URL.revokeObjectURL(blobURL);
+        resolve(canvas.toDataURL('image/png'));
+      } catch (err) {
+        URL.revokeObjectURL(blobURL);
+        reject(err);
+      }
+    };
+
+    img.onerror = (e) => {
+      URL.revokeObjectURL(blobURL);
+      reject(e);
+    };
+
+    img.src = blobURL;
+  });
+}
+
+/**
+ * Convert Base64 Data URL to Uint8Array for docx ImageRun
+ */
+function base64ToUint8Array(base64String: string): Uint8Array {
+  const base64Data = base64String.replace(/^data:image\/\w+;base64,/, '');
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(base64Data, 'base64');
+  }
+  const binaryString = atob(base64Data);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+/**
  * Export Markdown Lesson Plan to a genuine .docx file
  * Conforms to Official Dispatch 5512/BGDĐT & Decree 30/2020/NĐ-CP formatting standards
  */
@@ -159,6 +242,15 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
 
   let inTable = false;
   let tableRows: string[][] = [];
+  let illustCount = 0;
+
+  // Retrieve stored SVG figures from localStorage
+  let storedFigures: Record<string, string> = {};
+  if (typeof window !== 'undefined') {
+    try {
+      storedFigures = JSON.parse(localStorage.getItem('lesson_plan_figures') || '{}');
+    } catch {}
+  }
 
   const flushTable = () => {
     if (tableRows.length === 0) return;
@@ -363,7 +455,75 @@ export async function exportToDocx(markdown: string, filename: string = 'Ke_Hoac
     // Illustration placeholder: [HÌNH MINH HỌA: ...]
     const illustMatch = trimmed.match(/\[HÌNH MINH HỌA:\s*([^\]]+)\]/i);
     if (illustMatch) {
+      illustCount++;
       const desc = illustMatch[1].trim();
+      const figureId = `fig_${illustCount}_${desc.slice(0, 16).replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+      // Look up SVG code in stored figures
+      let svgCode = storedFigures[figureId];
+      if (!svgCode) {
+        // Fallback search by index prefix or description substring
+        const found = Object.entries(storedFigures).find(
+          ([k]) => k.startsWith(`fig_${illustCount}_`) || k.includes(desc.slice(0, 12))
+        );
+        if (found) svgCode = found[1];
+      }
+
+      if (svgCode) {
+        try {
+          let imgWidth = 440;
+          let imgHeight = 310;
+          const vbMatch = svgCode.match(/viewBox=["']\s*([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s+([\d.-]+)\s*["']/i);
+          if (vbMatch) {
+            const vbW = parseFloat(vbMatch[3]);
+            const vbH = parseFloat(vbMatch[4]);
+            if (vbW > 0 && vbH > 0) {
+              imgHeight = Math.min(Math.round((vbH / vbW) * imgWidth), 360);
+            }
+          }
+
+          const pngDataUrl = await svgToPngBase64(svgCode, 700, Math.round((imgHeight / imgWidth) * 700));
+          const imageBytes = base64ToUint8Array(pngDataUrl);
+
+          children.push(
+            new Paragraph({
+              spacing: { before: 180, after: 60 },
+              alignment: AlignmentType.CENTER,
+              children: [
+                new ImageRun({
+                  type: 'png',
+                  data: imageBytes,
+                  transformation: {
+                    width: imgWidth,
+                    height: imgHeight,
+                  },
+                }),
+              ],
+            })
+          );
+
+          children.push(
+            new Paragraph({
+              spacing: { before: 40, after: 180, line: 260 },
+              alignment: AlignmentType.CENTER,
+              children: [
+                new TextRun({
+                  text: `Hình minh họa: ${desc}`,
+                  italics: true,
+                  font: 'Times New Roman',
+                  size: 22, // 11pt
+                  color: '333333',
+                }),
+              ],
+            })
+          );
+          continue;
+        } catch (imgErr) {
+          console.warn('Lỗi chèn ảnh SVG sang docx:', imgErr);
+        }
+      }
+
+      // If no SVG exists yet, show the pedagogical dashed box
       children.push(
         new Paragraph({
           spacing: { before: 140, after: 140, line: 280 },

@@ -129,6 +129,14 @@ export function renderMarkdownWithKatex(markdown: string): string {
     const htmlLines: string[] = [];
     let inTable = false;
     let tableHeaderParsed = false;
+    let illustCount = 0;
+
+    let storedFigures: Record<string, string> = {};
+    if (typeof window !== 'undefined') {
+      try {
+        storedFigures = JSON.parse(localStorage.getItem('lesson_plan_figures') || '{}');
+      } catch {}
+    }
 
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
@@ -265,13 +273,33 @@ export function renderMarkdownWithKatex(markdown: string): string {
       // Illustration placeholder: [HÌNH MINH HỌA: ...]
       const illustMatch = trimmed.match(/\[HÌNH MINH HỌA:\s*([^\]]+)\]/i);
       if (illustMatch) {
+        illustCount++;
         const desc = illustMatch[1].trim();
-        htmlLines.push(
-          `<div class="my-4 p-3 border border-dashed border-slate-400 bg-slate-50 text-slate-800 text-center font-serif text-[12pt] rounded">
-            <div class="font-bold text-[11pt] uppercase text-slate-600">[Khung vị trí hình minh họa sư phạm]</div>
-            <div class="italic mt-1">${formatInline(desc)}</div>
-          </div>`
-        );
+        const figureId = `fig_${illustCount}_${desc.slice(0, 16).replace(/[^a-zA-Z0-9]/g, '_')}`;
+
+        let svgCode = storedFigures[figureId];
+        if (!svgCode) {
+          const found = Object.entries(storedFigures).find(
+            ([k]) => k.startsWith(`fig_${illustCount}_`) || k.includes(desc.slice(0, 12))
+          );
+          if (found) svgCode = found[1];
+        }
+
+        if (svgCode) {
+          htmlLines.push(
+            `<div class="my-5 flex flex-col items-center justify-center p-3 text-center">
+              <div class="max-w-[440px] w-full flex justify-center [&>svg]:max-h-[340px] [&>svg]:w-auto [&>svg]:h-auto">${svgCode}</div>
+              <p class="text-[11pt] italic text-slate-600 mt-2">Hình minh họa: ${formatInline(desc)}</p>
+            </div>`
+          );
+        } else {
+          htmlLines.push(
+            `<div class="my-4 p-3 border border-dashed border-slate-400 bg-slate-50 text-slate-800 text-center font-serif text-[12pt] rounded">
+              <div class="font-bold text-[11pt] uppercase text-slate-600">[Khung vị trí hình minh họa sư phạm]</div>
+              <div class="italic mt-1">${formatInline(desc)}</div>
+            </div>`
+          );
+        }
         continue;
       }
 
