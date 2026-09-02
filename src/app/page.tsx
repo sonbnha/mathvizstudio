@@ -420,6 +420,8 @@ export default function HomePage() {
           setCustomerName(null);
           localStorage.removeItem('mathviz_customer_name');
         }
+        // Tự động thu gọn ngay khi kích hoạt thành công
+        setIsLicenseExpanded(false);
       }
     } catch (err: any) {
       setLicenseStatus({
@@ -1066,18 +1068,6 @@ export default function HomePage() {
                   <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                   <span>{licenseStatus.message || 'Key không hợp lệ'}</span>
                 </div>
-              )}
-
-              {/* Nút Thu gọn khi key đã kích hoạt hợp lệ */}
-              {licenseStatus?.valid && (
-                <button
-                  type="button"
-                  onClick={() => setIsLicenseExpanded(false)}
-                  className="text-xs px-2.5 py-1 rounded-lg bg-slate-200 hover:bg-slate-300 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 transition cursor-pointer font-medium"
-                  title="Thu gọn thanh License Key"
-                >
-                  Thu gọn ✕
-                </button>
               )}
             </div>
           )}
