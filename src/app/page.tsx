@@ -1028,12 +1028,12 @@ export default function HomePage() {
             })()
           ) : (
             /* Expanded / Unactivated Form */
-            <div className="h-10 flex items-center gap-2 bg-slate-100/90 dark:bg-slate-950/70 p-1 pl-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all animate-in fade-in duration-200 shrink-0">
+            <div className="h-10 flex items-center gap-2 bg-slate-100/90 dark:bg-slate-950/70 px-2.5 py-1 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all animate-in fade-in duration-200 shrink-0">
               <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 shrink-0">
                 <Key className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                 <span className="hidden sm:inline">License Key:</span>
               </div>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1.5 shrink-0">
                 <input
                   type="text"
                   value={licenseKey}
@@ -1041,31 +1041,31 @@ export default function HomePage() {
                   onBlur={() => checkLicenseKey()}
                   onKeyDown={(e) => e.key === 'Enter' && checkLicenseKey()}
                   placeholder="Nhập Key (vd: MV-VIP-xxxx / MV-TR-xxxx)"
-                  className="h-8 border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-slate-950/60 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-xs px-3 py-0 rounded-lg text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition w-36 sm:w-44 font-mono tracking-wider leading-none shadow-xs"
+                  className="h-7 border border-slate-300 dark:border-slate-700/60 bg-white dark:bg-slate-950/60 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-[11px] px-2.5 py-0 rounded-md text-slate-800 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition w-36 sm:w-44 font-mono tracking-wider leading-none shadow-xs shrink-0"
                 />
                 <button
                   type="button"
                   onClick={() => checkLicenseKey()}
                   disabled={isCheckingLicense || !licenseKey.trim()}
-                  className="h-8 w-8 shrink-0 rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center transition disabled:opacity-50 cursor-pointer shadow-xs"
+                  className="h-7 w-7 shrink-0 rounded-md border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-600 dark:text-cyan-400 flex items-center justify-center transition disabled:opacity-50 cursor-pointer shadow-xs"
                   title="Kiểm tra trạng thái bản quyền"
                 >
                   {isCheckingLicense ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-600 dark:text-cyan-400" />
                   ) : (
-                    <ShieldCheck className="w-4 h-4 text-cyan-600 dark:text-cyan-400" />
+                    <ShieldCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   )}
                 </button>
               </div>
 
               {/* Badge Info Status */}
               {!licenseKey.trim() || licenseStatus === null ? (
-                <div className="h-8 text-xs px-3 rounded-lg font-medium bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5 shrink-0">
+                <div className="h-7 text-[11px] px-2.5 py-0 rounded-md font-medium bg-slate-200/80 dark:bg-slate-800/80 border border-slate-300 dark:border-slate-700 text-slate-600 dark:text-slate-400 flex items-center justify-center gap-1.5 shrink-0">
                   <span className="w-2 h-2 rounded-full bg-slate-400 dark:bg-slate-500"></span>
                   <span>Chưa kích hoạt</span>
                 </div>
               ) : isCheckingLicense ? (
-                <div className="h-8 text-xs px-3 rounded-lg font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 flex items-center justify-center gap-1.5 shrink-0">
+                <div className="h-7 text-[11px] px-2.5 py-0 rounded-md font-medium bg-cyan-500/10 border border-cyan-500/30 text-cyan-600 dark:text-cyan-300 flex items-center justify-center gap-1.5 shrink-0">
                   <Loader2 className="w-3.5 h-3.5 animate-spin text-cyan-600 dark:text-cyan-400" />
                   <span>Đang kiểm tra...</span>
                 </div>
@@ -1079,7 +1079,7 @@ export default function HomePage() {
 
                   return isTrial ? (
                     /* Expanded Trial Badge */
-                    <div className="h-8 text-xs px-3 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300 shadow-xs shrink-0">
+                    <div className="h-7 text-[11px] px-2.5 py-0 rounded-md font-medium flex items-center justify-center gap-1.5 transition-colors bg-sky-50 border border-sky-200 text-sky-700 dark:bg-sky-950/40 dark:border-sky-800 dark:text-sky-300 shadow-xs shrink-0">
                       <span className="text-sky-600 dark:text-sky-400 font-bold">🧪</span>
                       <span className="font-semibold">
                         {customerName ? `Chào ${customerName} • ` : ''}
@@ -1093,7 +1093,7 @@ export default function HomePage() {
                     </div>
                   ) : (
                     /* Expanded VIP Badge */
-                    <div className="h-8 text-xs px-3 rounded-lg font-medium flex items-center justify-center gap-1.5 transition-colors bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:text-emerald-300 shadow-xs shrink-0">
+                    <div className="h-7 text-[11px] px-2.5 py-0 rounded-md font-medium flex items-center justify-center gap-1.5 transition-colors bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-950/40 dark:border-emerald-500/30 dark:text-emerald-300 shadow-xs shrink-0">
                       <Sparkles className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
                       <span className="font-semibold">
                         {customerName ? `👋 Chào ${customerName} • ` : ''}
@@ -1109,7 +1109,7 @@ export default function HomePage() {
                   );
                 })()
               ) : (
-                <div className="h-8 text-xs px-3 rounded-lg font-medium bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 shrink-0">
+                <div className="h-7 text-[11px] px-2.5 py-0 rounded-md font-medium bg-rose-500/15 border border-rose-500/30 text-rose-600 dark:text-rose-400 flex items-center justify-center gap-1.5 shrink-0">
                   <AlertCircle className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
                   <span>{licenseStatus.message || 'Key không hợp lệ'}</span>
                 </div>
