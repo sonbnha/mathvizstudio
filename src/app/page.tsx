@@ -32,7 +32,9 @@ import {
   Layers,
   ArrowUpRight,
   BookmarkCheck,
+  BookOpen,
 } from 'lucide-react';
+import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
 import { CHANGELOG, mergeAndSortChangelogs } from '@/config/changelog';
 
@@ -828,6 +830,24 @@ export default function HomePage() {
               Mô hình hóa hình học & lượng giác THCS / THPT
             </p>
           </div>
+
+          {/* Module Navigation */}
+          <nav className="hidden xl:flex items-center gap-1.5 ml-3 pl-3 border-l border-slate-200 dark:border-slate-800">
+            <Link
+              href="/"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-cyan-50 dark:bg-cyan-950/60 text-cyan-700 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800/80 flex items-center gap-1.5"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Vẽ hình học</span>
+            </Link>
+            <Link
+              href="/soan-giao-an"
+              className="px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors flex items-center gap-1.5"
+            >
+              <BookOpen className="w-3.5 h-3.5" />
+              <span>Soạn giáo án 5512</span>
+            </Link>
+          </nav>
         </div>
 
         {/* Header Right: License Key + Library + Theme Toggle */}
