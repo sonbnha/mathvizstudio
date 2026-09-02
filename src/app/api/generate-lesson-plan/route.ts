@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getGeminiClient, generateContentWithCascade } from '@/lib/gemini';
+import { NextRequest } from 'next/server';
+import { getGeminiClient } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
 
 export const maxDuration = 60;
@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
     const {
       topic,
       grade = 'Lớp 9',
-      book = 'Kết Nối Tri Thức Với Cuộc Sống',
+      book = 'Bộ sách Thống nhất',
       duration = '2 tiết (90 phút)',
       notes = '',
       style = 'Chuẩn 5512',
@@ -19,13 +19,13 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!topic || !topic.trim()) {
-      return NextResponse.json(
-        { error: 'Vui lòng nhập tên bài học hoặc chủ đề cần soạn giáo án.' },
-        { status: 400 }
+      return new Response(
+        JSON.stringify({ error: 'Vui lòng nhập tên bài học hoặc chủ đề cần soạn giáo án.' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // 1. License key validation (optional if user provided or free quota)
+    // 1. License key validation & credit deduction (if provided)
     let keyRecord: any = null;
     if (licenseKey && typeof licenseKey === 'string' && licenseKey.trim() !== '') {
       keyRecord = await prisma.licenseKey.findUnique({
@@ -33,31 +33,39 @@ export async function POST(req: NextRequest) {
       });
 
       if (!keyRecord) {
-        return NextResponse.json(
-          { error: 'License key không tồn tại trong hệ thống.' },
-          { status: 403 }
+        return new Response(
+          JSON.stringify({ error: 'License key không tồn tại trong hệ thống.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
       if (!keyRecord.isActive) {
-        return NextResponse.json(
-          { error: 'License key này đã bị vô hiệu hóa.' },
-          { status: 403 }
+        return new Response(
+          JSON.stringify({ error: 'License key này đã bị vô hiệu hóa.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
       if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
-        return NextResponse.json(
-          { error: 'License key này đã hết hạn sử dụng.' },
-          { status: 403 }
+        return new Response(
+          JSON.stringify({ error: 'License key này đã hết hạn sử dụng.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
       if (keyRecord.totalCredits !== -1 && keyRecord.usedCredits >= keyRecord.totalCredits) {
-        return NextResponse.json(
-          { error: 'License key này đã sử dụng hết số lượt (Credits) khả dụng.' },
-          { status: 403 }
+        return new Response(
+          JSON.stringify({ error: 'License key này đã sử dụng hết số lượt (Credits) khả dụng.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
+      }
+
+      // Deduct credit
+      if (keyRecord.totalCredits !== -1) {
+        await prisma.licenseKey.update({
+          where: { id: keyRecord.id },
+          data: { usedCredits: { increment: 1 } },
+        });
       }
     }
 
@@ -66,9 +74,9 @@ export async function POST(req: NextRequest) {
     try {
       ai = getGeminiClient();
     } catch (e: any) {
-      return NextResponse.json(
-        { error: 'Lỗi cấu hình AI Server: ' + (e?.message || 'Chưa thiết lập API Key') },
-        { status: 500 }
+      return new Response(
+        JSON.stringify({ error: 'Lỗi cấu hình AI Server: ' + (e?.message || 'Chưa thiết lập API Key') }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
@@ -178,47 +186,74 @@ ${notes && notes.trim() ? `- Ghi chú & Yêu cầu trọng tâm của giáo viê
 LƯU Ý ĐẶC BIỆT: Bám sát 100% ngữ liệu, mạch kiến thức, hoạt động khởi động, ví dụ và bài tập của SGK "Kết nối tri thức với cuộc sống" (NXB Giáo Dục Việt Nam). Tuyệt đối không lấy từ Cánh Diều hay Chân trời sáng tạo. Đề mục giáo án ghi tên "Bộ sách Thống nhất".
 Hãy triển khai thật chi tiết, đầy đủ toàn bộ các phần, bảng tiến trình, các hoạt động dạy học 4 bước, bài tập có lời giải chuẩn LaTeX và phiếu học tập hoàn chỉnh.`;
 
-    // 4. Call AI Cascade (3.6 -> 3.5 with jitter retry)
-    const result = await generateContentWithCascade({
-      ai,
-      contents: [userPrompt],
-      systemInstruction,
-      temperature: 0.2,
-    });
+    // 4. Call AI with Stream
+    const modelsToTry = [
+      process.env.GEMINI_MODEL || 'gemini-2.5-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+    ].filter((v, i, a) => a.indexOf(v) === i);
 
-    const lessonPlanMarkdown = result.text || '';
+    let responseStream: any = null;
+    let lastError: any = null;
 
-    // 5. Update Credits if license key was provided
-    let remainingCredits: number | null = null;
-    if (keyRecord) {
-      if (keyRecord.totalCredits !== -1) {
-        const updated = await prisma.licenseKey.update({
-          where: { id: keyRecord.id },
-          data: { usedCredits: { increment: 1 } },
+    for (const modelName of modelsToTry) {
+      try {
+        console.log(`[AI Stream] Bắt đầu tạo luồng giáo án với model: ${modelName}...`);
+        responseStream = await ai.models.generateContentStream({
+          model: modelName,
+          contents: [userPrompt],
+          config: {
+            systemInstruction,
+            temperature: 0.2,
+          },
         });
-        remainingCredits = Math.max(0, updated.totalCredits - updated.usedCredits);
-      } else {
-        remainingCredits = -1;
+        if (responseStream) {
+          console.log(`[AI Stream] Đã kết nối luồng thành công với model: ${modelName}`);
+          break;
+        }
+      } catch (err: any) {
+        console.warn(`[AI Stream] Model ${modelName} gặp lỗi: ${err?.message || ''}. Chuyển model kế tiếp...`);
+        lastError = err;
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      topic: topic.trim(),
-      grade,
-      book,
-      duration,
-      lessonPlan: lessonPlanMarkdown,
-      usedModel: result.usedModel,
-      remainingCredits,
+    if (!responseStream) {
+      throw new Error(`Không thể khởi tạo luồng dữ liệu AI: ${lastError?.message || 'Tất cả model đều bận'}`);
+    }
+
+    // 5. Pipe Stream to Client immediately
+    const stream = new ReadableStream({
+      async start(controller) {
+        const encoder = new TextEncoder();
+        try {
+          for await (const chunk of responseStream) {
+            const text = chunk.text;
+            if (text) {
+              controller.enqueue(encoder.encode(text));
+            }
+          }
+          controller.close();
+        } catch (err: any) {
+          console.error('[AI Stream] Lỗi khi stream chunk:', err);
+          controller.error(err);
+        }
+      },
+    });
+
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      },
     });
   } catch (error: any) {
     console.error('Error generating lesson plan:', error);
     const errorMessage =
       error?.message || 'Có lỗi xảy ra khi tạo kế hoạch bài dạy. Vui lòng thử lại sau.';
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 }

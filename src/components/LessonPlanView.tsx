@@ -50,6 +50,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
   // Generation & Result states
   const [loading, setLoading] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [progressStep, setProgressStep] = useState(0);
   const [lessonPlan, setLessonPlan] = useState('');
   const [activeTab, setActiveTab] = useState<'rendered' | 'editor'>('rendered');
@@ -69,17 +70,20 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
     setNotes(preset.notes);
   };
 
-  // Submit Generation
-  const handleGenerate = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
+  // Generate Lesson Plan Action (Streaming Realtime)
+  const handleGenerate = async (e: React.FormEvent) => {
+    e.preventDefault();
+
     if (!topic.trim()) {
       setErrorMsg('Vui lòng nhập Tên bài học / Chủ đề trước khi bắt đầu.');
       return;
     }
 
     setLoading(true);
+    setIsStreaming(false);
     setErrorMsg(null);
     setProgressStep(1);
+    setLessonPlan('');
 
     if (customKey.trim()) {
       localStorage.setItem('mathviz_license_key', customKey.trim().toUpperCase());
@@ -87,7 +91,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
     const stepTimer = setInterval(() => {
       setProgressStep((prev) => (prev < 4 ? prev + 1 : prev));
-    }, 3500);
+    }, 2500);
 
     try {
       const res = await fetch('/api/generate-lesson-plan', {
@@ -104,23 +108,43 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
         }),
       });
 
-      const rawText = await res.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        throw new Error(`Phản hồi máy chủ không hợp lệ: ${rawText.slice(0, 100)}`);
-      }
-
       if (!res.ok) {
-        throw new Error(data.error || `Lỗi máy chủ (${res.status})`);
+        let errMsg = `Lỗi máy chủ (${res.status})`;
+        try {
+          const errData = await res.json();
+          errMsg = errData.error || errMsg;
+        } catch {
+          const errText = await res.text();
+          if (errText) errMsg = errText;
+        }
+        throw new Error(errMsg);
       }
 
-      if (data.lessonPlan) {
-        setLessonPlan(data.lessonPlan);
-        setActiveTab('rendered');
-      } else {
-        throw new Error('Không nhận được nội dung kế hoạch bài dạy từ AI.');
+      const reader = res.body?.getReader();
+      if (!reader) {
+        throw new Error('Trình duyệt không hỗ trợ nhận luồng dữ liệu trực tiếp.');
+      }
+
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
+      let isFirstChunk = true;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+
+        if (isFirstChunk && accumulatedText.trim()) {
+          isFirstChunk = false;
+          clearInterval(stepTimer);
+          setLoading(false);
+          setIsStreaming(true);
+          setActiveTab('rendered');
+        }
+
+        setLessonPlan(accumulatedText);
       }
     } catch (err: any) {
       console.error('Lỗi sinh giáo án:', err);
@@ -128,6 +152,7 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
     } finally {
       clearInterval(stepTimer);
       setLoading(false);
+      setIsStreaming(false);
       setProgressStep(0);
     }
   };
@@ -426,12 +451,17 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </button>
             </div>
 
-            {lessonPlan && (
+            {isStreaming ? (
+              <span className="text-[11px] font-semibold text-cyan-600 dark:text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 animate-pulse">
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Đang viết trực tiếp...</span>
+              </span>
+            ) : lessonPlan ? (
               <span className="text-[11px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg hidden sm:inline-flex items-center gap-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
                 Đã sẵn sàng in / nộp
               </span>
-            )}
+            ) : null}
           </div>
 
           {/* Action Buttons: Copy, Word (.docx), Print */}
