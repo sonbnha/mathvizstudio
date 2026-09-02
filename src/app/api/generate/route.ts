@@ -5,7 +5,29 @@ import { prisma } from '@/lib/prisma';
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
-// Helper function to sanitize and extract ONLY valid, clean SVG content
+const KATEX_DEFS_BLOCK = `<defs>
+    <style>
+      @import url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');
+      @import url('https://fonts.googleapis.com/css2?family=KaTeX_Main:ital,wght@0,400;0,700;1,400&amp;display=swap');
+      
+      .math-label {
+        font-family: 'KaTeX_Math', 'KaTeX_Main', 'Times New Roman', serif;
+        font-style: italic;
+        font-size: 15px;
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+      .math-number, .math-unit {
+        font-family: 'KaTeX_Main', 'Times New Roman', serif;
+        font-style: normal;
+        font-size: 13px;
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+    </style>
+  </defs>`;
+
+// Helper function to sanitize and extract ONLY valid, clean SVG content with KaTeX styles
 function sanitizeSvg(svgString: string): string {
   // 1. Trích xuất đúng khối <svg>...</svg>
   const match = svgString.match(/<svg[\s\S]*?<\/svg>/i);
@@ -13,6 +35,15 @@ function sanitizeSvg(svgString: string): string {
 
   // 2. Xóa các thẻ text dài (thường là đề bài hoặc lời giải chứa từ 20 ký tự trở lên)
   clean = clean.replace(/<text[^>]*>([^<]{20,})<\/text>/gi, '');
+
+  // 3. Đảm bảo có định nghĩa KaTeX Math font defs
+  if (!clean.includes('math-label') || !clean.includes('KaTeX_Main')) {
+    if (clean.includes('<defs>')) {
+      clean = clean.replace('<defs>', `<defs>\n    <style>\n      @import url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');\n      @import url('https://fonts.googleapis.com/css2?family=KaTeX_Main:ital,wght@0,400;0,700;1,400&amp;display=swap');\n      .math-label { font-family: 'KaTeX_Math', 'KaTeX_Main', 'Times New Roman', serif; font-style: italic; font-size: 15px; text-anchor: middle; dominant-baseline: central; }\n      .math-number, .math-unit { font-family: 'KaTeX_Main', 'Times New Roman', serif; font-style: normal; font-size: 13px; text-anchor: middle; dominant-baseline: central; }\n    </style>`);
+    } else {
+      clean = clean.replace(/(<svg[^>]*>)/i, `$1\n  ${KATEX_DEFS_BLOCK}`);
+    }
+  }
 
   return clean.trim();
 }
@@ -97,14 +128,14 @@ export async function POST(req: NextRequest) {
 1. Nền và màu sắc: Nền trắng tinh (#ffffff). Toàn bộ nét vẽ đều màu đen stroke="#000000" với stroke-width="2.2".
 2. Nét phụ / đường gióng / đường cao: stroke="#000000", stroke-dasharray="4 4", stroke-width="1.5".
 3. Điểm đỉnh (Dots): Vòng tròn r="3.5", fill="#000000".
-4. Chữ tên đỉnh và số đo: fill="#000000", font-weight="bold", font-family="sans-serif".
+4. Chữ tên đỉnh và số đo: fill="#000000", class="math-label" cho tên điểm đỉnh, class="math-number" cho số đo.
 5. Đối tượng thực tế (mặt đất, bờ tường, cây, thang): Dùng nét vẽ đơn sắc đen trắng, gạch bóng mờ hoặc nét đứt gạch chéo (pattern/hatch), TUYỆT ĐỐI KHÔNG dùng màu xanh, cam, vàng hay các màu sặc sỡ để tối ưu cho việc in đề thi A4.`
         : `BẢNG MÀU BÀI GIẢNG TRỰC QUAN (COLOR PEDAGOGY MODE):
 1. Nét vẽ hình học chính (các cạnh tam giác, hình chiếu): Đồng nhất 1 màu duy nhất stroke="#2563eb" (Blue 600), độ dày stroke-width="2.5".
 2. Nét phụ / đường gióng / nét đứt: Màu stroke="#94a3b8" (Slate 400), stroke-dasharray="4 4", stroke-width="1.5".
 3. Điểm đỉnh (Dots): Vòng tròn bán kính r="4", fill="#1e293b".
-4. Chữ tên đỉnh (A, B, C...): Màu fill="#0f172a", font-weight="bold", font-size="16", font-family="sans-serif".
-5. Ký hiệu góc & số đo góc: Đồng nhất màu stroke="#d97706" và fill="#d97706" (Amber 600) cho toàn bộ các góc (KHÔNG dùng mỗi góc một màu khác nhau).`;
+4. Chữ tên đỉnh (A, B, C...): Màu fill="#0f172a", font-weight="bold", class="math-label".
+5. Ký hiệu góc & số đo góc: Đồng nhất màu stroke="#d97706" và fill="#d97706" (Amber 600) cho toàn bộ các góc, class="math-number".`;
 
     const systemInstruction = `Bạn là một trình biên dịch đồ họa vector. Nhiệm vụ duy nhất: Đọc đề bài toán (từ văn bản hoặc tự động đọc nội dung đề bài trong ảnh OCR nếu có) và xuất ra MÃ SVG HỢP LỆ.
 
@@ -113,12 +144,40 @@ BẮT BUỘC: Đầu ra phải bắt đầu chính xác bằng '<svg' và kết 
 
 ${colorPaletteInstruction}
 
+QUY TẮC ĐỊNH DẠNG FONT CHỮ TOÁN HỌC LATEX (KATEX MATH):
+- LUÔN CHÈN ĐỊNH NGHĨA FONT TOÁN HỌC TRONG THẺ <defs> Ở ĐẦU SVG:
+  <defs>
+    <style>
+      @import url('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');
+      @import url('https://fonts.googleapis.com/css2?family=KaTeX_Main:ital,wght@0,400;0,700;1,400&amp;display=swap');
+      
+      .math-label {
+        font-family: 'KaTeX_Math', 'KaTeX_Main', 'Times New Roman', serif;
+        font-style: italic;
+        font-size: 15px;
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+      .math-number, .math-unit {
+        font-family: 'KaTeX_Main', 'Times New Roman', serif;
+        font-style: normal;
+        font-size: 13px;
+        text-anchor: middle;
+        dominant-baseline: central;
+      }
+    </style>
+  </defs>
+
+- QUY TẮC GÁN CLASS CHO CÁC THẺ <text>:
+  + Tên điểm đỉnh, biến số (A, B, C, D, H, S, x, y, h, α...): Dùng class="math-label" (chữ nghiêng chuẩn toán học LaTeX).
+  + Giá trị số đo, góc, kích thước (30°, 45°, 60°, 5m, 12cm, 3,5m): Dùng class="math-number" (chữ đứng chuẩn KaTeX).
+
 QUY TẮC NỘI DUNG CHỮ TRONG SVG:
 + TUYỆT ĐỐI KHÔNG tạo các thẻ <text> chứa nội dung đề bài, tóm tắt đề, công thức tính toán hoặc các bước giải bài toán.
 + CHỈ ĐƯỢC PHÉP dùng thẻ <text> cho 3 mục đích duy nhất:
-  1. Tên điểm hình học (ví dụ: A, B, C, H).
-  2. Số đo góc (ví dụ: 60°, 45°, α).
-  3. Nhãn kích thước ngắn cạnh đối tượng (ví dụ: 5m, 12cm, h = ?, x).
+  1. Tên điểm hình học (ví dụ: A, B, C, H) với class="math-label".
+  2. Số đo góc (ví dụ: 60°, 45°, α) với class="math-number".
+  3. Nhãn kích thước ngắn cạnh đối tượng (ví dụ: 5m, 12cm, h = ?, x) với class="math-number".
 + Toàn bộ khung canvas SVG chỉ tập trung vào hình vẽ đối tượng thực tế và mô hình hình học.
 
 QUY TẮC BẢO VỆ NHÃN SỐ ĐO (CHỐNG ĐÈ LÊN ĐƯỜNG KẺ 100%):
