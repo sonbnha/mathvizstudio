@@ -1251,7 +1251,7 @@ function HomeContent() {
           </div>
 
           {/* Prompt & File Input Box */}
-          <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg flex-1 flex flex-col gap-4 transition-colors">
+          <div className="w-full max-w-full bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg flex-1 flex flex-col gap-4 transition-colors overflow-hidden box-border">
             {/* Style Presets Mode Selector */}
             <div className="flex flex-col gap-1.5">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
@@ -1293,7 +1293,7 @@ function HomeContent() {
             </div>
 
             {/* Unified Multimodal Input Box */}
-            <div className="flex flex-col gap-1.5 flex-1 min-h-0">
+            <div className="w-full max-w-full flex flex-col gap-1.5 flex-1 min-h-0 overflow-hidden box-border">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                 <span>Nội dung đề bài</span>
                 <span className="text-[10px] text-slate-500 font-normal">
@@ -1318,7 +1318,7 @@ function HomeContent() {
                 }}
                 onSubmit={() => handleGenerate()}
                 isLoading={loading}
-                submitButtonText={`Tạo hình ${styleMode === 'color' ? '(Màu sắc)' : '(Trắng đen)'}`}
+                submitButtonText="Tạo hình"
                 placeholder="Nhập đề bài toán, dán ảnh (Ctrl+V) hoặc bấm đính kèm ảnh bên dưới..."
               />
             </div>

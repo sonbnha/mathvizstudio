@@ -31,7 +31,7 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
   imagePreview,
   onImageChange,
   placeholder,
-  submitButtonText = 'Tạo nội dung',
+  submitButtonText = 'Tạo hình',
 }) => {
   const [internalText, setInternalText] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -156,10 +156,10 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`flex flex-col w-full border rounded-xl p-2.5 sm:p-3 transition-all shadow-xs ${
+      className={`w-full max-w-full rounded-2xl border p-3 shadow-xs box-border flex flex-col gap-2.5 overflow-hidden transition-all ${
         isDragging
           ? 'border-cyan-500 bg-cyan-500/5 ring-2 ring-cyan-500/20'
-          : 'border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/50 focus-within:border-cyan-500/60 dark:focus-within:border-cyan-500/50'
+          : 'border-slate-200/80 dark:border-slate-800/80 bg-slate-50/80 dark:bg-slate-900/50 focus-within:border-cyan-500/60 dark:focus-within:border-cyan-500/50'
       }`}
     >
       {/* 1. Ô nhập Textarea */}
@@ -173,7 +173,7 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
           'Nhập đề bài toán, dán ảnh (Ctrl+V) hoặc bấm đính kèm ảnh bên dưới...'
         }
         rows={2}
-        className="w-full bg-transparent resize-none border-none outline-none text-[13px] leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 min-h-[52px]"
+        className="w-full bg-transparent resize-none border-0 p-0 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:ring-0 outline-none leading-relaxed min-h-[52px]"
       />
 
       {/* Vùng Xem trước Công thức Toán học LaTeX */}
@@ -234,8 +234,8 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
       )}
 
       {/* 3. Toolbar đáy */}
-      <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-800/80 mt-1">
-        {/* Nút Đính kèm ảnh: Tối giản icon + chữ ngắn hoặc tooltip */}
+      <div className="w-full max-w-full pt-2 border-t border-slate-200/80 dark:border-slate-800/80 flex items-center gap-2 box-border min-w-0">
+        {/* Nút Đính kèm: Thu nhỏ padding để không chiếm diện tích */}
         <input
           ref={fileInputRef}
           type="file"
@@ -251,29 +251,29 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium whitespace-nowrap transition-colors shrink-0 cursor-pointer"
-          title="Đính kèm ảnh (Hỗ trợ dán Ctrl+V)"
+          className="h-9 px-2.5 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium whitespace-nowrap transition-colors shrink-0 cursor-pointer"
+          title="Đính kèm ảnh"
         >
           <Paperclip className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
-          <span className="hidden sm:inline">Đính kèm</span>
+          <span>Đính kèm</span>
         </button>
 
-        {/* Nút Tạo hình chính: Chiếm trọn không gian còn lại (flex-1) */}
+        {/* Nút Tạo hình: Rút gọn text thành "Tạo hình" để không bị nở bề ngang, flex-1 chiếm vừa khít phần còn lại */}
         <button
           type="button"
           onClick={handleSend}
           disabled={isLoading || (!currentText.trim() && !currentPreviewUrl)}
-          className="flex-1 h-9 px-3 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs whitespace-nowrap shadow-xs hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+          className="flex-1 min-w-0 h-9 px-2 flex items-center justify-center gap-1 rounded-xl bg-gradient-to-r from-sky-400 to-indigo-500 hover:opacity-95 text-white text-xs font-semibold shadow-xs hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
           {isLoading ? (
             <>
               <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
-              <span className="whitespace-nowrap">Đang tạo...</span>
+              <span className="truncate">Đang tạo...</span>
             </>
           ) : (
             <>
               <Sparkles className="w-3.5 h-3.5 shrink-0" />
-              <span className="whitespace-nowrap">{submitButtonText}</span>
+              <span className="truncate">{submitButtonText || 'Tạo hình'}</span>
             </>
           )}
         </button>
