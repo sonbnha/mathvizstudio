@@ -1266,7 +1266,7 @@ function HomeContent() {
                 <button
                   type="button"
                   onClick={() => setStyleMode('color')}
-                  className={`py-2 px-2 rounded-lg text-[11px] sm:text-xs font-medium transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`py-2 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 whitespace-nowrap text-center cursor-pointer ${
                     styleMode === 'color'
                       ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-md'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'
@@ -1274,12 +1274,12 @@ function HomeContent() {
                   title="Phong cách trực quan có màu sắc thích hợp cho bài giảng và trình chiếu"
                 >
                   <Palette className="w-3.5 h-3.5 shrink-0" />
-                  <span className="whitespace-nowrap">Bài giảng (Màu sắc)</span>
+                  <span className="whitespace-nowrap">Bài giảng (Màu)</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setStyleMode('monochrome')}
-                  className={`py-2 px-2 rounded-lg text-[11px] sm:text-xs font-medium transition flex items-center justify-center gap-1.5 whitespace-nowrap cursor-pointer ${
+                  className={`py-2 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 whitespace-nowrap text-center cursor-pointer ${
                     styleMode === 'monochrome'
                       ? 'bg-slate-800 dark:bg-slate-200 text-white dark:text-slate-900 font-semibold shadow-md'
                       : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-900'
@@ -1318,7 +1318,7 @@ function HomeContent() {
                 }}
                 onSubmit={() => handleGenerate()}
                 isLoading={loading}
-                submitButtonText={`Tạo hình (${styleMode === 'color' ? 'Màu sắc' : 'Đơn sắc'})`}
+                submitButtonText={`Tạo hình ${styleMode === 'color' ? '(Màu sắc)' : '(Trắng đen)'}`}
                 placeholder="Nhập đề bài toán, dán ảnh (Ctrl+V) hoặc bấm đính kèm ảnh bên dưới..."
               />
             </div>

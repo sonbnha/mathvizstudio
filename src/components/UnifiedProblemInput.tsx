@@ -234,48 +234,46 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
       )}
 
       {/* 3. Toolbar đáy */}
-      <div className="flex items-center justify-between pt-2 border-t border-slate-200/80 dark:border-slate-800/80 mt-1">
-        {/* Nút chọn ảnh */}
-        <div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => {
-              if (e.target.files && e.target.files[0]) {
-                processFile(e.target.files[0]);
-                e.target.value = '';
-              }
-            }}
-          />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="cursor-pointer text-slate-500 hover:text-cyan-600 dark:text-slate-400 dark:hover:text-cyan-400 text-xs flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-slate-100 dark:hover:bg-slate-800/60 transition"
-            title="Đính kèm ảnh bài toán"
-          >
-            <Paperclip className="w-4 h-4" />
-            <span className="font-medium">Đính kèm ảnh</span>
-          </button>
-        </div>
+      <div className="flex items-center gap-2 pt-2 border-t border-slate-200/80 dark:border-slate-800/80 mt-1">
+        {/* Nút Đính kèm ảnh: Tối giản icon + chữ ngắn hoặc tooltip */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files && e.target.files[0]) {
+              processFile(e.target.files[0]);
+              e.target.value = '';
+            }
+          }}
+        />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="h-9 px-2.5 sm:px-3 flex items-center gap-1.5 rounded-lg border border-slate-200 dark:border-slate-800 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300 text-xs font-medium whitespace-nowrap transition-colors shrink-0 cursor-pointer"
+          title="Đính kèm ảnh (Hỗ trợ dán Ctrl+V)"
+        >
+          <Paperclip className="w-4 h-4 text-slate-500 dark:text-slate-400 shrink-0" />
+          <span className="hidden sm:inline">Đính kèm</span>
+        </button>
 
-        {/* Nút gửi */}
+        {/* Nút Tạo hình chính: Chiếm trọn không gian còn lại (flex-1) */}
         <button
           type="button"
           onClick={handleSend}
           disabled={isLoading || (!currentText.trim() && !currentPreviewUrl)}
-          className="h-8 px-3.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-xs shadow-xs hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center gap-1.5"
+          className="flex-1 h-9 px-3 flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-semibold text-xs whitespace-nowrap shadow-xs hover:shadow-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
         >
           {isLoading ? (
             <>
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              <span>Đang tạo...</span>
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              <span className="whitespace-nowrap">Đang tạo...</span>
             </>
           ) : (
             <>
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>{submitButtonText}</span>
+              <Sparkles className="w-3.5 h-3.5 shrink-0" />
+              <span className="whitespace-nowrap">{submitButtonText}</span>
             </>
           )}
         </button>
