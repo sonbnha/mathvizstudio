@@ -86,8 +86,16 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
     }
   };
 
+  useEffect(() => {
+    const handleExpandEvent = () => setIsExpanded(true);
+    window.addEventListener('expand-saved-collection', handleExpandEvent);
+    return () => {
+      window.removeEventListener('expand-saved-collection', handleExpandEvent);
+    };
+  }, []);
+
   return (
-    <div className="w-full mt-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden transition-all shrink-0">
+    <div id="saved-collection-section" className="w-full mt-3 rounded-xl border border-slate-200/80 dark:border-slate-800/80 bg-white dark:bg-slate-900/60 shadow-xs overflow-hidden transition-all shrink-0">
       {/* Thanh Header toàn vùng bấm được */}
       <div
         onClick={toggleExpand}

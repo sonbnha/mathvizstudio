@@ -70,13 +70,14 @@ export async function GET(req: NextRequest) {
           u.name, 
           u.email, 
           u.role, 
+          COALESCE(u.status, 'active') AS status,
           COALESCE(u.is_active, true) AS is_active, 
           u.created_at,
           COUNT(d.id)::int AS saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
         WHERE u.name ILIKE ${pattern} OR u.email ILIKE ${pattern}
-        GROUP BY u.id, u.name, u.email, u.role, u.is_active, u.created_at
+        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
         ORDER BY u.created_at DESC
       `;
     } else {
@@ -86,12 +87,13 @@ export async function GET(req: NextRequest) {
           u.name, 
           u.email, 
           u.role, 
+          COALESCE(u.status, 'active') AS status,
           COALESCE(u.is_active, true) AS is_active, 
           u.created_at,
           COUNT(d.id)::int AS saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
-        GROUP BY u.id, u.name, u.email, u.role, u.is_active, u.created_at
+        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
         ORDER BY u.created_at DESC
       `;
     }
@@ -102,8 +104,9 @@ export async function GET(req: NextRequest) {
       email: r.email,
       username: r.email,
       role: r.role || 'user',
-      is_active: r.is_active,
-      isActive: r.is_active,
+      status: r.status || 'active',
+      is_active: r.status === 'active',
+      isActive: r.status === 'active',
       created_at: r.created_at,
       createdAt: r.created_at,
       saved_diagrams_count: Number(r.saved_diagrams_count || 0),
@@ -227,7 +230,7 @@ async function handleUpdate(req: NextRequest) {
 
   try {
     const body = await req.json().catch(() => ({}));
-    const { id, isActive, is_active, maxCredits, password, name, role } = body;
+    const { id, isActive, is_active, status, maxCredits, password, name, role } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Thiếu ID người dùng cần cập nhật.' }, { status: 400 });
@@ -243,9 +246,18 @@ async function handleUpdate(req: NextRequest) {
         await sql`UPDATE users SET role = ${validRole} WHERE id = ${id}::uuid`;
       }
 
-      const activeStatus = typeof is_active === 'boolean' ? is_active : typeof isActive === 'boolean' ? isActive : undefined;
-      if (activeStatus !== undefined) {
-        await sql`UPDATE users SET is_active = ${activeStatus} WHERE id = ${id}::uuid`;
+      let normalizedStatus: string | undefined = undefined;
+      if (status && (status === 'active' || status === 'banned')) {
+        normalizedStatus = status;
+      } else if (typeof is_active === 'boolean') {
+        normalizedStatus = is_active ? 'active' : 'banned';
+      } else if (typeof isActive === 'boolean') {
+        normalizedStatus = isActive ? 'active' : 'banned';
+      }
+
+      if (normalizedStatus) {
+        const activeBool = normalizedStatus === 'active';
+        await sql`UPDATE users SET status = ${normalizedStatus}, is_active = ${activeBool} WHERE id = ${id}::uuid`;
       }
 
       if (password && password.trim()) {
@@ -258,12 +270,13 @@ async function handleUpdate(req: NextRequest) {
       }
 
       const rows = await sql`
-        SELECT u.id, u.name, u.email, u.role, COALESCE(u.is_active, true) as is_active, u.created_at,
+        SELECT u.id, u.name, u.email, u.role, COALESCE(u.status, 'active') as status,
+               COALESCE(u.is_active, true) as is_active, u.created_at,
                COUNT(d.id)::int as saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
         WHERE u.id = ${id}::uuid
-        GROUP BY u.id, u.name, u.email, u.role, u.is_active, u.created_at
+        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
       `;
 
       if (!rows || rows.length === 0) {
@@ -278,8 +291,9 @@ async function handleUpdate(req: NextRequest) {
           name: u.name,
           email: u.email,
           role: u.role,
-          is_active: u.is_active,
-          isActive: u.is_active,
+          status: u.status || 'active',
+          is_active: u.status === 'active',
+          isActive: u.status === 'active',
           created_at: u.created_at,
           createdAt: u.created_at,
           saved_diagrams_count: Number(u.saved_diagrams_count || 0),

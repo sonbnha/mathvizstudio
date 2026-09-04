@@ -16,14 +16,17 @@ export async function initDb(): Promise<void> {
         password_hash VARCHAR(255) NOT NULL,
         name VARCHAR(255) NOT NULL,
         role VARCHAR(50) DEFAULT 'user',
+        status VARCHAR(50) DEFAULT 'active',
         is_active BOOLEAN DEFAULT true,
         created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
       );
     `;
 
-    // 1.1 Đảm bảo cột is_active tồn tại nếu bảng đã tạo trước đó
+    // 1.1 Đảm bảo các cột is_active và status tồn tại nếu bảng đã tạo trước đó
     try {
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'active';`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;`;
+      await sql`UPDATE users SET status = 'active' WHERE status IS NULL;`;
     } catch {}
 
     // 2. Tạo bảng saved_diagrams nếu chưa có

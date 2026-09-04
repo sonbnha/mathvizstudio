@@ -46,17 +46,21 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
     const { getDb } = await import('./db');
     const sql = getDb();
     const rows = await sql`
-      SELECT id, email, name, role, created_at
+      SELECT id, email, name, role, status, is_active, created_at
       FROM users
       WHERE id = ${payload.userId}::uuid
     `;
     if (rows && rows.length > 0) {
       const u = rows[0] as any;
+      if (u.status === 'banned' || u.is_active === false) {
+        return null;
+      }
       return {
         id: u.id,
         email: u.email,
         name: u.name,
-        role: u.role || 'user',
+        role: (u.role || 'user').toLowerCase(),
+        status: u.status || 'active',
         createdAt: u.created_at,
       };
     }

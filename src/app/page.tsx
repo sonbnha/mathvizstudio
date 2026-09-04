@@ -29,6 +29,8 @@ import {
   LogOut,
   CloudCheck,
   Shield,
+  ChevronDown,
+  Bookmark,
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
@@ -164,7 +166,20 @@ function HomeContent() {
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
+  const userDropdownRef = useRef<HTMLDivElement>(null);
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
+
+  // Click outside to close User Dropdown
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(e.target as Node)) {
+        setIsUserDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Main Active Tab Switcher: useSearchParams is the Single Source of Truth
   const searchParams = useSearchParams();
@@ -1272,21 +1287,7 @@ function HomeContent() {
               <span className="hidden sm:inline">Đăng nhập</span>
             </button>
           ) : (
-            <div className="flex items-center gap-1.5 shrink-0">
-              {/* Nút Quản trị hệ thống (Admin Panel) - Dành riêng cho role === 'admin' */}
-              {(currentUser.role || '').toLowerCase() === 'admin' && (
-                <button
-                  type="button"
-                  onClick={() => setIsAdminModalOpen(true)}
-                  className="h-10 px-2.5 sm:px-3 rounded-xl bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer shrink-0 animate-in fade-in"
-                  title="Mở bảng Quản trị người dùng hệ thống (Admin Panel)"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Quản trị hệ thống (Admin Panel)</span>
-                  <span className="sm:hidden">Admin</span>
-                </button>
-              )}
-
+            <div className="flex items-center gap-2 shrink-0">
               {/* Sync Status Badge */}
               <div
                 className="hidden md:flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-2 py-1.5 rounded-xl shadow-xs"
@@ -1302,50 +1303,144 @@ function HomeContent() {
                 </span>
               </div>
 
-              {/* User Avatar + Name + Logout */}
-              <div className="h-10 flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-1.5 pr-2 py-1 shadow-xs">
-                <div
-                  onClick={() => {
-                    if ((currentUser.role || '').toLowerCase() === 'admin') {
-                      setIsAdminModalOpen(true);
-                    }
-                  }}
-                  className={`w-7 h-7 rounded-xl ${
-                    (currentUser.role || '').toLowerCase() === 'admin'
-                      ? 'bg-gradient-to-tr from-rose-500 to-red-600 cursor-pointer ring-2 ring-rose-500/30'
-                      : 'bg-gradient-to-tr from-cyan-500 to-blue-600'
-                  } text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0`}
-                  title={
-                    (currentUser.role || '').toLowerCase() === 'admin'
-                      ? 'Bấm để mở Admin Panel'
-                      : currentUser.name
-                  }
-                >
-                  {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
-                </div>
-                <div className="hidden lg:flex flex-col text-left">
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[90px] truncate leading-tight">
-                      {currentUser.name || currentUser.email.split('@')[0]}
-                    </span>
-                    {(currentUser.role || '').toLowerCase() === 'admin' && (
-                      <span className="text-[9px] font-bold px-1 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                        ADMIN
-                      </span>
-                    )}
-                  </div>
-                  <span className="text-[9px] text-slate-400 dark:text-slate-500 max-w-[90px] truncate leading-tight">
-                    {currentUser.email}
-                  </span>
-                </div>
+              {/* User Avatar + Name + Role Badge + Dropdown Menu */}
+              <div ref={userDropdownRef} className="relative">
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition cursor-pointer"
-                  title="Đăng xuất tài khoản"
+                  onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen)}
+                  className="h-10 flex items-center gap-2 bg-slate-100/90 hover:bg-slate-200/80 dark:bg-slate-800/80 dark:hover:bg-slate-700/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-1.5 pr-2.5 py-1 shadow-xs transition-all cursor-pointer"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  {/* Avatar */}
+                  <div
+                    className={`w-7 h-7 rounded-xl ${
+                      (currentUser.role || '').toLowerCase() === 'admin'
+                        ? 'bg-gradient-to-tr from-rose-500 to-red-600'
+                        : (currentUser.role || '').toLowerCase() === 'ctv'
+                        ? 'bg-gradient-to-tr from-blue-500 to-cyan-600'
+                        : 'bg-gradient-to-tr from-slate-600 to-slate-800'
+                    } text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0`}
+                  >
+                    {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+                  </div>
+
+                  {/* Name + Role Badge */}
+                  <div className="hidden sm:flex flex-col text-left">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[95px] truncate leading-tight">
+                        {currentUser.name || currentUser.email.split('@')[0]}
+                      </span>
+
+                      {/* Badge vai trò: Admin, CTV, User */}
+                      {(() => {
+                        const r = (currentUser.role || 'user').toLowerCase();
+                        return (
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                              r === 'admin'
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                : r === 'ctv'
+                                ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
+                            }`}
+                          >
+                            {r === 'admin' ? 'Admin' : r === 'ctv' ? 'CTV' : 'User'}
+                          </span>
+                        );
+                      })()}
+                    </div>
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 max-w-[95px] truncate leading-tight">
+                      {currentUser.email}
+                    </span>
+                  </div>
+
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                      isUserDropdownOpen ? 'rotate-180' : ''
+                    }`}
+                  />
                 </button>
+
+                {/* Dropdown Menu */}
+                {isUserDropdownOpen && (
+                  <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                    <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800/80">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                          {currentUser.name}
+                        </p>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                            (currentUser.role || '').toLowerCase() === 'admin'
+                              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                              : (currentUser.role || '').toLowerCase() === 'ctv'
+                              ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                              : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
+                          }`}
+                        >
+                          {(currentUser.role || 'user').toUpperCase()}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                        {currentUser.email}
+                      </p>
+                    </div>
+
+                    {/* Mục 1: Bộ sưu tập của tôi */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserDropdownOpen(false);
+                        try {
+                          localStorage.setItem('saved_collection_collapsed', 'false');
+                          window.dispatchEvent(new Event('expand-saved-collection'));
+                        } catch {}
+                        const collectionEl = document.getElementById('saved-collection-section');
+                        if (collectionEl) {
+                          collectionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                        }
+                      }}
+                      className="w-full px-3.5 py-2 text-xs text-left text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between transition cursor-pointer"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Bookmark className="w-4 h-4 text-cyan-500" />
+                        <span>Bộ sưu tập của tôi</span>
+                      </div>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                        {historyItems.length} hình
+                      </span>
+                    </button>
+
+                    {/* Mục 2: ⚙️ Quản lý tài khoản (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
+                    {(currentUser.role || '').toLowerCase() === 'admin' && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserDropdownOpen(false);
+                          setIsAdminModalOpen(true);
+                        }}
+                        className="w-full px-3.5 py-2 text-xs text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2.5 transition font-semibold cursor-pointer border-t border-slate-100 dark:border-slate-800/60"
+                      >
+                        <Shield className="w-4 h-4 text-rose-500" />
+                        <span>⚙️ Quản lý tài khoản (Admin Panel)</span>
+                      </button>
+                    )}
+
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800/80"></div>
+
+                    {/* Mục 3: Đăng xuất */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserDropdownOpen(false);
+                        handleLogout();
+                      }}
+                      className="w-full px-3.5 py-2 text-xs text-left text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 transition cursor-pointer"
+                    >
+                      <LogOut className="w-4 h-4 text-slate-400" />
+                      <span>Đăng xuất</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}

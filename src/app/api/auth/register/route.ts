@@ -39,9 +39,9 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await sql`
-      INSERT INTO users (email, password_hash, name, role)
-      VALUES (${email.trim().toLowerCase()}, ${passwordHash}, ${displayName}, 'user')
-      RETURNING id, email, name, role, created_at
+      INSERT INTO users (email, password_hash, name, role, status, is_active)
+      VALUES (${email.trim().toLowerCase()}, ${passwordHash}, ${displayName}, 'user', 'active', true)
+      RETURNING id, email, name, role, status, created_at
     `;
 
     const user = result[0] as any;
@@ -61,6 +61,7 @@ export async function POST(req: NextRequest) {
         email: user.email,
         name: user.name,
         role: user.role || 'user',
+        status: user.status || 'active',
       },
     });
 

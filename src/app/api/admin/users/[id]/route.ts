@@ -32,7 +32,7 @@ async function handleUpdateUser(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const { isActive, is_active, maxCredits, password, name, role } = body;
+    const { isActive, is_active, status, maxCredits, password, name, role } = body;
 
     // 1. Nếu là tài khoản Neon Database (UUID)
     if (isUuid(id)) {
@@ -47,9 +47,18 @@ async function handleUpdateUser(
         await sql`UPDATE users SET role = ${validRole} WHERE id = ${id}::uuid`;
       }
 
-      const activeStatus = typeof is_active === 'boolean' ? is_active : typeof isActive === 'boolean' ? isActive : undefined;
-      if (activeStatus !== undefined) {
-        await sql`UPDATE users SET is_active = ${activeStatus} WHERE id = ${id}::uuid`;
+      let normalizedStatus: string | undefined = undefined;
+      if (status && (status === 'active' || status === 'banned')) {
+        normalizedStatus = status;
+      } else if (typeof is_active === 'boolean') {
+        normalizedStatus = is_active ? 'active' : 'banned';
+      } else if (typeof isActive === 'boolean') {
+        normalizedStatus = isActive ? 'active' : 'banned';
+      }
+
+      if (normalizedStatus) {
+        const activeBool = normalizedStatus === 'active';
+        await sql`UPDATE users SET status = ${normalizedStatus}, is_active = ${activeBool} WHERE id = ${id}::uuid`;
       }
 
       if (password && password.trim()) {
@@ -62,12 +71,13 @@ async function handleUpdateUser(
       }
 
       const rows = await sql`
-        SELECT u.id, u.name, u.email, u.role, COALESCE(u.is_active, true) as is_active, u.created_at,
+        SELECT u.id, u.name, u.email, u.role, COALESCE(u.status, 'active') as status,
+               COALESCE(u.is_active, true) as is_active, u.created_at,
                COUNT(d.id)::int as saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
         WHERE u.id = ${id}::uuid
-        GROUP BY u.id, u.name, u.email, u.role, u.is_active, u.created_at
+        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
       `;
 
       if (!rows || rows.length === 0) {
@@ -82,8 +92,9 @@ async function handleUpdateUser(
           name: u.name,
           email: u.email,
           role: u.role,
-          is_active: u.is_active,
-          isActive: u.is_active,
+          status: u.status || 'active',
+          is_active: u.status === 'active',
+          isActive: u.status === 'active',
           created_at: u.created_at,
           createdAt: u.created_at,
           saved_diagrams_count: Number(u.saved_diagrams_count || 0),

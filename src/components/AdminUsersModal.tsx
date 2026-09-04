@@ -26,6 +26,7 @@ export interface AdminUserItem {
   name: string;
   email: string;
   role: 'admin' | 'ctv' | 'user' | string;
+  status?: 'active' | 'banned' | string;
   is_active: boolean;
   created_at: string;
   saved_diagrams_count: number;
@@ -108,29 +109,32 @@ export const AdminUsersModal: React.FC<AdminUsersModalProps> = ({
     }
   };
 
-  // Khóa / Mở khóa tài khoản
-  const handleToggleActive = async (userId: string, currentStatus: boolean) => {
+  // Khóa / Mở khóa tài khoản (Ban / Active)
+  const handleToggleActive = async (userId: string, currentActive: boolean) => {
     if (userId === currentUserId) {
       alert('Bạn không thể tự khóa tài khoản quản trị của chính mình.');
       return;
     }
+
+    const nextStatus = currentActive ? 'banned' : 'active';
+    const nextActive = !currentActive;
 
     setActionLoadingId(userId);
     try {
       const res = await fetch(`/api/admin/users/${userId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !currentStatus }),
+        body: JSON.stringify({ status: nextStatus, is_active: nextActive }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Thao tác thất bại.');
 
       setUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, is_active: !currentStatus } : u))
+        prev.map((u) => (u.id === userId ? { ...u, status: nextStatus, is_active: nextActive } : u))
       );
       setMessage({
         type: 'success',
-        text: currentStatus ? 'Đã tạm khóa tài khoản.' : 'Đã mở khóa tài khoản.',
+        text: currentActive ? 'Đã khóa tài khoản (Banned).' : 'Đã mở khóa tài khoản (Active).',
       });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -461,37 +465,42 @@ export const AdminUsersModal: React.FC<AdminUsersModalProps> = ({
                         </div>
                       </td>
 
-                      {/* Active Toggle */}
+                      {/* Active / Ban Toggle */}
                       <td className="py-3.5 px-4 text-center">
-                        <button
-                          type="button"
-                          onClick={() => handleToggleActive(u.id, u.is_active)}
-                          disabled={isBusy || isCurrent}
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer disabled:opacity-50 ${
-                            u.is_active
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
-                              : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
-                          }`}
-                          title={
-                            isCurrent
-                              ? 'Không thể khóa chính mình'
-                              : u.is_active
-                              ? 'Bấm để khóa tài khoản'
-                              : 'Bấm để mở khóa tài khoản'
-                          }
-                        >
-                          {u.is_active ? (
-                            <>
-                              <UserCheck className="w-3 h-3" />
-                              <span>Hoạt động</span>
-                            </>
-                          ) : (
-                            <>
-                              <UserX className="w-3 h-3" />
-                              <span>Đã khóa</span>
-                            </>
-                          )}
-                        </button>
+                        {(() => {
+                          const isBanned = u.status === 'banned' || !u.is_active;
+                          return (
+                            <button
+                              type="button"
+                              onClick={() => handleToggleActive(u.id, !isBanned)}
+                              disabled={isBusy || isCurrent}
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition cursor-pointer disabled:opacity-50 ${
+                                !isBanned
+                                  ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20'
+                                  : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 hover:bg-rose-500/20'
+                              }`}
+                              title={
+                                isCurrent
+                                  ? 'Không thể khóa chính mình'
+                                  : !isBanned
+                                  ? 'Bấm để khóa tài khoản (Ban)'
+                                  : 'Bấm để mở khóa tài khoản (Active)'
+                              }
+                            >
+                              {!isBanned ? (
+                                <>
+                                  <UserCheck className="w-3 h-3" />
+                                  <span>Hoạt động</span>
+                                </>
+                              ) : (
+                                <>
+                                  <UserX className="w-3 h-3" />
+                                  <span>Đã khóa (Ban)</span>
+                                </>
+                              )}
+                            </button>
+                          );
+                        })()}
                       </td>
 
                       {/* Quick Actions */}
