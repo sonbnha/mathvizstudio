@@ -10,6 +10,8 @@ import {
   Equal,
   X,
   RotateCw,
+  Layers,
+  ChevronDown,
 } from 'lucide-react';
 
 export type EditorTool =
@@ -21,12 +23,436 @@ export type EditorTool =
   | 'highlight' // Tô màu diện tích
   | 'text'; // Sửa nội dung text
 
+export interface SvgLayerItem {
+  id: string;
+  name: string;
+  type: 'line' | 'polygon' | 'angle' | 'text';
+  category: 'lines' | 'labels' | 'areas';
+}
+
+export interface SegmentCoords {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+}
+
 interface InteractiveSvgEditorProps {
   svgCode: string;
   isEditMode: boolean;
   onUpdateSvg: (newSvg: string) => void;
   onCloseEditMode: () => void;
   mountContainerId?: string;
+}
+
+// ----------------------------------------------------
+// THUẬT TOÁN HÌNH HỌC: SNAP-TO-NEAREST & PHÂN TÍCH SVG
+// ----------------------------------------------------
+
+// Trích xuất các đoạn thẳng hình học từ phần tử SVG
+export function getSegmentsFromElement(el: SVGElement): SegmentCoords[] {
+  const tag = el.tagName.toLowerCase();
+  if (tag === 'line') {
+    const x1 = parseFloat(el.getAttribute('x1') || '0');
+    const y1 = parseFloat(el.getAttribute('y1') || '0');
+    const x2 = parseFloat(el.getAttribute('x2') || '0');
+    const y2 = parseFloat(el.getAttribute('y2') || '0');
+    return [{ x1, y1, x2, y2 }];
+  }
+
+  if (tag === 'path') {
+    const d = el.getAttribute('d') || '';
+    const segments: SegmentCoords[] = [];
+    const commands = d.match(/[a-df-z][^a-df-z]*/gi) || [];
+    let curX = 0;
+    let curY = 0;
+    let startX = 0;
+    let startY = 0;
+
+    for (const cmdStr of commands) {
+      const type = cmdStr[0];
+      const nums = cmdStr
+        .slice(1)
+        .trim()
+        .split(/[\s,]+/)
+        .map(parseFloat)
+        .filter((n) => !isNaN(n));
+
+      if (type === 'M' || type === 'm') {
+        curX = type === 'M' ? nums[0] : curX + nums[0];
+        curY = type === 'M' ? nums[1] : curY + nums[1];
+        startX = curX;
+        startY = curY;
+        for (let i = 2; i < nums.length; i += 2) {
+          const nextX = type === 'M' ? nums[i] : curX + nums[i];
+          const nextY = type === 'M' ? nums[i + 1] : curY + nums[i + 1];
+          segments.push({ x1: curX, y1: curY, x2: nextX, y2: nextY });
+          curX = nextX;
+          curY = nextY;
+        }
+      } else if (type === 'L' || type === 'l') {
+        for (let i = 0; i < nums.length; i += 2) {
+          const nextX = type === 'L' ? nums[i] : curX + nums[i];
+          const nextY = type === 'L' ? nums[i + 1] : curY + nums[i + 1];
+          segments.push({ x1: curX, y1: curY, x2: nextX, y2: nextY });
+          curX = nextX;
+          curY = nextY;
+        }
+      } else if (type === 'H' || type === 'h') {
+        for (const num of nums) {
+          const nextX = type === 'H' ? num : curX + num;
+          segments.push({ x1: curX, y1: curY, x2: nextX, y2: curY });
+          curX = nextX;
+        }
+      } else if (type === 'V' || type === 'v') {
+        for (const num of nums) {
+          const nextY = type === 'V' ? num : curY + num;
+          segments.push({ x1: curX, y1: curY, x2: curX, y2: nextY });
+          curY = nextY;
+        }
+      } else if (type === 'Z' || type === 'z') {
+        if (curX !== startX || curY !== startY) {
+          segments.push({ x1: curX, y1: curY, x2: startX, y2: startY });
+        }
+      }
+    }
+    return segments;
+  }
+
+  if (tag === 'polyline') {
+    const raw = el.getAttribute('points') || '';
+    const nums = raw
+      .trim()
+      .split(/[\s,]+/)
+      .map(parseFloat)
+      .filter((n) => !isNaN(n));
+    const segments: SegmentCoords[] = [];
+    for (let i = 0; i < nums.length - 2; i += 2) {
+      segments.push({ x1: nums[i], y1: nums[i + 1], x2: nums[i + 2], y2: nums[i + 3] });
+    }
+    return segments;
+  }
+
+  return [];
+}
+
+// Tính khoảng cách hình học ngắn nhất từ 1 điểm đến đoạn thẳng P1-P2
+export function getPointToSegmentDistance(
+  px: number,
+  py: number,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number
+): { distance: number; projX: number; projY: number } {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+
+  if (lenSq === 0) {
+    return {
+      distance: Math.hypot(px - x1, py - y1),
+      projX: x1,
+      projY: y1,
+    };
+  }
+
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+  const projX = x1 + t * dx;
+  const projY = y1 + t * dy;
+  const distance = Math.hypot(px - projX, py - projY);
+
+  return { distance, projX, projY };
+}
+
+// Thuật toán Snap-to-Nearest: Tìm đoạn thẳng gần nhất trong bán kính quy đổi (25px màn hình)
+export function findNearestLine(
+  svg: SVGSVGElement,
+  clickX: number,
+  clickY: number,
+  snapScreenRadius: number = 25
+): { element: SVGGeometryElement; distance: number; clickPos: { x: number; y: number } } | null {
+  const candidates = Array.from(
+    svg.querySelectorAll('line, path, polyline')
+  ) as SVGGeometryElement[];
+
+  const svgRect = svg.getBoundingClientRect();
+  const viewBox = svg.viewBox.baseVal;
+  const scale =
+    viewBox && viewBox.width > 0 && svgRect.width > 0
+      ? viewBox.width / svgRect.width
+      : 1;
+
+  // Quy đổi 25px màn hình thực sang đơn vị viewBox của SVG
+  const thresholdSvg = snapScreenRadius * scale;
+
+  let bestMatch: {
+    element: SVGGeometryElement;
+    distance: number;
+    clickPos: { x: number; y: number };
+  } | null = null;
+  let minDistance = thresholdSvg;
+
+  for (const el of candidates) {
+    // Bỏ qua defs, ký hiệu góc vuông và vạch bằng nhau
+    if (
+      el.closest('defs') ||
+      el.closest('.right-angle-marker') ||
+      el.closest('.math-equal-mark')
+    ) {
+      continue;
+    }
+
+    // Bỏ qua vùng diện tích path khép kín có màu nền mà không có nét viền
+    if (el.tagName.toLowerCase() === 'path') {
+      const d = el.getAttribute('d') || '';
+      const isClosed = /z\s*$/i.test(d);
+      const stroke = el.getAttribute('stroke');
+      const hasStroke = stroke && stroke !== 'none' && stroke !== 'transparent';
+      if (isClosed && !hasStroke) continue;
+    }
+
+    const segments = getSegmentsFromElement(el);
+    for (const seg of segments) {
+      const res = getPointToSegmentDistance(clickX, clickY, seg.x1, seg.y1, seg.x2, seg.y2);
+      if (res.distance <= minDistance) {
+        minDistance = res.distance;
+        bestMatch = {
+          element: el,
+          distance: res.distance,
+          clickPos: { x: res.projX, y: res.projY },
+        };
+      }
+    }
+  }
+
+  return bestMatch;
+}
+
+// Trích xuất và đặt tên thông minh danh sách phần tử (Semantic Layers Extractor)
+export function extractSvgLayers(svg: SVGSVGElement): SvgLayerItem[] {
+  const lines: SvgLayerItem[] = [];
+  const labels: SvgLayerItem[] = [];
+  const areas: SvgLayerItem[] = [];
+
+  // 1. Thu thập danh sách các đỉnh từ thẻ <text>
+  const vertices: { letter: string; x: number; y: number }[] = [];
+  const textElements = Array.from(svg.querySelectorAll('text')) as SVGTextElement[];
+
+  for (const textEl of textElements) {
+    if (textEl.closest('defs')) continue;
+    const rawText = (textEl.textContent || '').trim();
+    if (!rawText) continue;
+
+    let editId = textEl.getAttribute('data-edit-id');
+    if (!editId) {
+      editId = 'elem_' + Math.random().toString(36).substring(2, 9);
+      textEl.setAttribute('data-edit-id', editId);
+    }
+
+    let x = parseFloat(textEl.getAttribute('x') || '0');
+    let y = parseFloat(textEl.getAttribute('y') || '0');
+    if (x === 0 && y === 0 && (textEl as SVGGraphicsElement).getBBox) {
+      try {
+        const bbox = (textEl as SVGGraphicsElement).getBBox();
+        x = bbox.x + bbox.width / 2;
+        y = bbox.y + bbox.height / 2;
+      } catch {}
+    }
+
+    if (/^[A-Z]['’_0-9]?$/i.test(rawText)) {
+      const upper = rawText.toUpperCase();
+      vertices.push({ letter: upper, x, y });
+      labels.push({
+        id: editId,
+        name: `Nhãn điểm ${upper}`,
+        type: 'text',
+        category: 'labels',
+      });
+    } else if (rawText.includes('°')) {
+      labels.push({
+        id: editId,
+        name: `Góc ${rawText}`,
+        type: 'text',
+        category: 'labels',
+      });
+    } else if (/^\d/.test(rawText)) {
+      labels.push({
+        id: editId,
+        name: `Số đo ${rawText}`,
+        type: 'text',
+        category: 'labels',
+      });
+    } else {
+      labels.push({
+        id: editId,
+        name: `Nhãn "${rawText}"`,
+        type: 'text',
+        category: 'labels',
+      });
+    }
+  }
+
+  // 2. Ký hiệu góc vuông
+  const angleMarkers = Array.from(svg.querySelectorAll('.right-angle-marker')) as SVGElement[];
+  for (const marker of angleMarkers) {
+    let editId = marker.getAttribute('data-edit-id');
+    if (!editId) {
+      editId = 'elem_' + Math.random().toString(36).substring(2, 9);
+      marker.setAttribute('data-edit-id', editId);
+    }
+
+    let closestVertex = '';
+    try {
+      const bbox = (marker as SVGGraphicsElement).getBBox();
+      let minVdist = 45;
+      for (const v of vertices) {
+        const d = Math.hypot(bbox.x - v.x, bbox.y - v.y);
+        if (d < minVdist) {
+          minVdist = d;
+          closestVertex = v.letter;
+        }
+      }
+    } catch {}
+
+    labels.push({
+      id: editId,
+      name: closestVertex ? `Góc vuông (đỉnh ${closestVertex})` : 'Ký hiệu góc vuông',
+      type: 'angle',
+      category: 'labels',
+    });
+  }
+
+  // 3. Đường thẳng & Cạnh
+  const lineElements = Array.from(
+    svg.querySelectorAll('line, path, polyline')
+  ) as SVGGeometryElement[];
+  let lineIdx = 1;
+
+  for (const lineEl of lineElements) {
+    if (
+      lineEl.closest('defs') ||
+      lineEl.closest('.right-angle-marker') ||
+      lineEl.closest('.math-equal-mark')
+    ) {
+      continue;
+    }
+
+    const tag = lineEl.tagName.toLowerCase();
+    let editId = lineEl.getAttribute('data-edit-id');
+    if (!editId) {
+      editId = 'elem_' + Math.random().toString(36).substring(2, 9);
+      lineEl.setAttribute('data-edit-id', editId);
+    }
+
+    // Nhận diện vùng diện tích khép kín có tô màu
+    if (tag === 'path') {
+      const d = lineEl.getAttribute('d') || '';
+      const isClosed = /z\s*$/i.test(d);
+      const fill = lineEl.getAttribute('fill');
+      const hasFill = fill && fill !== 'none' && fill !== 'transparent';
+      if (isClosed && hasFill) {
+        areas.push({
+          id: editId,
+          name: `Vùng diện tích #${areas.length + 1}`,
+          type: 'polygon',
+          category: 'areas',
+        });
+        continue;
+      }
+    }
+
+    const segments = getSegmentsFromElement(lineEl);
+    if (segments.length === 0) continue;
+
+    const firstSeg = segments[0];
+    const lastSeg = segments[segments.length - 1];
+    const x1 = firstSeg.x1;
+    const y1 = firstSeg.y1;
+    const x2 = lastSeg.x2;
+    const y2 = lastSeg.y2;
+
+    if (Math.hypot(x2 - x1, y2 - y1) < 3 && segments.length === 1) continue;
+
+    // So khớp hai đầu mút với danh sách đỉnh
+    let v1: { letter: string; dist: number } | null = null;
+    let v2: { letter: string; dist: number } | null = null;
+
+    for (const v of vertices) {
+      const d1 = Math.hypot(x1 - v.x, y1 - v.y);
+      const d2 = Math.hypot(x2 - v.x, y2 - v.y);
+      if (d1 <= 60 && (!v1 || d1 < v1.dist)) {
+        v1 = { letter: v.letter, dist: d1 };
+      }
+      if (d2 <= 60 && (!v2 || d2 < v2.dist)) {
+        v2 = { letter: v.letter, dist: d2 };
+      }
+    }
+
+    let lineName = '';
+    if (v1 && v2 && v1.letter !== v2.letter) {
+      lineName = `Cạnh ${[v1.letter, v2.letter].sort().join('')}`;
+    } else if (v1) {
+      const isH = Math.abs(y2 - y1) < 8;
+      const isV = Math.abs(x2 - x1) < 8;
+      if (isH) lineName = `Đường ngang qua ${v1.letter}`;
+      else if (isV) lineName = `Đường dọc qua ${v1.letter}`;
+      else lineName = `Đoạn thẳng qua ${v1.letter}`;
+    } else if (v2) {
+      const isH = Math.abs(y2 - y1) < 8;
+      const isV = Math.abs(x2 - x1) < 8;
+      if (isH) lineName = `Đường ngang qua ${v2.letter}`;
+      else if (isV) lineName = `Đường dọc qua ${v2.letter}`;
+      else lineName = `Đoạn thẳng qua ${v2.letter}`;
+    } else {
+      const isH = Math.abs(y2 - y1) < 8;
+      const isV = Math.abs(x2 - x1) < 8;
+      if (isH) lineName = `Đường gióng ngang #${lineIdx++}`;
+      else if (isV) lineName = `Đường gióng đứng #${lineIdx++}`;
+      else lineName = `Đoạn thẳng #${lineIdx++}`;
+    }
+
+    lines.push({
+      id: editId,
+      name: lineName,
+      type: 'line',
+      category: 'lines',
+    });
+  }
+
+  // Khử trùng tên cho các đoạn thẳng
+  const nameCounts = new Map<string, number>();
+  for (const item of lines) {
+    const count = (nameCounts.get(item.name) || 0) + 1;
+    nameCounts.set(item.name, count);
+  }
+  const seenCounts = new Map<string, number>();
+  for (const item of lines) {
+    if ((nameCounts.get(item.name) || 0) > 1) {
+      const c = (seenCounts.get(item.name) || 0) + 1;
+      seenCounts.set(item.name, c);
+      item.name = `${item.name} (${c})`;
+    }
+  }
+
+  // 4. Vùng đa giác (<polygon>, <rect>)
+  const polyElements = Array.from(svg.querySelectorAll('polygon, rect')) as SVGGeometryElement[];
+  for (const polyEl of polyElements) {
+    if (polyEl.closest('defs')) continue;
+    let editId = polyEl.getAttribute('data-edit-id');
+    if (!editId) {
+      editId = 'elem_' + Math.random().toString(36).substring(2, 9);
+      polyEl.setAttribute('data-edit-id', editId);
+    }
+    areas.push({
+      id: editId,
+      name: polyEl.tagName.toLowerCase() === 'rect' ? 'Hình chữ nhật' : `Vùng đa giác #${areas.length + 1}`,
+      type: 'polygon',
+      category: 'areas',
+    });
+  }
+
+  return [...lines, ...labels, ...areas];
 }
 
 export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
@@ -42,8 +468,12 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
 
   // Fixed top shape toolbar state for selected element
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
-  const [selectedElementType, setSelectedElementType] = useState<'line' | 'polygon' | 'angle' | null>(null);
+  const [selectedElementType, setSelectedElementType] = useState<'line' | 'polygon' | 'angle' | 'text' | null>(null);
   const lastClickCoordsRef = useRef<{ x: number; y: number } | null>(null);
+
+  // Layers dropdown open state
+  const [isLayersOpen, setIsLayersOpen] = useState(false);
+  const layersDropdownRef = useRef<HTMLDivElement>(null);
 
   // Inline text editing state
   const [editingText, setEditingText] = useState<{
@@ -163,6 +593,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         e.preventDefault();
         handleRedo();
       } else if (e.key === 'Escape') {
+        setIsLayersOpen(false);
         setSelectedElementId(null);
         setSelectedElementType(null);
         setEditingText(null);
@@ -192,16 +623,20 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     return { x: clientX, y: clientY };
   };
 
-  // 1. POINTER DOWN - Handles Dragging and Element Selection for Top Toolbar
+  // 1. POINTER DOWN - Handles Dragging, Direct Selection & Snap-To-Nearest
   const handlePointerDown = useCallback(
     (e: PointerEvent) => {
       if (!isEditMode) return;
       const target = e.target as SVGElement;
       if (!target) return;
 
-      // Don't trigger element selection if clicking inside top toolbar or text input
+      // Don't trigger element selection if clicking inside toolbar, dropdown, or text popover
       const targetEl = target as Element;
-      if (targetEl.closest('.editor-toolbar-pill') || targetEl.closest('.editor-text-input-popover')) {
+      if (
+        targetEl.closest('.editor-toolbar-pill') ||
+        targetEl.closest('.editor-layers-dropdown') ||
+        targetEl.closest('.editor-text-input-popover')
+      ) {
         return;
       }
 
@@ -210,12 +645,8 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       const svg = mount.querySelector('svg');
       if (!svg) return;
 
-      // If clicking directly on SVG root or whitespace background, deselect active element
-      if (target === svg || (target as Element) === mount || target.tagName.toLowerCase() === 'svg') {
-        setSelectedElementId(null);
-        setSelectedElementType(null);
-        return;
-      }
+      // Lấy tọa độ click theo SVG viewBox
+      const clickCoords = getSvgCoordinates(svg, e.clientX, e.clientY);
 
       // Check element types
       const textTarget = (target.tagName.toLowerCase() === 'text'
@@ -237,17 +668,16 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         ? target
         : target.closest('polygon, rect')) as SVGGeometryElement | null;
 
-      // 1. Text elements -> initiate drag
+      // 1. Click vào Text -> kéo nhãn
       if (textTarget) {
         e.preventDefault();
-        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
         const initX = parseFloat(textTarget.getAttribute('x') || '0');
         const initY = parseFloat(textTarget.getAttribute('y') || '0');
 
         draggingRef.current = {
           element: textTarget,
-          startX,
-          startY,
+          startX: clickCoords.x,
+          startY: clickCoords.y,
           initX,
           initY,
           type: 'text',
@@ -256,17 +686,16 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         return;
       }
 
-      // 2. Circle point vertices -> initiate drag
+      // 2. Click vào Circle đỉnh điểm -> kéo điểm
       if (circleTarget) {
         e.preventDefault();
-        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
         const initX = parseFloat(circleTarget.getAttribute('cx') || '0');
         const initY = parseFloat(circleTarget.getAttribute('cy') || '0');
 
         draggingRef.current = {
           element: circleTarget,
-          startX,
-          startY,
+          startX: clickCoords.x,
+          startY: clickCoords.y,
           initX,
           initY,
           type: 'circle',
@@ -275,7 +704,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         return;
       }
 
-      // 3. Right angle marker -> select angle in top toolbar
+      // 3. Click vào Ký hiệu góc vuông -> chọn góc
       if (angleTarget) {
         e.preventDefault();
         const editId = getOrAssignEditId(angleTarget);
@@ -284,26 +713,42 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         return;
       }
 
-      // 4. Closed polygon / area -> select polygon in top toolbar
+      // 4. Click vào Vùng diện tích có tô màu -> chọn đa giác
       if (polygonTarget && target.tagName.toLowerCase() !== 'line') {
-        e.preventDefault();
-        const editId = getOrAssignEditId(polygonTarget);
-        setSelectedElementId(editId);
-        setSelectedElementType('polygon');
-        return;
+        const fill = polygonTarget.getAttribute('fill');
+        if (fill && fill !== 'none' && fill !== 'transparent') {
+          e.preventDefault();
+          const editId = getOrAssignEditId(polygonTarget);
+          setSelectedElementId(editId);
+          setSelectedElementType('polygon');
+          return;
+        }
       }
 
-      // 5. Line / path / polyline -> select line in top toolbar
+      // 5. Click trực tiếp vào Đoạn thẳng / Đường nét
       if (lineTarget) {
         e.preventDefault();
         const editId = getOrAssignEditId(lineTarget);
         setSelectedElementId(editId);
         setSelectedElementType('line');
-        lastClickCoordsRef.current = getSvgCoordinates(svg, e.clientX, e.clientY);
+        lastClickCoordsRef.current = clickCoords;
         return;
       }
 
-      // Clicking any other unrecognized element -> deselect
+      // 6. THUẬT TOÁN SNAP-TO-NEAREST:
+      // Khi click vào nền Canvas, khoảng trắng hoặc lân cận các đường nét:
+      // Quét tìm đoạn thẳng gần nhất trong bán kính 25px màn hình
+      const nearest = findNearestLine(svg, clickCoords.x, clickCoords.y, 25);
+      if (nearest) {
+        e.preventDefault();
+        const editId = getOrAssignEditId(nearest.element);
+        setSelectedElementId(editId);
+        setSelectedElementType('line');
+        lastClickCoordsRef.current = nearest.clickPos;
+        return;
+      }
+
+      // Nếu click vượt quá bán kính 25px tới mọi đối tượng -> Hủy chọn
       setSelectedElementId(null);
       setSelectedElementType(null);
     },
@@ -402,9 +847,13 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
 
     const handleOutsideClick = (e: PointerEvent) => {
       const target = e.target as HTMLElement | null;
+      if (target && !target.closest('.editor-layers-dropdown')) {
+        setIsLayersOpen(false);
+      }
       if (
         target &&
         !target.closest('.editor-toolbar-pill') &&
+        !target.closest('.editor-layers-dropdown') &&
         !target.closest('.editor-text-input-popover') &&
         !target.closest('#' + mountContainerId)
       ) {
@@ -669,6 +1118,147 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   const activeAttrs = getSelectedElementAttrs();
   const isDashed = Boolean(activeAttrs?.dasharray && activeAttrs.dasharray !== 'none');
 
+  // Query live DOM for latest elements and layer items
+  const mount = typeof document !== 'undefined' ? document.getElementById(mountContainerId) : null;
+  const svg = mount?.querySelector('svg');
+  const allLayers = svg ? extractSvgLayers(svg) : [];
+  const lineLayers = allLayers.filter((l) => l.category === 'lines');
+  const labelLayers = allLayers.filter((l) => l.category === 'labels');
+  const areaLayers = allLayers.filter((l) => l.category === 'areas');
+  const currentSelectedLayer = allLayers.find((l) => l.id === selectedElementId);
+  const currentSelectedName = currentSelectedLayer?.name || null;
+
+  const handleSelectLayer = (item: SvgLayerItem) => {
+    setIsLayersOpen(false);
+    setSelectedElementId(item.id);
+    setSelectedElementType(item.type);
+    if (item.type === 'line' && svg) {
+      const el = svg.querySelector(`[data-edit-id="${item.id}"]`) as SVGElement | null;
+      if (el) {
+        const segments = getSegmentsFromElement(el);
+        if (segments.length > 0) {
+          lastClickCoordsRef.current = {
+            x: (segments[0].x1 + segments[0].x2) / 2,
+            y: (segments[0].y1 + segments[0].y2) / 2,
+          };
+        }
+      }
+    }
+  };
+
+  const renderLayersDropdown = () => (
+    <div className="relative editor-layers-dropdown shrink-0" ref={layersDropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsLayersOpen((prev) => !prev)}
+        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition cursor-pointer select-none border ${
+          selectedElementId
+            ? 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-700 text-cyan-800 dark:text-cyan-200 shadow-xs'
+            : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
+        }`}
+        title="Danh sách đối tượng (Cạnh, điểm, nhãn...)"
+      >
+        <Layers className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400 shrink-0" />
+        <span className="max-w-[130px] truncate font-semibold">
+          {currentSelectedName ? currentSelectedName : 'Chọn đối tượng'}
+        </span>
+        <ChevronDown
+          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+            isLayersOpen ? 'rotate-180' : ''
+          }`}
+        />
+      </button>
+
+      {isLayersOpen && (
+        <div className="absolute top-full mt-2 left-0 w-64 max-h-72 overflow-y-auto bg-white/98 dark:bg-slate-900/98 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs text-slate-700 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-slate-800/60">
+          {/* 1. Đoạn thẳng & Cạnh */}
+          {lineLayers.length > 0 && (
+            <div className="py-1">
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                📐 Đoạn thẳng & Cạnh ({lineLayers.length})
+              </div>
+              {lineLayers.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectLayer(item)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-left text-[11px] font-medium transition cursor-pointer ${
+                    selectedElementId === item.id
+                      ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-semibold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="truncate">{item.name}</span>
+                  {selectedElementId === item.id && (
+                    <Check className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 2. Nhãn & Ký hiệu */}
+          {labelLayers.length > 0 && (
+            <div className="py-1">
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                🏷️ Nhãn & Ký hiệu ({labelLayers.length})
+              </div>
+              {labelLayers.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectLayer(item)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-left text-[11px] font-medium transition cursor-pointer ${
+                    selectedElementId === item.id
+                      ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-semibold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="truncate">{item.name}</span>
+                  {selectedElementId === item.id && (
+                    <Check className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 3. Vùng diện tích */}
+          {areaLayers.length > 0 && (
+            <div className="py-1">
+              <div className="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+                🎨 Vùng diện tích ({areaLayers.length})
+              </div>
+              {areaLayers.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => handleSelectLayer(item)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-left text-[11px] font-medium transition cursor-pointer ${
+                    selectedElementId === item.id
+                      ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-semibold'
+                      : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300'
+                  }`}
+                >
+                  <span className="truncate">{item.name}</span>
+                  {selectedElementId === item.id && (
+                    <Check className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {lineLayers.length === 0 && labelLayers.length === 0 && areaLayers.length === 0 && (
+            <div className="px-3 py-3 text-center text-[11px] text-slate-400">
+              Chưa tìm thấy phần tử nào
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div ref={editorRootRef} className="absolute inset-0 pointer-events-none z-30">
       {/* Hiệu ứng viền phát sáng nhẹ cho phần tử đang được chọn tinh chỉnh */}
@@ -681,16 +1271,18 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       )}
 
       {/* 1. THANH ĐỊNH DẠNG CỐ ĐỊNH PHÍA TRÊN CANVAS (Word-Style Shape Toolbar) */}
-      <div className="editor-toolbar-pill absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-auto max-w-[96%] overflow-x-auto scrollbar-none z-40">
+      <div className="editor-toolbar-pill absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-auto max-w-[98%] overflow-visible z-40">
         {!selectedElementId ? (
-          // TRẠNG THÁI CHƯA CHỌN: Hướng dẫn ngắn gọn
+          // TRẠNG THÁI CHƯA CHỌN: Dropdown + Hướng dẫn ngắn gọn
           <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-full px-3 py-1.5 shadow-md shadow-slate-900/5 dark:shadow-black/40 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200 whitespace-nowrap">
+            {renderLayersDropdown()}
+
             <div className="flex items-center gap-1.5 pr-2 border-r border-slate-200 dark:border-slate-800">
               <span className="text-xs">✏️</span>
               <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 select-none">
-                <span className="font-semibold text-slate-800 dark:text-slate-100">Chế độ chỉnh sửa</span>
-                <span className="hidden sm:inline text-slate-400 dark:text-slate-500 mx-1.5">•</span>
-                <span className="hidden sm:inline text-slate-500 dark:text-slate-400 text-[11px]">Click vào đường nét để chỉnh sửa hoặc kéo điểm để di chuyển</span>
+                <span className="hidden sm:inline text-slate-500 dark:text-slate-400 text-[11px]">
+                  Click gần đường nét hoặc kéo điểm để di chuyển
+                </span>
               </span>
             </div>
 
@@ -728,15 +1320,13 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             </button>
           </div>
         ) : (
-          // TRẠNG THÁI ĐÃ CHỌN ĐỐI TƯỢNG: Thanh định dạng nằm ngang (Shape Format Bar)
+          // TRẠNG THÁI ĐÃ CHỌN ĐỐI TƯỢNG: Dropdown + Thanh định dạng nằm ngang (Shape Format Bar)
           <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-cyan-500/40 dark:border-cyan-500/40 rounded-full px-3 py-1.5 shadow-lg shadow-slate-900/10 dark:shadow-black/50 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
+            {renderLayersDropdown()}
+
             {/* Controls cho ĐƯỜNG NÉT */}
             {selectedElementType === 'line' && (
               <>
-                <div className="flex items-center gap-1 font-semibold text-[11px] text-cyan-600 dark:text-cyan-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
-                  <span>📐 Đường nét</span>
-                </div>
-
                 {/* 1. Kiểu nét: Liền / Đứt */}
                 <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
                   <button
@@ -891,6 +1481,40 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                     <RotateCw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                     <span>Xoay góc 90°</span>
                   </button>
+                </div>
+              </>
+            )}
+
+            {/* Controls cho NHÃN CHỮ */}
+            {selectedElementType === 'text' && (
+              <>
+                <div className="flex items-center gap-1 font-semibold text-[11px] text-emerald-600 dark:text-emerald-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <span>🏷️ Nhãn chữ</span>
+                </div>
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  {[
+                    { color: '#0f172a', title: 'Đen' },
+                    { color: '#2563eb', title: 'Xanh dương' },
+                    { color: '#dc2626', title: 'Đỏ' },
+                    { color: '#ea580c', title: 'Cam' },
+                    { color: '#16a34a', title: 'Xanh lá' },
+                  ].map((c) => {
+                    const isSelected = activeAttrs?.fill.toLowerCase() === c.color.toLowerCase();
+                    return (
+                      <button
+                        key={c.color}
+                        type="button"
+                        onClick={() => updateElementStyle('fill', c.color)}
+                        className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                          isSelected
+                            ? 'scale-125 ring-2 ring-cyan-500 ring-offset-1 dark:ring-offset-slate-900'
+                            : 'border border-white/60 dark:border-slate-800 hover:scale-115'
+                        }`}
+                        style={{ backgroundColor: c.color }}
+                        title={c.title}
+                      />
+                    );
+                  })}
                 </div>
               </>
             )}
