@@ -46,10 +46,10 @@ import {
   LayoutDashboard,
   Menu,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 import { APP_VERSION, formatDateVN } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
-import AdminUsersModal from '@/components/AdminUsersModal';
 
 export interface ChangelogItem {
   id: string;
@@ -131,7 +131,6 @@ export default function UnifiedAdminPage() {
   // 3. Dashboard State (Active when currentUser !== null)
   const [activeTab, setActiveTab] = useState<'overview' | 'keys' | 'users' | 'changelog'>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [isNeonUsersModalOpen, setIsNeonUsersModalOpen] = useState(false);
 
   // License Keys State
   const [keys, setKeys] = useState<LicenseKeyItem[]>([]);
@@ -191,12 +190,10 @@ export default function UnifiedAdminPage() {
   const [editUserError, setEditUserError] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editAccName, setEditAccName] = useState('');
-  const [editAccUsername, setEditAccUsername] = useState('');
+  const [editAccEmail, setEditAccEmail] = useState('');
   const [editAccPassword, setEditAccPassword] = useState('');
-  const [editAccRole, setEditAccRole] = useState<'ADMIN' | 'STAFF'>('STAFF');
-  const [isEditAccUnlimitedCredits, setIsEditAccUnlimitedCredits] = useState(false);
-  const [editAccMaxCredits, setEditAccMaxCredits] = useState<number>(50);
-  const [editAccIsActive, setEditAccIsActive] = useState<boolean>(true);
+  const [editAccRole, setEditAccRole] = useState<'admin' | 'ctv' | 'user'>('user');
+  const [editAccStatus, setEditAccStatus] = useState<'active' | 'banned'>('active');
 
   // Changelog Management State (Admin Only)
   const [changelogs, setChangelogs] = useState<ChangelogItem[]>([]);
@@ -594,14 +591,14 @@ export default function UnifiedAdminPage() {
   // Open Edit User Modal
   const handleOpenEditUserModal = (userItem: UserAccountItem) => {
     setEditingUserId(userItem.id);
-    setEditAccName(userItem.name);
-    setEditAccUsername(userItem.username);
-    setEditAccRole(userItem.role as 'ADMIN' | 'STAFF');
-    const maxCredits = userItem.maxCredits ?? 50;
-    const isUnlimited = maxCredits === -1 || maxCredits >= 99999;
-    setIsEditAccUnlimitedCredits(isUnlimited);
-    setEditAccMaxCredits(isUnlimited ? 50 : maxCredits);
-    setEditAccIsActive(userItem.isActive);
+    setEditAccName(userItem.name || '');
+    setEditAccEmail(userItem.email || userItem.username || '');
+    const normRole = (userItem.role || '').toLowerCase();
+    const validRole: 'admin' | 'ctv' | 'user' =
+      normRole === 'admin' ? 'admin' : (normRole === 'ctv' || normRole === 'staff' ? 'ctv' : 'user');
+    setEditAccRole(validRole);
+    const isAct = userItem.isActive !== false && userItem.is_active !== false && userItem.status !== 'banned';
+    setEditAccStatus(isAct ? 'active' : 'banned');
     setEditAccPassword('');
     setEditUserError(null);
     setIsEditUserModalOpen(true);
@@ -612,22 +609,28 @@ export default function UnifiedAdminPage() {
     e.preventDefault();
     if (!editingUserId) return;
 
+    if (!editAccName.trim()) {
+      setEditUserError('Vui lòng nhập họ và tên.');
+      return;
+    }
+    if (!editAccEmail.trim()) {
+      setEditUserError('Vui lòng nhập địa chỉ email.');
+      return;
+    }
+
     setEditUserError(null);
     setEditUserLoading(true);
 
     try {
       const res = await fetch(`/api/admin/users/${editingUserId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: editAccName.trim(),
+          email: editAccEmail.trim().toLowerCase(),
           role: editAccRole,
-          maxCredits:
-            editAccRole === 'ADMIN' || isEditAccUnlimitedCredits
-              ? -1
-              : Number(editAccMaxCredits) || 50,
-          isActive: editAccIsActive,
-          password: editAccPassword.trim() || undefined,
+          status: editAccStatus,
+          newPassword: editAccPassword.trim() || undefined,
         }),
       });
 
@@ -638,9 +641,9 @@ export default function UnifiedAdminPage() {
 
       await fetchUserAccounts(false);
       setIsEditUserModalOpen(false);
-      showToast('Cập nhật tài khoản thành công!');
+      showToast('Cập nhật thông tin tài khoản thành công!');
     } catch (err: any) {
-      setEditUserError(err.message);
+      setEditUserError(err.message || 'Đã có lỗi xảy ra.');
     } finally {
       setEditUserLoading(false);
     }
@@ -649,14 +652,15 @@ export default function UnifiedAdminPage() {
   // Handle Toggle User Status (Quick Toggle in Table)
   const handleToggleUserStatus = async (id: string, currentStatus: boolean) => {
     try {
+      const nextStatus = !currentStatus ? 'active' : 'banned';
       const res = await fetch(`/api/admin/users/${id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isActive: !currentStatus }),
+        body: JSON.stringify({ status: nextStatus, isActive: !currentStatus }),
       });
       if (res.ok) {
         setUserAccounts((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, isActive: !currentStatus } : u))
+          prev.map((u) => (u.id === id ? { ...u, status: nextStatus, isActive: !currentStatus, is_active: !currentStatus } : u))
         );
         showToast(!currentStatus ? 'Đã kích hoạt tài khoản!' : 'Đã khóa tài khoản!');
       }
@@ -2302,16 +2306,6 @@ export default function UnifiedAdminPage() {
 
                 <button
                   type="button"
-                  onClick={() => setIsNeonUsersModalOpen(true)}
-                  className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md shadow-cyan-950/30 cursor-pointer"
-                  title="Mở Bảng Quản lý Người dùng Nhanh (Modal)"
-                >
-                  <Users className="w-4 h-4" />
-                  <span>Quản trị nhanh (Modal)</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => {
                     setCreateAccountError(null);
                     setIsCreateUserModalOpen(true);
@@ -3038,49 +3032,120 @@ export default function UnifiedAdminPage() {
       {/* MODAL 3: SỬA THÔNG TIN & ĐỔI MẬT KHẨU                */}
       {/* ---------------------------------------------------- */}
       {isEditUserModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
           <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl p-6 flex flex-col gap-4">
+            {/* Header */}
             <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
+                <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-600 dark:text-cyan-400 shadow-sm">
                   <Edit className="w-4 h-4" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                    Cập Nhật Tài Khoản & Đổi MK
+                    Chỉnh Sửa Thông Tin Tài Khoản
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Tài khoản: <strong className="font-mono">{editAccUsername}</strong>
+                    Cập nhật quyền hạn, thông tin cá nhân và mật khẩu
                   </p>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setIsEditUserModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition"
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
+            {/* Form */}
             <form onSubmit={handleSaveEditUser} className="flex flex-col gap-3.5">
+              {/* 1. Tên hiển thị */}
               <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Họ và Tên
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <span>Tên hiển thị</span>
+                  <span className="text-rose-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={editAccName}
                   onChange={(e) => setEditAccName(e.target.value)}
+                  placeholder="Ví dụ: Nguyễn Văn A..."
                   className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
                   required
                 />
               </div>
 
+              {/* 2. Email */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+                  <span>Địa chỉ Email</span>
+                  <span className="text-rose-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={editAccEmail}
+                  onChange={(e) => setEditAccEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
+                  required
+                />
+              </div>
+
+              {/* 3. Vai trò (Role): Dropdown chọn [Admin, CTV, User] */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Vai trò (Role)
+                </label>
+                <div className="relative">
+                  <select
+                    value={editAccRole}
+                    onChange={(e) => setEditAccRole(e.target.value as 'admin' | 'ctv' | 'user')}
+                    className="w-full appearance-none bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 outline-none transition cursor-pointer pr-9 font-medium"
+                  >
+                    <option value="admin">Quản trị viên (Admin)</option>
+                    <option value="ctv">Cộng tác viên (CTV)</option>
+                    <option value="user">Người dùng (User)</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 flex items-center gap-1 px-1">
+                  {editAccRole === 'admin' && (
+                    <span className="text-rose-600 dark:text-rose-400 font-medium">👑 Quản trị viên: Toàn quyền quản trị tài khoản, API key và phiên bản.</span>
+                  )}
+                  {editAccRole === 'ctv' && (
+                    <span className="text-cyan-600 dark:text-cyan-400 font-medium">⭐ Cộng tác viên: Có quyền phát hành và quản lý License Key.</span>
+                  )}
+                  {editAccRole === 'user' && (
+                    <span className="text-slate-500 font-medium">👤 Người dùng: Lưu trữ và đồng bộ bộ sưu tập hình vẽ lên Neon.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. Trạng thái (Status): Dropdown chọn [Hoạt động / Đang khóa] */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Trạng thái (Status)
+                </label>
+                <div className="relative">
+                  <select
+                    value={editAccStatus}
+                    onChange={(e) => setEditAccStatus(e.target.value as 'active' | 'banned')}
+                    className="w-full appearance-none bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 outline-none transition cursor-pointer pr-9 font-medium"
+                  >
+                    <option value="active">🟢 Hoạt động (Active)</option>
+                    <option value="banned">🔴 Đang khóa (Banned)</option>
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* 5. Cấp lại / Đổi mật khẩu mới */}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                  <span>Mật Khẩu Mới</span>
-                  <span className="text-[10px] text-slate-400 font-normal">(Để trống nếu không muốn đổi)</span>
+                  <span>Cấp lại / Đổi mật khẩu mới</span>
+                  <span className="text-[10px] text-slate-400 font-normal">(Để trống nếu giữ nguyên)</span>
                 </label>
                 <input
                   type="password"
@@ -3088,145 +3153,11 @@ export default function UnifiedAdminPage() {
                   onChange={(e) => setEditAccPassword(e.target.value)}
                   placeholder="Nhập mật khẩu mới nếu muốn đổi..."
                   className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
+                  autoComplete="new-password"
                 />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Vai Trò (Role)
-                </label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setEditAccRole('ADMIN')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 ${
-                      editAccRole === 'ADMIN'
-                        ? 'bg-rose-500/15 border-rose-500 text-rose-600 dark:text-rose-400 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>ADMIN</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setEditAccRole('STAFF')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 ${
-                      editAccRole === 'STAFF'
-                        ? 'bg-cyan-500/15 border-cyan-500 text-cyan-600 dark:text-cyan-400 shadow-sm'
-                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
-                    }`}
-                  >
-                    <User className="w-3.5 h-3.5" />
-                    <span>CTV (Staff)</span>
-                  </button>
-                </div>
-              </div>
-
-              {editAccRole === 'STAFF' && (
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Hạn Mức Tạo Key Cấp Cho CTV
-                    </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={isEditAccUnlimitedCredits}
-                        onChange={(e) => setIsEditAccUnlimitedCredits(e.target.checked)}
-                        className="sr-only"
-                      />
-                      <div
-                        className={`w-7 h-4 rounded-full transition-colors relative flex items-center p-0.5 ${
-                          isEditAccUnlimitedCredits ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
-                        }`}
-                      >
-                        <div
-                          className={`w-3 h-3 rounded-full bg-white transition-transform ${
-                            isEditAccUnlimitedCredits ? 'translate-x-3' : 'translate-x-0'
-                          }`}
-                        />
-                      </div>
-                      <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
-                        ∞ Không giới hạn
-                      </span>
-                    </label>
-                  </div>
-
-                  {isEditAccUnlimitedCredits ? (
-                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300 font-semibold text-xs flex items-center justify-between">
-                      <span>Cấp quyền tạo key không giới hạn</span>
-                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 font-bold font-mono">
-                        ∞ Vô hạn
-                      </span>
-                    </div>
-                  ) : (
-                    <input
-                      type="number"
-                      min={1}
-                      max={100000}
-                      value={editAccMaxCredits}
-                      onChange={(e) => setEditAccMaxCredits(Math.max(1, Number(e.target.value)))}
-                      placeholder="Ví dụ: 20, 50, 100..."
-                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
-                      required
-                    />
-                  )}
-
-                  {/* Quick Preset Chips */}
-                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                    <span className="text-[10px] text-slate-400 font-medium">Chọn nhanh:</span>
-                    {[20, 50, 100, 200].map((count) => (
-                      <button
-                        key={count}
-                        type="button"
-                        onClick={() => {
-                          setIsEditAccUnlimitedCredits(false);
-                          setEditAccMaxCredits(count);
-                        }}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition ${
-                          !isEditAccUnlimitedCredits && editAccMaxCredits === count
-                            ? 'bg-cyan-500/15 border-cyan-500 text-cyan-700 dark:text-cyan-300 font-bold'
-                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
-                        }`}
-                      >
-                        {count} key
-                      </button>
-                    ))}
-
-                    <button
-                      type="button"
-                      onClick={() => setIsEditAccUnlimitedCredits(true)}
-                      className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition ${
-                        isEditAccUnlimitedCredits
-                          ? 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300 shadow-sm'
-                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400 hover:border-purple-400'
-                      }`}
-                    >
-                      ∞ Vô hạn
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800">
-                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                  Trạng Thái Hoạt Động
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setEditAccIsActive(!editAccIsActive)}
-                  className={`px-3 py-1 rounded-lg text-xs font-semibold border transition ${
-                    editAccIsActive
-                      ? 'bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400'
-                      : 'bg-rose-500/15 border-rose-500 text-rose-600 dark:text-rose-400'
-                  }`}
-                >
-                  {editAccIsActive ? 'Đang Hoạt Động' : 'Đang Bị Khóa'}
-                </button>
-              </div>
-
+              {/* Lỗi nếu có */}
               {editUserError && (
                 <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
@@ -3234,11 +3165,12 @@ export default function UnifiedAdminPage() {
                 </div>
               )}
 
+              {/* Footer actions */}
               <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-200 dark:border-slate-800 mt-1">
                 <button
                   type="button"
                   onClick={() => setIsEditUserModalOpen(false)}
-                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition"
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition cursor-pointer"
                 >
                   Hủy
                 </button>
@@ -3246,10 +3178,10 @@ export default function UnifiedAdminPage() {
                 <button
                   type="submit"
                   disabled={editUserLoading}
-                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition shadow-md shadow-cyan-950/30 disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition shadow-md shadow-cyan-950/30 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
                 >
                   {editUserLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
-                  <span>Lưu Thay Đổi</span>
+                  <span>Lưu thay đổi</span>
                 </button>
               </div>
             </form>
@@ -3568,13 +3500,6 @@ export default function UnifiedAdminPage() {
           </div>
         </div>
       )}
-
-      {/* Modal Quản lý Người dùng Neon */}
-      <AdminUsersModal
-        isOpen={isNeonUsersModalOpen}
-        onClose={() => setIsNeonUsersModalOpen(false)}
-        currentUserId={currentUser?.id}
-      />
     </div>
   );
 }

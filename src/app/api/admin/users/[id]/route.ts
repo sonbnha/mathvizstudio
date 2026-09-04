@@ -32,132 +32,136 @@ async function handleUpdateUser(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const { isActive, is_active, status, maxCredits, password, name, role } = body;
+    const { name, email, role, status, newPassword, password, isActive, is_active } = body;
 
-    // 1. Nếu là tài khoản Neon Database (UUID)
+    await initDb();
+    const sql = getDb();
+
+    // 1. Tìm người dùng trong database theo id (UUID hoặc cuid)
+    let targetUser: any = null;
     if (isUuid(id)) {
-      await initDb();
-      const sql = getDb();
+      const rows = await sql`SELECT id, name, email, username, role, status, cuid, password_hash FROM users WHERE id = ${id}::uuid LIMIT 1`;
+      if (rows && rows.length > 0) targetUser = rows[0];
+    }
+    if (!targetUser) {
+      const rows = await sql`SELECT id, name, email, username, role, status, cuid, password_hash FROM users WHERE cuid = ${id} OR id::text = ${id} LIMIT 1`;
+      if (rows && rows.length > 0) targetUser = rows[0];
+    }
 
-      if (role) {
-        const normalizedRole = role.toLowerCase();
-        const validRole = ['admin', 'ctv', 'user'].includes(normalizedRole)
-          ? normalizedRole
-          : 'user';
-        await sql`UPDATE users SET role = ${validRole} WHERE id = ${id}::uuid`;
-      }
+    if (!targetUser) {
+      return NextResponse.json({ error: 'Không tìm thấy người dùng.' }, { status: 404 });
+    }
 
-      let normalizedStatus: string | undefined = undefined;
-      if (status && (status === 'active' || status === 'banned')) {
-        normalizedStatus = status;
-      } else if (typeof is_active === 'boolean') {
-        normalizedStatus = is_active ? 'active' : 'banned';
-      } else if (typeof isActive === 'boolean') {
-        normalizedStatus = isActive ? 'active' : 'banned';
-      }
+    // 2. Chuẩn hóa các trường cập nhật
+    const cleanName = name !== undefined && name !== null && String(name).trim() !== ''
+      ? String(name).trim()
+      : targetUser.name;
 
-      if (normalizedStatus) {
-        const activeBool = normalizedStatus === 'active';
-        await sql`UPDATE users SET status = ${normalizedStatus}, is_active = ${activeBool} WHERE id = ${id}::uuid`;
-      }
+    const cleanEmail = email !== undefined && email !== null && String(email).trim() !== ''
+      ? String(email).trim().toLowerCase()
+      : targetUser.email;
 
-      if (password && password.trim()) {
-        const passwordHash = await bcrypt.hash(password.trim(), 10);
-        await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${id}::uuid`;
-      }
-
-      if (name && name.trim()) {
-        await sql`UPDATE users SET name = ${name.trim()} WHERE id = ${id}::uuid`;
-      }
-
-      if (body.apiKey !== undefined || body.api_key !== undefined) {
-        const newKey = (body.apiKey || body.api_key || '').trim() || null;
-        await sql`UPDATE users SET api_key = ${newKey} WHERE id = ${id}::uuid`;
-      }
-
-      const rows = await sql`
-        SELECT u.id, u.name, u.email, u.username, u.role, COALESCE(u.status, 'active') as status,
-               COALESCE(u.is_active, true) as is_active, u.api_key, u.cuid, u.created_at,
-               COUNT(d.id)::int as saved_diagrams_count
-        FROM users u
-        LEFT JOIN saved_diagrams d ON d.user_id = u.id
-        WHERE u.id = ${id}::uuid
-        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at
+    // Kiểm tra trùng lặp email nếu email bị thay đổi
+    if (cleanEmail && cleanEmail !== targetUser.email) {
+      const conflict = await sql`
+        SELECT id FROM users 
+        WHERE LOWER(email) = ${cleanEmail} AND id != ${targetUser.id}::uuid 
+        LIMIT 1
       `;
-
-      if (!rows || rows.length === 0) {
-        return NextResponse.json({ error: 'Không tìm thấy người dùng.' }, { status: 404 });
+      if (conflict && conflict.length > 0) {
+        return NextResponse.json(
+          { error: `Email "${cleanEmail}" đã được sử dụng bởi một tài khoản khác.` },
+          { status: 400 }
+        );
       }
+    }
 
-      const u = rows[0] as any;
+    // Chuẩn hóa role: 'admin' | 'ctv' | 'user'
+    let cleanRole = targetUser.role || 'user';
+    if (role !== undefined && role !== null) {
+      const r = String(role).trim().toLowerCase();
+      if (r === 'admin') cleanRole = 'admin';
+      else if (r === 'ctv' || r === 'staff') cleanRole = 'ctv';
+      else if (r === 'user') cleanRole = 'user';
+    }
 
-      // Sync Prisma if user has cuid
-      if (u.cuid) {
-        try {
-          const prismaUpdate: any = {};
-          if (role) prismaUpdate.role = role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'STAFF';
-          if (normalizedStatus) prismaUpdate.isActive = normalizedStatus === 'active';
-          if (name) prismaUpdate.name = name.trim();
-          if (password && password.trim()) prismaUpdate.passwordHash = await bcrypt.hash(password.trim(), 10);
-          if (Object.keys(prismaUpdate).length > 0) {
-            await prisma.user.update({ where: { id: u.cuid }, data: prismaUpdate });
-          }
-        } catch {}
-      }
+    // Chuẩn hóa status: 'active' | 'banned'
+    let cleanStatus = targetUser.status || 'active';
+    if (status !== undefined && status !== null) {
+      const s = String(status).trim().toLowerCase();
+      if (s === 'banned' || s === 'blocked' || s === 'inactive') cleanStatus = 'banned';
+      else if (s === 'active') cleanStatus = 'active';
+    } else if (typeof is_active === 'boolean') {
+      cleanStatus = is_active ? 'active' : 'banned';
+    } else if (typeof isActive === 'boolean') {
+      cleanStatus = isActive ? 'active' : 'banned';
+    }
 
-      return NextResponse.json({
+    const isActiveBool = cleanStatus === 'active';
+
+    // Chuẩn hóa password mới (nếu có thì hash bcrypt, để trống thì giữ nguyên password_hash cũ qua COALESCE)
+    const rawPass = (newPassword || password || '').toString().trim();
+    const passwordHash = rawPass ? await bcrypt.hash(rawPass, 10) : null;
+
+    // 3. Thực thi UPDATE trực tiếp vào bảng users trên Neon Postgres
+    // UPDATE users 
+    // SET name = $1, email = $2, role = $3, status = $4,
+    //     password_hash = COALESCE($5, password_hash)
+    // WHERE id = $6
+    // RETURNING id, name, email, role, status;
+    const updatedRows = await sql`
+      UPDATE users 
+      SET name = ${cleanName},
+          email = ${cleanEmail},
+          role = ${cleanRole},
+          status = ${cleanStatus},
+          is_active = ${isActiveBool},
+          password_hash = COALESCE(${passwordHash}, password_hash)
+      WHERE id = ${targetUser.id}::uuid
+      RETURNING id, name, email, role, status;
+    `;
+
+    if (!updatedRows || updatedRows.length === 0) {
+      return NextResponse.json({ error: 'Không thể cập nhật tài khoản.' }, { status: 500 });
+    }
+
+    const u = updatedRows[0] as any;
+
+    // Đồng bộ sang Prisma nếu tài khoản có cuid
+    if (targetUser.cuid) {
+      try {
+        const prismaUpdate: any = {
+          name: cleanName,
+          isActive: isActiveBool,
+          role: cleanRole === 'admin' ? 'ADMIN' : 'STAFF',
+        };
+        if (passwordHash) prismaUpdate.passwordHash = passwordHash;
+        await prisma.user.update({ where: { id: targetUser.cuid }, data: prismaUpdate });
+      } catch {}
+    }
+
+    return NextResponse.json(
+      {
         success: true,
+        message: 'Cập nhật thông tin tài khoản thành công!',
         user: {
           id: u.id,
           name: u.name,
           email: u.email,
-          username: u.username || u.email,
           role: u.role,
-          status: u.status || 'active',
+          status: u.status,
           is_active: u.status === 'active',
           isActive: u.status === 'active',
-          api_key: u.api_key,
-          apiKey: u.api_key,
-          cuid: u.cuid,
-          created_at: u.created_at,
-          createdAt: u.created_at,
-          saved_diagrams_count: Number(u.saved_diagrams_count || 0),
-          savedDiagramsCount: Number(u.saved_diagrams_count || 0),
         },
-      });
-    }
-
-    // 2. Tài khoản Prisma Staff / Admin (CUID)
-    const updateData: any = {};
-    if (typeof isActive === 'boolean') updateData.isActive = isActive;
-    if (typeof is_active === 'boolean') updateData.isActive = is_active;
-    if (typeof maxCredits === 'number') updateData.maxCredits = maxCredits;
-    if (name) updateData.name = name.trim();
-    if (role && (role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'STAFF')) {
-      updateData.role = role.toUpperCase();
-    }
-    if (password && password.trim()) {
-      updateData.passwordHash = await bcrypt.hash(password.trim(), 10);
-    }
-
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: updateData,
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        role: true,
-        maxCredits: true,
-        isActive: true,
-        createdAt: true,
       },
-    });
-
-    return NextResponse.json({ success: true, user: updatedUser });
+      { status: 200 }
+    );
   } catch (error: any) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: error?.message || 'Không thể cập nhật thông tin người dùng.' }, { status: 500 });
+    return NextResponse.json(
+      { error: error?.message || 'Không thể cập nhật thông tin người dùng.' },
+      { status: 500 }
+    );
   }
 }
 

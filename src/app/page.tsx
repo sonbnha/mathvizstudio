@@ -47,7 +47,6 @@ import SavedCollection from '@/components/SavedCollection';
 import ExportDropdown from '@/components/ExportDropdown';
 import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
 import AuthModal, { AuthUser } from '@/components/AuthModal';
-import AdminUsersModal from '@/components/AdminUsersModal';
 import { REAL_WORLD_MATH_SAMPLES } from '@/data/samplePrompts';
 
 const PRESETS = REAL_WORLD_MATH_SAMPLES;
@@ -165,7 +164,6 @@ function HomeContent() {
   // Feature 3: User Authentication & Neon DB Sync
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
@@ -1410,19 +1408,16 @@ function HomeContent() {
                       </span>
                     </button>
 
-                    {/* Mục 2: ⚙️ Quản lý tài khoản (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
+                    {/* Mục 2: ⚙️ Quản trị hệ thống (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
                     {(currentUser.role || '').toLowerCase() === 'admin' && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsUserDropdownOpen(false);
-                          setIsAdminModalOpen(true);
-                        }}
+                      <Link
+                        href="/admin"
+                        onClick={() => setIsUserDropdownOpen(false)}
                         className="w-full px-3.5 py-2 text-xs text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2.5 transition font-semibold cursor-pointer border-t border-slate-100 dark:border-slate-800/60"
                       >
                         <Shield className="w-4 h-4 text-rose-500" />
-                        <span>⚙️ Quản lý tài khoản (Admin Panel)</span>
-                      </button>
+                        <span>⚙️ Quản trị hệ thống (Admin Panel)</span>
+                      </Link>
                     )}
 
                     <div className="my-1 border-t border-slate-100 dark:border-slate-800/80"></div>
@@ -2100,15 +2095,6 @@ function HomeContent() {
           setCurrentUser(user);
         }}
       />
-
-      {/* Admin Users Management Modal */}
-      {currentUser && (currentUser.role || '').toLowerCase() === 'admin' && (
-        <AdminUsersModal
-          isOpen={isAdminModalOpen}
-          onClose={() => setIsAdminModalOpen(false)}
-          currentUserId={currentUser.id}
-        />
-      )}
     </div>
   );
 }
