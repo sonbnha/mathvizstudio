@@ -27,6 +27,8 @@ import {
   Moon,
   MousePointerClick,
   BookOpen,
+  PanelRightClose,
+  PanelRightOpen,
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
@@ -386,6 +388,30 @@ function HomeContent() {
     try {
       localStorage.setItem('real_world_math_examples_collapsed', 'true');
     } catch {}
+  };
+
+  // Cột 3 (Right Sidebar): Trạng thái ẩn/hiện Bộ sưu tập đã lưu & lưu LocalStorage
+  const [isCollectionSidebarOpen, setIsCollectionSidebarOpen] = useState(true);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('saved_collection_sidebar_open');
+      if (saved !== null) {
+        setIsCollectionSidebarOpen(saved === 'true');
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc localStorage saved_collection_sidebar_open:', e);
+    }
+  }, []);
+
+  const toggleCollectionSidebar = () => {
+    setIsCollectionSidebarOpen((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('saved_collection_sidebar_open', String(next));
+      } catch {}
+      return next;
+    });
   };
 
   const MAX_GALLERY_ITEMS = 50;
@@ -1283,8 +1309,8 @@ function HomeContent() {
           suppressHydrationWarning
           className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 flex flex-col lg:flex-row gap-4 overflow-hidden ${mainTab === 'geometry' ? 'flex' : 'hidden'}`}
         >
-          {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang, h-full, cuộn độc lập) */}
-          <section className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full overflow-y-auto pr-1 space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col">
+          {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang ~310px-330px, h-full, cuộn độc lập) */}
+          <section className="w-full lg:w-[310px] xl:w-[330px] shrink-0 h-full overflow-y-auto pr-1 space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col">
           {/* Preset Buttons Collapsible Accordion */}
           <div className="w-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 rounded-2xl overflow-hidden shadow-xs shrink-0 transition-colors">
             <button
@@ -1463,10 +1489,8 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* CỘT 2: KHUNG VẼ CANVAS SVG VÀ BỘ SƯU TẬP ĐÃ LƯU */}
-        <div className="flex-1 min-w-0 h-full flex flex-col gap-3 overflow-hidden">
-          {/* Khung Canvas SVG */}
-          <section className="flex-1 min-h-0 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
+        {/* CỘT 2: KHUNG VẼ CANVAS SVG VÀ TINH CHỈNH (Ở GIỮA) */}
+        <section className="flex-1 min-w-0 h-full flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
           {/* Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
             <div className="flex items-center gap-2">
@@ -1565,6 +1589,34 @@ function HomeContent() {
                   <span>📥 Chèn hình này vào Giáo án</span>
                 </button>
               )}
+
+              {/* Nút Ẩn / Hiện Cột dọc Bộ sưu tập (Right Sidebar Toggle) */}
+              <button
+                type="button"
+                onClick={toggleCollectionSidebar}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border cursor-pointer ${
+                  isCollectionSidebarOpen
+                    ? 'bg-indigo-600/10 dark:bg-indigo-600/20 border-indigo-500/30 text-indigo-700 dark:text-indigo-300 shadow-xs'
+                    : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-transparent'
+                }`}
+                title={
+                  isCollectionSidebarOpen
+                    ? 'Ẩn cột Bộ sưu tập bên phải để mở rộng Canvas tối đa'
+                    : 'Hiện cột Bộ sưu tập đã lưu ở bên phải'
+                }
+              >
+                {isCollectionSidebarOpen ? (
+                  <PanelRightClose className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                ) : (
+                  <PanelRightOpen className="w-3.5 h-3.5 text-slate-600 dark:text-slate-400" />
+                )}
+                <span className="hidden sm:inline">
+                  {isCollectionSidebarOpen ? 'Thu gọn bộ sưu tập' : 'Mở bộ sưu tập'}
+                </span>
+                <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-200/80 dark:bg-slate-800 text-indigo-600 dark:text-indigo-400 font-semibold">
+                  {historyItems.length}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -1708,9 +1760,10 @@ function HomeContent() {
                 </button>
               </div>
             </div>
-          </section>
+        </section>
 
-          {/* Bộ sưu tập đã lưu (Collapsible Accordion dạng thanh mỏng ở đáy) */}
+        {/* CỘT 3: BỘ SƯU TẬP ĐÃ LƯU (RIGHT SIDEBAR CUỘN DỌC) */}
+        {isCollectionSidebarOpen && (
           <SavedCollection
             items={historyItems.map((item) => ({
               id: item.id,
@@ -1718,6 +1771,8 @@ function HomeContent() {
               svgContent: item.svgCode,
               createdAt: new Date(item.timestamp).toLocaleDateString('vi-VN'),
             }))}
+            isOpen={isCollectionSidebarOpen}
+            onClose={toggleCollectionSidebar}
             onSelectItem={(saved) => {
               const found = historyItems.find((h) => h.id === saved.id);
               if (found) handleLoadFromHistory(found);
@@ -1725,8 +1780,8 @@ function HomeContent() {
             onDeleteItem={(id) => handleDeleteHistoryItem(id)}
             onClearAll={handleClearAllHistory}
           />
-        </div>
-        </div>
+        )}
+      </div>
 
         {/* TAB 2: Soạn giáo án tự động */}
         <div
