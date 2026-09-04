@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   SquareCode,
   Check,
@@ -475,6 +476,25 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   const [isLayersOpen, setIsLayersOpen] = useState(false);
   const layersDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Canvas Header Edit Slot Portal target
+  const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      setPortalNode(null);
+      return;
+    }
+    const node = document.getElementById('canvasHeaderEditSlot');
+    if (node) {
+      setPortalNode(node);
+    } else {
+      const id = requestAnimationFrame(() => {
+        setPortalNode(document.getElementById('canvasHeaderEditSlot'));
+      });
+      return () => cancelAnimationFrame(id);
+    }
+  }, [isEditMode]);
+
   // Inline text editing state
   const [editingText, setEditingText] = useState<{
     element: SVGTextElement;
@@ -633,7 +653,8 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       // Don't trigger element selection if clicking inside toolbar, dropdown, or text popover
       const targetEl = target as Element;
       if (
-        targetEl.closest('.editor-toolbar-pill') ||
+        targetEl.closest('.editor-header-toolbar') ||
+        targetEl.closest('#canvasHeaderEditSlot') ||
         targetEl.closest('.editor-layers-dropdown') ||
         targetEl.closest('.editor-text-input-popover')
       ) {
@@ -852,7 +873,8 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       }
       if (
         target &&
-        !target.closest('.editor-toolbar-pill') &&
+        !target.closest('#canvasHeaderEditSlot') &&
+        !target.closest('.editor-header-toolbar') &&
         !target.closest('.editor-layers-dropdown') &&
         !target.closest('.editor-text-input-popover') &&
         !target.closest('#' + mountContainerId)
@@ -1151,7 +1173,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       <button
         type="button"
         onClick={() => setIsLayersOpen((prev) => !prev)}
-        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition cursor-pointer select-none border ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer select-none border ${
           selectedElementId
             ? 'bg-cyan-50 dark:bg-cyan-950/40 border-cyan-300 dark:border-cyan-700 text-cyan-800 dark:text-cyan-200 shadow-xs'
             : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200'
@@ -1163,14 +1185,33 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           {currentSelectedName ? currentSelectedName : 'Chọn đối tượng'}
         </span>
         <ChevronDown
-          className={`w-3 h-3 text-slate-400 transition-transform duration-200 ${
+          className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
             isLayersOpen ? 'rotate-180' : ''
           }`}
         />
       </button>
 
       {isLayersOpen && (
-        <div className="absolute top-full mt-2 left-0 w-64 max-h-72 overflow-y-auto bg-white/98 dark:bg-slate-900/98 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs text-slate-700 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-slate-800/60">
+        <div className="absolute top-full mt-1.5 left-0 w-64 max-h-72 overflow-y-auto bg-white/98 dark:bg-slate-900/98 backdrop-blur-md border border-slate-200 dark:border-slate-800 rounded-xl shadow-2xl p-1.5 z-50 text-xs text-slate-700 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-100 divide-y divide-slate-100 dark:divide-slate-800/60">
+          {/* Tự động / Bỏ chọn */}
+          <div className="py-1">
+            <button
+              type="button"
+              onClick={() => {
+                setIsLayersOpen(false);
+                deselectElement();
+              }}
+              className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-left text-[11px] font-medium transition cursor-pointer ${
+                !selectedElementId
+                  ? 'bg-cyan-50 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 font-semibold'
+                  : 'hover:bg-slate-100 dark:hover:bg-slate-800/80 text-slate-700 dark:text-slate-300'
+              }`}
+            >
+              <span className="truncate">Tự động / Bỏ chọn</span>
+              {!selectedElementId && <Check className="w-3 h-3 text-cyan-600 dark:text-cyan-400 shrink-0" />}
+            </button>
+          </div>
+
           {/* 1. Đoạn thẳng & Cạnh */}
           {lineLayers.length > 0 && (
             <div className="py-1">
@@ -1259,80 +1300,32 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     </div>
   );
 
-  return (
-    <div ref={editorRootRef} className="absolute inset-0 pointer-events-none z-30">
-      {/* Hiệu ứng viền phát sáng nhẹ cho phần tử đang được chọn tinh chỉnh */}
-      {selectedElementId && (
-        <style>{`
-          [data-edit-id="${selectedElementId}"] {
-            filter: drop-shadow(0 0 3.5px #06b6d4) !important;
-          }
-        `}</style>
-      )}
+  // THANH ĐỊNH DẠNG HOÁN ĐỔI VÀO HEADER NGOÀI CANVAS (Word-Style Shape Format Bar)
+  const renderHeaderToolbar = () => (
+    <div className="editor-header-toolbar w-full flex items-center justify-between gap-2 text-xs text-slate-800 dark:text-slate-200 min-h-[36px]">
+      {/* Cụm chức năng bên trái: Dropdown chọn đối tượng & Các công cụ định dạng */}
+      <div className="flex items-center gap-2 min-w-0 flex-1 overflow-visible">
+        {/* Dropdown Bộ chọn đối tượng (Layers selector) */}
+        {renderLayersDropdown()}
 
-      {/* 1. THANH ĐỊNH DẠNG CỐ ĐỊNH PHÍA TRÊN CANVAS (Word-Style Shape Toolbar) */}
-      <div className="editor-toolbar-pill absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-auto max-w-[98%] overflow-visible z-40">
+        {/* Chưa chọn đối tượng: Hướng dẫn ngắn */}
         {!selectedElementId ? (
-          // TRẠNG THÁI CHƯA CHỌN: Dropdown + Hướng dẫn ngắn gọn
-          <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-full px-3 py-1.5 shadow-md shadow-slate-900/5 dark:shadow-black/40 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200 whitespace-nowrap">
-            {renderLayersDropdown()}
-
-            <div className="flex items-center gap-1.5 pr-2 border-r border-slate-200 dark:border-slate-800">
-              <span className="text-xs">✏️</span>
-              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 select-none">
-                <span className="hidden sm:inline text-slate-500 dark:text-slate-400 text-[11px]">
-                  Click gần đường nét hoặc kéo điểm để di chuyển
-                </span>
-              </span>
-            </div>
-
-            {/* Undo / Redo */}
-            <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={history.length === 0}
-                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                title="Hoàn tác (Ctrl+Z)"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleRedo}
-                disabled={future.length === 0}
-                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                title="Làm lại (Ctrl+Y)"
-              >
-                <Redo2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Hoàn tất */}
-            <button
-              type="button"
-              onClick={onCloseEditMode}
-              className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
-              title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
-            >
-              <Check className="w-3 h-3" />
-              <span>Hoàn tất</span>
-            </button>
+          <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium select-none truncate">
+            <span className="hidden md:inline">✏️ Click vào đường nét để chỉnh sửa hoặc kéo điểm để di chuyển</span>
+            <span className="md:hidden">✏️ Click đối tượng để sửa</span>
           </div>
         ) : (
-          // TRẠNG THÁI ĐÃ CHỌN ĐỐI TƯỢNG: Dropdown + Thanh định dạng nằm ngang (Shape Format Bar)
-          <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-cyan-500/40 dark:border-cyan-500/40 rounded-full px-3 py-1.5 shadow-lg shadow-slate-900/10 dark:shadow-black/50 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
-            {renderLayersDropdown()}
-
+          /* Đã chọn đối tượng: Thanh công cụ định dạng Shape Format */
+          <div className="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5 min-w-0">
             {/* Controls cho ĐƯỜNG NÉT */}
             {selectedElementType === 'line' && (
               <>
                 {/* 1. Kiểu nét: Liền / Đứt */}
-                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   <button
                     type="button"
                     onClick={() => updateElementStyle('stroke-dasharray', '')}
-                    className={`py-0.5 px-2 rounded-full font-medium text-[11px] transition cursor-pointer ${
+                    className={`py-1 px-2.5 rounded-lg font-medium text-xs transition cursor-pointer ${
                       !isDashed
                         ? 'bg-cyan-600 text-white shadow-xs'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1344,7 +1337,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => updateElementStyle('stroke-dasharray', '5 5')}
-                    className={`py-0.5 px-2 rounded-full font-medium text-[11px] transition cursor-pointer ${
+                    className={`py-1 px-2.5 rounded-lg font-medium text-xs transition cursor-pointer ${
                       isDashed
                         ? 'bg-cyan-600 text-white shadow-xs'
                         : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1356,7 +1349,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                 </div>
 
                 {/* 2. Độ dày nét: 1px, 1.5px, 2px, 3px */}
-                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   {['1', '1.5', '2', '3'].map((w) => {
                     const isActive = activeAttrs?.strokeWidth === w || (!activeAttrs?.strokeWidth && w === '1.5');
                     return (
@@ -1364,7 +1357,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                         key={w}
                         type="button"
                         onClick={() => updateElementStyle('stroke-width', w)}
-                        className={`py-0.5 px-1.5 rounded-md font-mono text-[10.5px] transition cursor-pointer ${
+                        className={`py-1 px-2 rounded-lg font-mono text-xs transition cursor-pointer ${
                           isActive
                             ? 'bg-cyan-600 text-white font-bold shadow-xs'
                             : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
@@ -1378,7 +1371,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                 </div>
 
                 {/* 3. Bảng màu nét vẽ (5 màu) */}
-                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   {[
                     { color: '#0f172a', title: 'Đen' },
                     { color: '#2563eb', title: 'Xanh dương' },
@@ -1405,25 +1398,25 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                 </div>
 
                 {/* 4. Ký hiệu bằng nhau & Góc vuông */}
-                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   <button
                     type="button"
                     onClick={handleToggleTicksOnSelectedLine}
-                    className="py-0.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                    className="py-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1 transition cursor-pointer"
                     title="Đánh dấu vạch bằng nhau (1 vạch / 2 vạch / Xóa)"
                   >
                     <Equal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                    <span>= Vạch //</span>
+                    <span className="hidden sm:inline">= Vạch //</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={handleAddRightAngleToSelectedLine}
-                    className="py-0.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                    className="py-1 px-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1 transition cursor-pointer"
                     title="Chèn ký hiệu góc vuông tại đỉnh gần nhất của đường này"
                   >
                     <SquareCode className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
-                    <span>⟂ Góc vuông</span>
+                    <span className="hidden sm:inline">⟂ Góc vuông</span>
                   </button>
                 </div>
               </>
@@ -1432,10 +1425,10 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             {/* Controls cho ĐA GIÁC / VÙNG DIỆN TÍCH */}
             {selectedElementType === 'polygon' && (
               <>
-                <div className="flex items-center gap-1 font-semibold text-[11px] text-amber-600 dark:text-amber-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
-                  <span>🎨 Tô màu diện tích</span>
+                <div className="flex items-center gap-1 font-semibold text-xs text-amber-600 dark:text-amber-400 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
+                  <span>🎨 Vùng:</span>
                 </div>
-                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   {[
                     { color: 'none', label: 'Xóa màu' },
                     { color: 'rgba(59, 130, 246, 0.25)', label: 'Xanh' },
@@ -1449,7 +1442,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                         key={item.color}
                         type="button"
                         onClick={() => updateElementStyle('fill', item.color)}
-                        className={`px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition cursor-pointer ${
+                        className={`px-2 py-0.5 rounded-full text-[11px] font-medium border transition cursor-pointer ${
                           isSelected
                             ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-semibold'
                             : 'border-slate-200 dark:border-slate-700 hover:border-cyan-500'
@@ -1469,14 +1462,14 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             {/* Controls cho KÝ HIỆU GÓC VUÔNG */}
             {selectedElementType === 'angle' && (
               <>
-                <div className="flex items-center gap-1 font-semibold text-[11px] text-indigo-600 dark:text-indigo-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1 font-semibold text-xs text-indigo-600 dark:text-indigo-400 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   <span>📐 Ký hiệu góc</span>
                 </div>
-                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   <button
                     type="button"
                     onClick={handleRotateSelectedAngle}
-                    className="py-0.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                    className="py-1 px-2.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-xs flex items-center gap-1 transition cursor-pointer"
                   >
                     <RotateCw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                     <span>Xoay góc 90°</span>
@@ -1488,10 +1481,10 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             {/* Controls cho NHÃN CHỮ */}
             {selectedElementType === 'text' && (
               <>
-                <div className="flex items-center gap-1 font-semibold text-[11px] text-emerald-600 dark:text-emerald-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
-                  <span>🏷️ Nhãn chữ</span>
+                <div className="flex items-center gap-1 font-semibold text-xs text-emerald-600 dark:text-emerald-400 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
+                  <span>🏷️ Chữ:</span>
                 </div>
-                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800 shrink-0">
                   {[
                     { color: '#0f172a', title: 'Đen' },
                     { color: '#2563eb', title: 'Xanh dương' },
@@ -1523,7 +1516,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             <button
               type="button"
               onClick={deleteSelectedElement}
-              className="p-1 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer shrink-0"
               title="Xóa phần tử này (Delete)"
             >
               <Trash2 className="w-3.5 h-3.5" />
@@ -1533,89 +1526,112 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             <button
               type="button"
               onClick={deselectElement}
-              className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer border-r border-slate-200 dark:border-slate-800 pr-1"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer shrink-0"
               title="Bỏ chọn (Esc)"
             >
               <X className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Undo / Redo */}
-            <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
-              <button
-                type="button"
-                onClick={handleUndo}
-                disabled={history.length === 0}
-                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                title="Hoàn tác (Ctrl+Z)"
-              >
-                <Undo2 className="w-3.5 h-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={handleRedo}
-                disabled={future.length === 0}
-                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-                title="Làm lại (Ctrl+Y)"
-              >
-                <Redo2 className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            {/* Hoàn tất */}
-            <button
-              type="button"
-              onClick={onCloseEditMode}
-              className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
-              title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
-            >
-              <Check className="w-3 h-3" />
-              <span>Hoàn tất</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* 2. INLINE TEXT INPUT POPOVER KHI DOUBLE CLICK TEXT */}
-      {editingText && (
-        <div
-          className="editor-text-input-popover fixed pointer-events-auto z-50 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 shadow-2xl flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100"
-          style={{
-            left: `${editingText.screenX}px`,
-            top: `${editingText.screenY}px`,
-            transform: 'translateY(-100%)',
-          }}
-        >
-          <input
-            type="text"
-            autoFocus
-            value={textInputValue}
-            onChange={(e) => setTextInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitTextEdit();
-              if (e.key === 'Escape') setEditingText(null);
-            }}
-            className="w-28 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-cyan-500 font-semibold"
-            placeholder="Nhập chữ/số..."
-          />
+      {/* Cụm bên phải: Undo / Redo & Hoàn tất */}
+      <div className="flex items-center gap-1.5 shrink-0 pl-2">
+        <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
           <button
             type="button"
-            onClick={commitTextEdit}
-            className="p-1 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-xs cursor-pointer"
-            title="Lưu"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+            title="Hoàn tác (Ctrl+Z)"
           >
-            <Check className="w-3.5 h-3.5" />
+            <Undo2 className="w-3.5 h-3.5" />
           </button>
           <button
             type="button"
-            onClick={() => setEditingText(null)}
-            className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
-            title="Hủy"
+            onClick={handleRedo}
+            disabled={future.length === 0}
+            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+            title="Làm lại (Ctrl+Y)"
           >
-            <X className="w-3.5 h-3.5" />
+            <Redo2 className="w-3.5 h-3.5" />
           </button>
         </div>
-      )}
+
+        <button
+          type="button"
+          onClick={onCloseEditMode}
+          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-xs transition cursor-pointer shrink-0"
+          title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
+        >
+          <Check className="w-3.5 h-3.5" />
+          <span>Hoàn tất</span>
+        </button>
+      </div>
     </div>
+  );
+
+  const targetSlot =
+    portalNode || (typeof document !== 'undefined' ? document.getElementById('canvasHeaderEditSlot') : null);
+
+  return (
+    <>
+      {/* 1. THANH ĐỊNH DẠNG HOÁN ĐỔI VÀO HEADER NGOÀI CANVAS QUA REACT PORTAL */}
+      {targetSlot && createPortal(renderHeaderToolbar(), targetSlot)}
+
+      {/* 2. HIỆU ỨNG VÀ OVERLAY TRÊN CANVAS (HOÀN TOÀN KHÔNG CÓ THANH CÔNG CỤ NỔI NÀO CHE HÌNH) */}
+      <div ref={editorRootRef} className="absolute inset-0 pointer-events-none z-30">
+        {/* Hiệu ứng viền phát sáng nhẹ cho phần tử đang được chọn tinh chỉnh */}
+        {selectedElementId && (
+          <style>{`
+            [data-edit-id="${selectedElementId}"] {
+              filter: drop-shadow(0 0 3.5px #06b6d4) !important;
+            }
+          `}</style>
+        )}
+
+        {/* INLINE TEXT INPUT POPOVER KHI DOUBLE CLICK TEXT */}
+        {editingText && (
+          <div
+            className="editor-text-input-popover fixed pointer-events-auto z-50 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 shadow-2xl flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100"
+            style={{
+              left: `${editingText.screenX}px`,
+              top: `${editingText.screenY}px`,
+              transform: 'translateY(-100%)',
+            }}
+          >
+            <input
+              type="text"
+              autoFocus
+              value={textInputValue}
+              onChange={(e) => setTextInputValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitTextEdit();
+                if (e.key === 'Escape') setEditingText(null);
+              }}
+              className="w-28 px-2 py-1 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 outline-none focus:border-cyan-500 font-semibold"
+              placeholder="Nhập chữ/số..."
+            />
+            <button
+              type="button"
+              onClick={commitTextEdit}
+              className="p-1 rounded-md bg-cyan-600 hover:bg-cyan-500 text-white text-xs cursor-pointer"
+              title="Lưu"
+            >
+              <Check className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingText(null)}
+              className="p-1 rounded-md text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer"
+              title="Hủy"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 };
 
