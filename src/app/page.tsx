@@ -45,6 +45,7 @@ import {
   extractOcrTextFromImage,
   generateMathWithFallback,
 } from '@/lib/geminiClient';
+import UnifiedProblemInput from '@/components/UnifiedProblemInput';
 
 const PRESETS = [
   {
@@ -1347,121 +1348,35 @@ function HomeContent() {
               </div>
             </div>
 
-            {/* Textarea */}
-            <div className="flex flex-col gap-1.5">
+            {/* Unified Multimodal Input Box */}
+            <div className="flex flex-col gap-1.5 flex-1 min-h-0">
               <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
                 <span>Nội dung đề bài</span>
                 <span className="text-[10px] text-slate-500 font-normal">
-                  Văn bản hoặc mô tả hình vẽ
+                  Hỗ trợ văn bản hoặc dán ảnh (Ctrl+V)
                 </span>
               </label>
-              <textarea
+
+              <UnifiedProblemInput
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                placeholder="Nhập đề bài toán (ví dụ: Một chiếc thang dài 4m dựa vào tường tạo góc 60 độ với mặt đất...)"
-                rows={4}
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-600 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 resize-none transition"
+                onChange={(val) => setPrompt(val)}
+                imagePreview={imagePreview}
+                onImageChange={(b64, file) => {
+                  setImagePreview(b64);
+                  if (file) setImageMimeType(file.type);
+                }}
+                onOcrExtract={async (base64) => {
+                  return await extractOcrTextFromImage({
+                    imageBase64: base64,
+                    mimeType: imageMimeType,
+                    apiKey: customApiKey || undefined,
+                  });
+                }}
+                onSubmit={() => handleGenerate()}
+                isLoading={loading}
+                submitButtonText={`Tạo hình (${styleMode === 'color' ? 'Màu sắc' : 'Đơn sắc'})`}
+                placeholder="Nhập đề bài toán, dán ảnh (Ctrl+V) hoặc bấm đính kèm ảnh bên dưới..."
               />
-            </div>
-
-            {/* Drag & Drop / Paste Image Area */}
-            <div className="flex flex-col gap-1.5">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span className="flex items-center gap-1.5">
-                  <ImageIcon className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Ảnh đề bài toán (OCR AI)
-                </span>
-                <span className="text-[10px] text-cyan-600 dark:text-cyan-400 font-normal">
-                  Hỗ trợ Ctrl+V / Cmd+V
-                </span>
-              </label>
-
-              {imagePreview ? (
-                <div className="relative group rounded-xl overflow-hidden border border-cyan-500/40 bg-slate-50 dark:bg-slate-950 p-2.5 flex items-center gap-3 shadow-sm dark:shadow-md dark:shadow-cyan-950/40">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={imagePreview}
-                    alt="Preview bài toán"
-                    className="w-16 h-16 object-cover rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
-                  />
-                  <div className="flex-1 min-w-0 text-xs">
-                    <div className="flex items-center gap-1.5 text-cyan-700 dark:text-cyan-300 font-semibold">
-                      <span>Đã đính kèm ảnh đề bài</span>
-                      <span className="text-[9px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-700 dark:text-cyan-400 font-mono">
-                        {imageMimeType.split('/')[1]?.toUpperCase() || 'IMAGE'}
-                      </span>
-                    </div>
-                    <p className="text-slate-500 dark:text-slate-400 text-[10px] mt-0.5">
-                      Gemini 3.6 Flash sẽ tự động đọc chữ (OCR) & dựng mô hình toán.
-                    </p>
-                  </div>
-                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 shrink-0">
-                    <button
-                      type="button"
-                      onClick={handleExtractText}
-                      disabled={isOcrLoading}
-                      className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-wait"
-                      title="Trích xuất đề bài toán bằng OCR vào ô văn bản"
-                    >
-                      {isOcrLoading ? (
-                        <>
-                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                          <span>Đang đọc...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                          <span>⚡ Đọc chữ</span>
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setImagePreview(null)}
-                      className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-medium transition flex items-center gap-1"
-                      title="Xóa ảnh"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Xóa ảnh</span>
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div
-                  onDragOver={handleDragOver}
-                  onDragLeave={handleDragLeave}
-                  onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition flex flex-col items-center justify-center gap-2 ${
-                    isDragging
-                      ? 'border-cyan-500 bg-cyan-500/10'
-                      : 'border-slate-300 dark:border-slate-800 hover:border-slate-400 dark:hover:border-slate-700 bg-slate-50/70 dark:bg-slate-950/40 hover:bg-slate-100/80 dark:hover:bg-slate-950/70'
-                  }`}
-                >
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      if (e.target.files && e.target.files[0]) {
-                        processFile(e.target.files[0]);
-                      }
-                    }}
-                  />
-                  <div className="w-9 h-9 rounded-xl bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-600 dark:text-cyan-400">
-                    <Upload className="w-4.5 h-4.5" />
-                  </div>
-                  <div className="text-xs">
-                    <span className="font-semibold text-cyan-600 dark:text-cyan-400 hover:underline">
-                      Chọn file ảnh từ máy
-                    </span>{' '}
-                    hoặc <span className="text-slate-600 dark:text-slate-300 font-medium">kéo thả / dán (Ctrl+V)</span>
-                  </div>
-                  <p className="text-[10px] text-slate-500">
-                    Hỗ trợ PNG, JPG, WEBP — Tự động nhận diện đề toán bằng OCR
-                  </p>
-                </div>
-              )}
             </div>
 
             {/* Error Banner */}
@@ -1499,25 +1414,6 @@ function HomeContent() {
                 </div>
               );
             })()}
-
-            {/* Generate Action Button */}
-            <button
-              onClick={() => handleGenerate()}
-              disabled={loading}
-              className="mt-auto w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-semibold text-sm shadow-md shadow-cyan-500/20 hover:shadow-lg hover:shadow-cyan-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2 group"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Đang phân tích & tạo mã SVG...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 text-cyan-200 group-hover:rotate-12 transition transform" />
-                  <span>Tạo hình minh họa ({styleMode === 'color' ? 'Màu sắc' : 'Đơn sắc'})</span>
-                </>
-              )}
-            </button>
           </div>
         </section>
 
