@@ -41,6 +41,7 @@ import {
 import UnifiedProblemInput from '@/components/UnifiedProblemInput';
 import SavedCollection from '@/components/SavedCollection';
 import ExportDropdown from '@/components/ExportDropdown';
+import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
 
 const PRESETS = [
   {
@@ -172,14 +173,6 @@ function HomeContent() {
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
   const svgContainerRef = useRef<HTMLDivElement>(null);
-  const draggingElementRef = useRef<{
-    element: SVGElement;
-    startX: number;
-    startY: number;
-    initX: number;
-    initY: number;
-    type: 'text' | 'circle';
-  } | null>(null);
 
   // Feature 2: Personal History & Saved Collection
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -910,126 +903,6 @@ function HomeContent() {
     URL.revokeObjectURL(url);
   };
 
-  // Helper: Convert screen clientX, clientY into SVG viewBox coordinates
-  const getSvgCoordinates = (svg: SVGSVGElement, clientX: number, clientY: number) => {
-    const pt = svg.createSVGPoint();
-    pt.x = clientX;
-    pt.y = clientY;
-    const ctm = svg.getScreenCTM();
-    if (ctm) {
-      const transformed = pt.matrixTransform(ctm.inverse());
-      return { x: transformed.x, y: transformed.y };
-    }
-    return { x: clientX, y: clientY };
-  };
-
-  // Interactive SVG Canvas Drag & Drop Listeners
-  useEffect(() => {
-    if (!isEditMode || !svgOutput) return;
-
-    const svgMount = document.getElementById('svgMount');
-    if (!svgMount) return;
-
-    const svg = svgMount.querySelector('svg');
-    if (!svg) return;
-
-    const handlePointerDown = (e: PointerEvent) => {
-      const target = e.target as SVGElement;
-      if (!target) return;
-
-      // Find if clicked element is a <text> or <circle>
-      const textTarget = (target.tagName.toLowerCase() === 'text'
-        ? target
-        : target.closest('text')) as SVGTextElement | null;
-      const circleTarget = (target.tagName.toLowerCase() === 'circle'
-        ? target
-        : target.closest('circle')) as SVGCircleElement | null;
-
-      if (textTarget) {
-        e.preventDefault();
-        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
-        const initX = parseFloat(textTarget.getAttribute('x') || '0');
-        const initY = parseFloat(textTarget.getAttribute('y') || '0');
-
-        draggingElementRef.current = {
-          element: textTarget,
-          startX,
-          startY,
-          initX,
-          initY,
-          type: 'text',
-        };
-        textTarget.classList.add('opacity-80');
-      } else if (circleTarget) {
-        e.preventDefault();
-        const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
-        const initX = parseFloat(circleTarget.getAttribute('cx') || '0');
-        const initY = parseFloat(circleTarget.getAttribute('cy') || '0');
-
-        draggingElementRef.current = {
-          element: circleTarget,
-          startX,
-          startY,
-          initX,
-          initY,
-          type: 'circle',
-        };
-        circleTarget.classList.add('opacity-80');
-      }
-    };
-
-    const handlePointerMove = (e: PointerEvent) => {
-      if (!draggingElementRef.current) return;
-      e.preventDefault();
-
-      const { element, startX, startY, initX, initY, type } = draggingElementRef.current;
-      const currentPos = getSvgCoordinates(svg, e.clientX, e.clientY);
-      const dx = currentPos.x - startX;
-      const dy = currentPos.y - startY;
-
-      if (type === 'text') {
-        const newX = Math.round((initX + dx) * 10) / 10;
-        const newY = Math.round((initY + dy) * 10) / 10;
-        element.setAttribute('x', String(newX));
-        element.setAttribute('y', String(newY));
-
-        // Also update any child tspans if they have absolute x coords
-        const tspans = element.querySelectorAll('tspan');
-        tspans.forEach((tspan) => {
-          if (tspan.getAttribute('x')) {
-            tspan.setAttribute('x', String(newX));
-          }
-        });
-      } else if (type === 'circle') {
-        const newCx = Math.round((initX + dx) * 10) / 10;
-        const newCy = Math.round((initY + dy) * 10) / 10;
-        element.setAttribute('cx', String(newCx));
-        element.setAttribute('cy', String(newCy));
-      }
-    };
-
-    const handlePointerUp = () => {
-      if (draggingElementRef.current) {
-        draggingElementRef.current.element.classList.remove('opacity-80');
-        draggingElementRef.current = null;
-
-        // Synchronize updated SVG DOM back to React state
-        const serialized = new XMLSerializer().serializeToString(svg);
-        setSvgOutput(serialized);
-      }
-    };
-
-    svg.addEventListener('pointerdown', handlePointerDown);
-    window.addEventListener('pointermove', handlePointerMove);
-    window.addEventListener('pointerup', handlePointerUp);
-
-    return () => {
-      svg.removeEventListener('pointerdown', handlePointerDown);
-      window.removeEventListener('pointermove', handlePointerMove);
-      window.removeEventListener('pointerup', handlePointerUp);
-    };
-  }, [isEditMode, svgOutput]);
-
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-cyan-500 selection:text-white transition-colors duration-200">
       {/* Background visual elements */}
@@ -1511,19 +1384,19 @@ function HomeContent() {
               <button
                 onClick={() => setIsEditMode(!isEditMode)}
                 disabled={!svgOutput || isGenerating}
-                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border ${
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5 border cursor-pointer ${
                   isEditMode
-                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30'
+                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-md shadow-cyan-600/30 ring-2 ring-cyan-500/20'
                     : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-transparent disabled:opacity-40'
                 }`}
                 title={
                   isEditMode
-                    ? 'Tắt chế độ chỉnh sửa kéo thả'
-                    : 'Bật chế độ chỉnh sửa trực tiếp: Kéo thả nhãn số đo & tên điểm bằng chuột'
+                    ? 'Đang bật chế độ chỉnh sửa. Bấm để tắt.'
+                    : 'Bật chế độ chỉnh sửa trực tiếp: Kéo thả nhãn số đo, đổi nét đứt/liền, đổi màu, góc vuông'
                 }
               >
                 <MousePointerClick className="w-3.5 h-3.5" />
-                <span>{isEditMode ? 'Đang Chỉnh sửa' : 'Chỉnh sửa trực tiếp'}</span>
+                <span>{isEditMode ? 'Đang Chỉnh sửa' : '✏️ Chỉnh sửa trực tiếp'}</span>
               </button>
 
               {/* Dropdown "Xuất hình ảnh" Đa định dạng & Tùy chọn Độ phân giải */}
@@ -1657,12 +1530,21 @@ function HomeContent() {
                 </div>
               )}
 
+              {/* Interactive SVG Editor Overlay & Floating Toolbar */}
+              <InteractiveSvgEditor
+                svgCode={svgOutput || ''}
+                isEditMode={isEditMode}
+                onUpdateSvg={(newSvg) => setSvgOutput(newSvg)}
+                onCloseEditMode={() => setIsEditMode(false)}
+                mountContainerId="svgMount"
+              />
+
               {svgOutput ? (
                 <div
                   id="svgMount"
                   className={`w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-auto [&>svg]:h-auto ${
                     isEditMode
-                      ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500'
+                      ? '[&_text]:cursor-move [&_circle]:cursor-move [&_text:hover]:outline [&_text:hover]:outline-2 [&_text:hover]:outline-dashed [&_text:hover]:outline-cyan-500 [&_circle:hover]:outline [&_circle:hover]:outline-2 [&_circle:hover]:outline-dashed [&_circle:hover]:outline-cyan-500 [&_line]:cursor-pointer [&_line:hover]:stroke-cyan-500 [&_line:hover]:stroke-[2.5px] [&_path]:cursor-pointer [&_path:hover]:stroke-cyan-500 [&_polyline]:cursor-pointer [&_polyline:hover]:stroke-cyan-500 [&_polygon]:cursor-pointer [&_polygon:hover]:opacity-85'
                       : ''
                   }`}
                   dangerouslySetInnerHTML={{ __html: svgOutput }}
