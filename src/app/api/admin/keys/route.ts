@@ -11,28 +11,18 @@ function generateRandomKey(type: 'VIP' | 'TRIAL' = 'VIP'): string {
   return `MV-VIP-${p1}-${p2}`;
 }
 
-// GET: Fetch license keys (All for ADMIN, own keys for STAFF)
+// GET: Fetch license keys (Only for ADMIN)
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user) {
+  if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
-      { error: 'Chưa đăng nhập hoặc phiên làm việc đã hết hạn.' },
-      { status: 401 }
+      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền truy cập.' },
+      { status: 403 }
     );
   }
 
   try {
-    const userRole = (user.role || '').toUpperCase();
-    const cuid = (user as any).cuid;
-    const whereCondition =
-      userRole === 'ADMIN'
-        ? {}
-        : cuid
-        ? { OR: [{ createdById: user.id }, { createdById: cuid }] }
-        : { createdById: user.id };
-
     const keys = await prisma.licenseKey.findMany({
-      where: whereCondition,
       include: {
         createdBy: {
           select: { id: true, username: true, name: true, role: true },
@@ -51,13 +41,13 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Create a new license key
+// POST: Create a new license key (Only for ADMIN)
 export async function POST(req: NextRequest) {
   const currentUser = await getCurrentUserFromRequest(req);
-  if (!currentUser) {
+  if (!currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
-      { error: 'Chưa đăng nhập hoặc phiên làm việc đã hết hạn.' },
-      { status: 401 }
+      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền tạo License Key.' },
+      { status: 403 }
     );
   }
 

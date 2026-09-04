@@ -24,9 +24,11 @@ export function verifyToken(token: string): TokenPayload | null {
   }
 }
 
+export { verifyJwtToken } from './jwt';
+
 export async function getCurrentUserFromRequest(req: NextRequest) {
-  // 1. Try Cookie
-  let token = req.cookies.get('mathviz_auth_token')?.value;
+  // 1. Try Cookies (support both auth_token and mathviz_auth_token)
+  let token = req.cookies.get('auth_token')?.value || req.cookies.get('mathviz_auth_token')?.value;
 
   // 2. Try Authorization Bearer Header
   if (!token) {

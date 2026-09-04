@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   ShieldCheck,
   KeyRound,
@@ -115,6 +116,7 @@ interface UserAccountItem {
 }
 
 export default function UnifiedAdminPage() {
+  const router = useRouter();
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
 
@@ -240,7 +242,7 @@ export default function UnifiedAdminPage() {
     }
   };
 
-  // Check Auth Session (Only show full screen loading on initial check if currentUser is not yet loaded)
+  // Check Auth Session (Only allow ADMIN role, redirect unauthorized to home)
   const checkAuth = useCallback(async (showLoading = true) => {
     if (showLoading) {
       setAuthLoading(true);
@@ -249,22 +251,39 @@ export default function UnifiedAdminPage() {
       const res = await fetch('/api/auth/me');
       const data = await res.json();
       if (res.ok && data.user) {
-        setCurrentUser(data.user);
+        const role = (data.user.role || '').toLowerCase();
+        if (role === 'admin') {
+          setCurrentUser(data.user);
+        } else {
+          setCurrentUser(null);
+          router.replace('/?error=unauthorized');
+        }
       } else {
         setCurrentUser(null);
+        router.replace('/?error=unauthorized');
       }
     } catch {
       setCurrentUser(null);
+      router.replace('/?error=unauthorized');
     } finally {
       if (showLoading) {
         setAuthLoading(false);
       }
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     checkAuth(true);
   }, [checkAuth]);
+
+  // Client Guard: Immediately push to home if not admin after auth verification
+  useEffect(() => {
+    if (!authLoading) {
+      if (!currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
+        router.replace('/?error=unauthorized');
+      }
+    }
+  }, [authLoading, currentUser, router]);
 
   // Fetch Keys (supports silent refresh)
   const fetchKeys = useCallback(async (showLoading = true) => {
@@ -385,6 +404,7 @@ export default function UnifiedAdminPage() {
     setCurrentUser(null);
     setKeys([]);
     setUserAccounts([]);
+    router.replace('/');
   };
 
   // Handle Create License Key
@@ -836,124 +856,14 @@ export default function UnifiedAdminPage() {
   };
 
   // ----------------------------------------------------
-  // SCREEN 1: Checking Auth Session Loading
+  // SECURITY GUARD: Checking Auth Session or Unauthorized Access
   // ----------------------------------------------------
-  if (authLoading) {
+  if (authLoading || !currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3 text-slate-500 dark:text-slate-400">
           <RefreshCw className="w-8 h-8 animate-spin text-cyan-600 dark:text-cyan-400" />
-          <p className="text-xs font-medium">Đang kiểm tra phiên làm việc...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ----------------------------------------------------
-  // SCREEN 2: Login Screen (When currentUser === null)
-  // ----------------------------------------------------
-  if (!currentUser) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col items-center justify-center p-4 transition-colors duration-200 relative overflow-hidden">
-        {/* Background visual elements */}
-        <div className="fixed inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute top-1/4 -left-40 w-96 h-96 bg-cyan-600/10 dark:bg-cyan-600/15 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-1/4 -right-40 w-96 h-96 bg-indigo-600/10 dark:bg-indigo-600/15 rounded-full blur-3xl"></div>
-        </div>
-
-        {/* Theme Toggle Button */}
-        <div className="absolute top-4 right-4 z-20">
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-amber-400 shadow-sm"
-            title={theme === 'dark' ? 'Chuyển sang chế độ Sáng' : 'Chuyển sang chế độ Tối'}
-          >
-            {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4 text-slate-700" />}
-          </button>
-        </div>
-
-        <div className="max-w-md w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl dark:shadow-2xl dark:shadow-slate-950 relative z-10 transition-colors">
-          {/* Header */}
-          <div className="flex flex-col items-center text-center gap-3 mb-6">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-cyan-500 via-blue-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
-              <ShieldCheck className="w-7 h-7 text-white" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-slate-900 via-slate-700 to-slate-500 dark:from-white dark:via-slate-100 dark:to-slate-400 bg-clip-text text-transparent">
-                Cổng Quản Trị & CTV
-              </h1>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Đăng nhập tài khoản Administrator hoặc Cộng tác viên
-              </p>
-            </div>
-          </div>
-
-          {/* Form */}
-          <form onSubmit={handleLogin} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <User className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Tên đăng nhập
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Nhập tên tài khoản..."
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-200 outline-none transition font-sans"
-                required
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5 text-left">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Mật khẩu
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Nhập mật khẩu..."
-                className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-300 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-4 py-2.5 text-sm text-slate-900 dark:text-slate-200 outline-none transition font-sans"
-                required
-              />
-            </div>
-
-            {loginError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
-                <span>{loginError}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={loginLoading}
-              className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white font-semibold text-sm shadow-md shadow-cyan-500/20 disabled:opacity-50 transition flex items-center justify-center gap-2"
-            >
-              {loginLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white" />
-                  <span>Đang xác thực...</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>Đăng nhập</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-4 border-t border-slate-200 dark:border-slate-800 text-center">
-            <a
-              href="/"
-              className="text-xs text-slate-500 dark:text-slate-400 hover:text-cyan-600 dark:hover:text-cyan-400 transition flex items-center justify-center gap-1.5"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Quay lại trang chủ MathViz Studio</span>
-            </a>
-          </div>
+          <p className="text-xs font-medium">Đang kiểm tra quyền truy cập...</p>
         </div>
       </div>
     );

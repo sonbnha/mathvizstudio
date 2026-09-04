@@ -8,10 +8,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user) {
+  if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
-      { error: 'Chưa đăng nhập hoặc phiên làm việc đã hết hạn.' },
-      { status: 401 }
+      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền xóa License Key.' },
+      { status: 403 }
     );
   }
 
@@ -23,19 +23,6 @@ export async function DELETE(
         { error: 'Thiếu ID của License Key cần xóa.' },
         { status: 400 }
       );
-    }
-
-    // Check ownership if STAFF
-    if ((user.role || '').toLowerCase() !== 'admin') {
-      const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
-      const cuid = (user as any).cuid;
-      const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
-      if (!isOwner) {
-        return NextResponse.json(
-          { error: 'Bạn không có quyền xóa License Key này.' },
-          { status: 403 }
-        );
-      }
     }
 
     await prisma.licenseKey.delete({
