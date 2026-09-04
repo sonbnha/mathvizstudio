@@ -62,7 +62,10 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
     try {
       const endpoint = tab === 'login' ? '/api/auth/login' : '/api/auth/register';
-      const payload = tab === 'login' ? { email, password } : { email, password, name };
+      const payload =
+        tab === 'login'
+          ? { identifier: email.trim(), username: email.trim(), email: email.trim(), password }
+          : { email: email.trim(), password, name: name.trim() };
 
       const res = await fetch(endpoint, {
         method: 'POST',
@@ -178,17 +181,21 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
 
           <div>
             <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1.5">
-              Địa chỉ Email
+              {tab === 'login' ? 'Tên đăng nhập / Email' : 'Địa chỉ Email'}
             </label>
             <div className="relative">
-              <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              {tab === 'login' ? (
+                <UserIcon className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              ) : (
+                <Mail className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              )}
               <input
-                type="email"
+                type={tab === 'login' ? 'text' : 'email'}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="giaovien@gmail.com"
+                placeholder={tab === 'login' ? 'Tên đăng nhập hoặc Email' : 'giaovien@gmail.com'}
                 required
-                className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all"
+                className="w-full pl-10 pr-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 transition-all font-sans"
               />
             </div>
           </div>

@@ -32,7 +32,7 @@ async function handleUpdateUser(
   try {
     const { id } = await params;
     const body = await req.json().catch(() => ({}));
-    const { name, email, role, status, newPassword, password, isActive, is_active } = body;
+    const { name, email, username, role, status, newPassword, password, isActive, is_active } = body;
 
     await initDb();
     const sql = getDb();
@@ -76,6 +76,36 @@ async function handleUpdateUser(
       }
     }
 
+    // Chuẩn hóa & kiểm tra Username
+    let cleanUsername = targetUser.username;
+    if (username !== undefined && username !== null) {
+      const uTrim = String(username).trim();
+      if (uTrim !== '') {
+        if (/\s/.test(uTrim)) {
+          return NextResponse.json(
+            { error: 'Tên đăng nhập không được chứa khoảng trắng (dấu cách).' },
+            { status: 400 }
+          );
+        }
+        cleanUsername = uTrim;
+      }
+    }
+
+    // Kiểm tra trùng lặp username nếu username bị thay đổi
+    if (cleanUsername && cleanUsername !== targetUser.username) {
+      const usernameConflict = await sql`
+        SELECT id FROM users 
+        WHERE LOWER(username) = LOWER(${cleanUsername}) AND id != ${targetUser.id}::uuid 
+        LIMIT 1
+      `;
+      if (usernameConflict && usernameConflict.length > 0) {
+        return NextResponse.json(
+          { error: 'Tên đăng nhập đã được sử dụng.' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Chuẩn hóa role: 'admin' | 'ctv' | 'user'
     let cleanRole = targetUser.role || 'user';
     if (role !== undefined && role !== null) {
@@ -104,21 +134,17 @@ async function handleUpdateUser(
     const passwordHash = rawPass ? await bcrypt.hash(rawPass, 10) : null;
 
     // 3. Thực thi UPDATE trực tiếp vào bảng users trên Neon Postgres
-    // UPDATE users 
-    // SET name = $1, email = $2, role = $3, status = $4,
-    //     password_hash = COALESCE($5, password_hash)
-    // WHERE id = $6
-    // RETURNING id, name, email, role, status;
     const updatedRows = await sql`
       UPDATE users 
       SET name = ${cleanName},
           email = ${cleanEmail},
+          username = ${cleanUsername},
           role = ${cleanRole},
           status = ${cleanStatus},
           is_active = ${isActiveBool},
           password_hash = COALESCE(${passwordHash}, password_hash)
       WHERE id = ${targetUser.id}::uuid
-      RETURNING id, name, email, role, status;
+      RETURNING id, name, email, username, role, status;
     `;
 
     if (!updatedRows || updatedRows.length === 0) {
@@ -135,6 +161,7 @@ async function handleUpdateUser(
           isActive: isActiveBool,
           role: cleanRole === 'admin' ? 'ADMIN' : 'STAFF',
         };
+        if (cleanUsername) prismaUpdate.username = cleanUsername;
         if (passwordHash) prismaUpdate.passwordHash = passwordHash;
         await prisma.user.update({ where: { id: targetUser.cuid }, data: prismaUpdate });
       } catch {}
@@ -148,6 +175,7 @@ async function handleUpdateUser(
           id: u.id,
           name: u.name,
           email: u.email,
+          username: u.username,
           role: u.role,
           status: u.status,
           is_active: u.status === 'active',

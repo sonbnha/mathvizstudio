@@ -193,6 +193,7 @@ export default function UnifiedAdminPage() {
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editAccName, setEditAccName] = useState('');
   const [editAccEmail, setEditAccEmail] = useState('');
+  const [editAccUsername, setEditAccUsername] = useState('');
   const [editAccPassword, setEditAccPassword] = useState('');
   const [editAccRole, setEditAccRole] = useState<'admin' | 'ctv' | 'user'>('user');
   const [editAccStatus, setEditAccStatus] = useState<'active' | 'banned'>('active');
@@ -612,7 +613,8 @@ export default function UnifiedAdminPage() {
   const handleOpenEditUserModal = (userItem: UserAccountItem) => {
     setEditingUserId(userItem.id);
     setEditAccName(userItem.name || '');
-    setEditAccEmail(userItem.email || userItem.username || '');
+    setEditAccEmail(userItem.email || '');
+    setEditAccUsername(userItem.username || (userItem.email ? userItem.email.split('@')[0] : ''));
     const normRole = (userItem.role || '').toLowerCase();
     const validRole: 'admin' | 'ctv' | 'user' =
       normRole === 'admin' ? 'admin' : (normRole === 'ctv' || normRole === 'staff' ? 'ctv' : 'user');
@@ -637,6 +639,14 @@ export default function UnifiedAdminPage() {
       setEditUserError('Vui lòng nhập địa chỉ email.');
       return;
     }
+    if (!editAccUsername.trim()) {
+      setEditUserError('Vui lòng nhập tên đăng nhập (Username).');
+      return;
+    }
+    if (/\s/.test(editAccUsername.trim())) {
+      setEditUserError('Tên đăng nhập không được chứa khoảng trắng (dấu cách).');
+      return;
+    }
 
     setEditUserError(null);
     setEditUserLoading(true);
@@ -648,6 +658,7 @@ export default function UnifiedAdminPage() {
         body: JSON.stringify({
           name: editAccName.trim(),
           email: editAccEmail.trim().toLowerCase(),
+          username: editAccUsername.trim(),
           role: editAccRole,
           status: editAccStatus,
           newPassword: editAccPassword.trim() || undefined,
@@ -2986,7 +2997,26 @@ export default function UnifiedAdminPage() {
                   value={editAccEmail}
                   onChange={(e) => setEditAccEmail(e.target.value)}
                   placeholder="email@example.com"
-                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-sans"
+                  required
+                />
+              </div>
+
+              {/* 2.1 Tên đăng nhập (Username) */}
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <span>Tên đăng nhập (Username)</span>
+                    <span className="text-rose-500">*</span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-normal">Không chứa dấu cách</span>
+                </label>
+                <input
+                  type="text"
+                  value={editAccUsername}
+                  onChange={(e) => setEditAccUsername(e.target.value.replace(/\s+/g, ''))}
+                  placeholder="Ví dụ: son_admin, toan_thpt..."
+                  className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-mono"
                   required
                 />
               </div>

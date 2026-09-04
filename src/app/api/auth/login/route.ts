@@ -7,14 +7,20 @@ import { initDb } from '@/lib/init-db';
 
 export async function POST(req: NextRequest) {
   try {
-    let body: { email?: string; username?: string; password?: string };
+    let body: {
+      email?: string;
+      username?: string;
+      identifier?: string;
+      usernameOrEmail?: string;
+      password?: string;
+    };
     try {
       body = await req.json();
     } catch {
       body = {};
     }
 
-    const identifier = (body.email || body.username || '').trim();
+    const identifier = (body.identifier || body.usernameOrEmail || body.username || body.email || '').trim();
     const password = body.password || '';
 
     if (!identifier || !password) {
@@ -24,15 +30,14 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Kiểm tra trong Neon Database bảng `users` (đăng nhập bằng email)
+    // 1. Kiểm tra trong Neon Database bảng `users` (so sánh cả username lẫn email)
     try {
       await initDb();
       const sql = getDb();
       const neonUsers = await sql`
         SELECT id, email, username, password_hash, name, role, status, is_active, api_key, cuid
         FROM users
-        WHERE LOWER(email) = LOWER(${identifier})
-           OR (username IS NOT NULL AND LOWER(username) = LOWER(${identifier}))
+        WHERE LOWER(username) = LOWER(${identifier}) OR LOWER(email) = LOWER(${identifier})
         LIMIT 1
       `;
 
@@ -98,8 +103,10 @@ export async function POST(req: NextRequest) {
 
     // 2. Tương thích ngược: Kiểm tra trong Prisma User (Admin / CTV)
     try {
-      const prismaUser = await prisma.user.findUnique({
-        where: { username: identifier },
+      const prismaUser = await prisma.user.findFirst({
+        where: {
+          OR: [{ username: identifier }, { username: identifier.toLowerCase() }],
+        },
       });
 
       if (prismaUser) {
