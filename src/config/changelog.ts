@@ -15,10 +15,12 @@ export const CHANGELOG: VersionRelease[] = [
     title: "Trình Chỉnh Sửa SVG Tương Tác, Chuẩn Hóa LaTeX & Tối Ưu Bố Cục Canvas",
     changes: [
       { type: "feat", description: "Ra mắt Trình chỉnh sửa hình học tương tác (Interactive SVG Editor) cho phép tuỳ biến trực tiếp đối tượng, nét vẽ, màu sắc và nhãn điểm" },
-      { type: "feat", description: "Chuẩn hóa bộ đề bài toán thực tế mẫu theo định dạng LaTeX ($...$) tích hợp xem trước công thức toán học sắc nét" },
-      { type: "feat", description: "Hoán đổi thanh header Canvas thành thanh định dạng đối tượng ở chế độ chỉnh sửa và hỗ trợ chọn cụm điểm - nhãn thông minh" },
+      { type: "feat", description: "Chuẩn hóa toàn bộ bộ đề bài toán thực tế mẫu theo định dạng LaTeX ($...$) tích hợp xem trước công thức toán học sắc nét qua LatexPreview" },
+      { type: "feat", description: "Hoán đổi thanh header Canvas thành thanh định dạng đối tượng ở chế độ chỉnh sửa, trả lại khung vẽ SVG thông thoáng không bị che khuất" },
+      { type: "feat", description: "Triển khai cơ chế chọn cụm Điểm - Nhãn thông minh kèm 2 bộ chỉnh màu độc lập cho chấm điểm và nhãn chữ cái" },
       { type: "improve", description: "Tối ưu hóa bố cục 2 cột cân đối, đưa Bộ sưu tập đã lưu xuống đáy Canvas với thanh tiêu đề đóng/mở tiện lợi" },
       { type: "improve", description: "Tối giản tiêu đề ô nhập liệu và khắc phục triệt để hiện tượng tràn viền, co giật các nút thao tác" },
+      { type: "fix", description: "Khắc phục lỗi mất liên kết phần tử SVG khi chỉnh sửa bằng cơ chế định danh duy nhất persistent data-edit-id" },
     ],
   },
   {
