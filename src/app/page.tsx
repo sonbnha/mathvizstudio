@@ -180,6 +180,7 @@ function HomeContent() {
   const [copied, setCopied] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [isOcrLoading, setIsOcrLoading] = useState(false);
+  const [isExamplesOpen, setIsExamplesOpen] = useState(false);
 
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -375,6 +376,34 @@ function HomeContent() {
       console.warn('Lỗi khi đọc lịch sử từ localStorage:', e);
     }
   }, []);
+
+  // Đọc trạng thái đóng/mở danh sách bài toán thực tế mẫu từ localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('real_world_math_examples_collapsed');
+      if (saved !== null) {
+        setIsExamplesOpen(saved === 'false');
+      }
+    } catch (e) {
+      console.warn('Lỗi đọc localStorage:', e);
+    }
+  }, []);
+
+  const toggleExamples = () => {
+    const next = !isExamplesOpen;
+    setIsExamplesOpen(next);
+    try {
+      localStorage.setItem('real_world_math_examples_collapsed', String(!next));
+    } catch {}
+  };
+
+  const handleSelectPreset = (presetPrompt: string) => {
+    setPrompt(presetPrompt);
+    setIsExamplesOpen(false);
+    try {
+      localStorage.setItem('real_world_math_examples_collapsed', 'true');
+    } catch {}
+  };
 
   const MAX_GALLERY_ITEMS = 50;
 
@@ -1281,28 +1310,70 @@ function HomeContent() {
         >
           {/* CỘT 1: NHẬP LIỆU VÀ CÔNG CỤ (Cố định bề ngang, h-full, cuộn độc lập) */}
           <section className="w-full lg:w-[360px] xl:w-[380px] shrink-0 h-full overflow-y-auto pr-1 space-y-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs flex flex-col">
-          {/* Preset Buttons */}
-          <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-4 shadow-sm dark:shadow-lg transition-colors">
-            <h2 className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-3 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Bài toán thực tế mẫu
-            </h2>
-            <div className="grid grid-cols-1 gap-2">
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  onClick={() => setPrompt(preset.prompt)}
-                  className="text-left px-3.5 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 hover:border-cyan-500/40 dark:hover:border-cyan-500/40 transition group"
+          {/* Preset Buttons Collapsible Accordion */}
+          <div className="w-full border border-slate-200 dark:border-slate-800 bg-white/80 dark:bg-slate-900/50 rounded-2xl overflow-hidden shadow-xs shrink-0 transition-colors">
+            <button
+              type="button"
+              onClick={toggleExamples}
+              className="w-full flex items-center justify-between px-3.5 py-2.5 text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-sm">📐</span>
+                <span className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Bài toán thực tế mẫu
+                </span>
+                <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-full border border-slate-200 dark:border-slate-700/50 font-medium">
+                  {PRESETS.length} bài
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
+                <span>{isExamplesOpen ? 'Thu gọn' : 'Xem mẫu'}</span>
+                <svg
+                  className={`w-3.5 h-3.5 transition-transform duration-200 ${isExamplesOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-300 transition">
-                      {preset.title}
-                    </span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-400 group-hover:bg-cyan-100 dark:group-hover:bg-cyan-950 group-hover:text-cyan-700 dark:group-hover:text-cyan-400 transition">
-                      {preset.desc}
-                    </span>
-                  </div>
-                </button>
-              ))}
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Vùng danh sách nội dung bài mẫu */}
+            <div
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                isExamplesOpen
+                  ? 'max-h-[500px] opacity-100 p-3 border-t border-slate-200 dark:border-slate-800/80'
+                  : 'max-h-0 opacity-0 p-0'
+              }`}
+            >
+              <div className="grid grid-cols-1 gap-2 max-h-72 overflow-y-auto pr-1">
+                {PRESETS.map((preset, idx) => (
+                  <button
+                    key={preset.id}
+                    type="button"
+                    onClick={() => handleSelectPreset(preset.prompt)}
+                    className="text-left p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 hover:border-cyan-500/40 dark:hover:border-cyan-500/40 transition group cursor-pointer"
+                    title="Bấm để đưa bài này vào khung nhập"
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition flex items-center gap-1.5">
+                        <span className="text-[10px] px-1 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono">
+                          #{idx + 1}
+                        </span>
+                        {preset.title}
+                      </span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                        {preset.desc}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
+                      {preset.prompt}
+                    </p>
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
