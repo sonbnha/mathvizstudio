@@ -82,7 +82,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Check quota for STAFF role (Only block when role is NOT ADMIN AND maxCredits is NOT -1)
-    if (user.role !== 'ADMIN' && user.maxCredits !== -1) {
+    const isCurrentUserAdmin = (currentUser.role || '').toLowerCase() === 'admin' || (user.role || '').toLowerCase() === 'admin';
+    if (!isCurrentUserAdmin && user.maxCredits !== -1) {
       const currentCreatedCount = user._count.keys;
       if (currentCreatedCount >= user.maxCredits) {
         return NextResponse.json(
@@ -175,9 +176,11 @@ export async function DELETE(req: NextRequest) {
     }
 
     // Check ownership if STAFF
-    if (user.role !== 'ADMIN') {
+    if ((user.role || '').toLowerCase() !== 'admin') {
       const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
-      if (!keyRecord || keyRecord.createdById !== user.id) {
+      const cuid = (user as any).cuid;
+      const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
+      if (!isOwner) {
         return NextResponse.json(
           { error: 'Bạn không có quyền xóa License Key này.' },
           { status: 403 }

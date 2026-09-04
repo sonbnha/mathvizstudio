@@ -97,10 +97,18 @@ interface UserAccountItem {
   id: string;
   username: string;
   name: string;
+  email?: string;
   role: string;
-  maxCredits: number;
+  status?: string;
+  maxCredits?: number;
   isActive: boolean;
+  is_active?: boolean;
+  api_key?: string | null;
+  apiKey?: string | null;
+  saved_diagrams_count?: number;
+  savedDiagramsCount?: number;
   createdAt: string;
+  created_at?: string;
   _count?: {
     keys: number;
   };
@@ -287,7 +295,7 @@ export default function UnifiedAdminPage() {
       setUserAccountsLoading(true);
     }
     try {
-      const res = await fetch('/api/admin/users?source=staff');
+      const res = await fetch('/api/admin/users');
       const data = await res.json();
       if (res.ok && data.users) {
         setUserAccounts(data.users);
@@ -309,15 +317,8 @@ export default function UnifiedAdminPage() {
     try {
       const res = await fetch(`/api/admin/changelog?t=${Date.now()}`, {
         cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' },
       });
-      const rawText = await res.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(rawText);
-      } catch (e) {
-        console.warn('Lỗi parse JSON admin changelog:', e);
-      }
+      const data = await res.json();
       if (res.ok && data.changelogs) {
         setChangelogs(data.changelogs);
       }
@@ -333,7 +334,8 @@ export default function UnifiedAdminPage() {
   useEffect(() => {
     if (currentUser) {
       fetchKeys(false);
-      if (currentUser.role === 'ADMIN') {
+      const role = (currentUser.role || '').toLowerCase();
+      if (role === 'admin') {
         fetchUserAccounts(false);
         fetchAdminChangelogs(false);
       }
@@ -595,9 +597,10 @@ export default function UnifiedAdminPage() {
     setEditAccName(userItem.name);
     setEditAccUsername(userItem.username);
     setEditAccRole(userItem.role as 'ADMIN' | 'STAFF');
-    const isUnlimited = userItem.maxCredits === -1 || userItem.maxCredits >= 99999;
+    const maxCredits = userItem.maxCredits ?? 50;
+    const isUnlimited = maxCredits === -1 || maxCredits >= 99999;
     setIsEditAccUnlimitedCredits(isUnlimited);
-    setEditAccMaxCredits(isUnlimited ? 50 : userItem.maxCredits);
+    setEditAccMaxCredits(isUnlimited ? 50 : maxCredits);
     setEditAccIsActive(userItem.isActive);
     setEditAccPassword('');
     setEditUserError(null);
@@ -981,7 +984,9 @@ export default function UnifiedAdminPage() {
   const activeKeysCount = keys.filter((k) => getKeyStatus(k).label === 'Hoạt Động').length;
   const totalGenerations = keys.reduce((acc, k) => acc + k.usedCredits, 0);
 
-  const isStaff = currentUser.role === 'STAFF';
+  const userRole = (currentUser.role || '').toLowerCase();
+  const isAdmin = userRole === 'admin';
+  const isStaff = userRole === 'staff' || userRole === 'ctv';
   const staffCreatedCount = currentUser.createdKeysCount || keys.length;
   const isStaffUnlimited = currentUser.maxCredits === -1;
   const staffMaxCredits = currentUser.maxCredits;
@@ -995,7 +1000,7 @@ export default function UnifiedAdminPage() {
       if (creatorFilter === 'SYSTEM') {
         if (k.createdById !== null && k.createdBy !== null) return false;
       } else if (creatorFilter === 'ADMIN') {
-        if (!k.createdBy || k.createdBy.role !== 'ADMIN') return false;
+        if (!k.createdBy || (k.createdBy.role || '').toLowerCase() !== 'admin') return false;
       } else {
         if (k.createdById !== creatorFilter && k.createdBy?.id !== creatorFilter) return false;
       }
@@ -1014,10 +1019,17 @@ export default function UnifiedAdminPage() {
   const filteredUsers = userAccounts.filter((u) => {
     if (!userSearch.trim()) return true;
     const q = userSearch.toLowerCase();
-    return u.name.toLowerCase().includes(q) || u.username.toLowerCase().includes(q) || u.role.toLowerCase().includes(q);
+    return (
+      u.name.toLowerCase().includes(q) ||
+      u.username.toLowerCase().includes(q) ||
+      (u.email && u.email.toLowerCase().includes(q)) ||
+      (u.role && u.role.toLowerCase().includes(q))
+    );
   });
 
-  const ctvUsers = userAccounts.filter((u) => u.role === 'STAFF');
+  const adminUsers = userAccounts.filter((u) => (u.role || '').toLowerCase() === 'admin');
+  const ctvUsers = userAccounts.filter((u) => (u.role || '').toLowerCase() === 'staff' || (u.role || '').toLowerCase() === 'ctv');
+  const regularUsers = userAccounts.filter((u) => (u.role || '').toLowerCase() === 'user');
 
   const filteredChangelogs = changelogs.filter((cl) => {
     if (!changelogSearch.trim()) return true;
@@ -1058,12 +1070,12 @@ export default function UnifiedAdminPage() {
                 </span>
                 <span
                   className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                    currentUser.role === 'ADMIN'
+                    isAdmin
                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                       : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20'
                   }`}
                 >
-                  {currentUser.role === 'ADMIN' ? 'Admin' : 'CTV'}
+                  {isAdmin ? 'Admin' : 'CTV'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
@@ -1129,7 +1141,7 @@ export default function UnifiedAdminPage() {
             </button>
           </div>
 
-          {currentUser.role === 'ADMIN' && (
+          {isAdmin && (
             <div className="flex flex-col gap-1">
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Hệ Thống & Phân Quyền
@@ -1232,12 +1244,12 @@ export default function UnifiedAdminPage() {
                 </span>
                 <span
                   className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                    currentUser.role === 'ADMIN'
+                    isAdmin
                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                       : 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20'
                   }`}
                 >
-                  {currentUser.role === 'ADMIN' ? 'Admin' : 'CTV'}
+                  {isAdmin ? 'Admin' : 'CTV'}
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 dark:text-slate-500 font-medium">
@@ -1289,7 +1301,7 @@ export default function UnifiedAdminPage() {
             </button>
           </div>
 
-          {currentUser.role === 'ADMIN' && (
+          {isAdmin && (
             <div className="flex flex-col gap-1">
               <span className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                 Hệ Thống & Phân Quyền
@@ -1389,17 +1401,17 @@ export default function UnifiedAdminPage() {
             {/* Breadcrumb */}
             <div className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 truncate">
               <span className="font-medium text-slate-900 dark:text-slate-200 truncate">
-                {currentUser.role === 'ADMIN' ? 'Admin Portal' : 'CTV Portal'}
+                {isAdmin ? 'Admin Portal' : 'CTV Portal'}
               </span>
               <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
               <span className="font-semibold text-cyan-600 dark:text-cyan-400 capitalize truncate">
                 {activeTab === 'overview'
                   ? 'Tổng Quan'
                   : activeTab === 'keys'
-                  ? 'Quản Lý License Keys'
+                  ? '🔑 Quản Lý API Key & Cấu Hình'
                   : activeTab === 'users'
-                  ? 'Quản Lý Tài Khoản (CTV)'
-                  : 'Lịch Sử Phiên Bản'}
+                  ? '👥 Quản Lý Tài Khoản'
+                  : '📜 Lịch Sử Phiên Bản (Changelog)'}
               </span>
             </div>
           </div>
@@ -1426,6 +1438,76 @@ export default function UnifiedAdminPage() {
             </button>
           </div>
         </header>
+
+        {/* TOP TAB NAVIGATION BAR */}
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0">
+          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 overflow-x-auto shadow-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab('keys')}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === 'keys'
+                  ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 shadow-xs'
+                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+              }`}
+            >
+              <KeyRound className="w-4 h-4" />
+              <span>🔑 Quản lý API Key & Cấu hình</span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-mono font-bold">
+                {keys.length}
+              </span>
+            </button>
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('users')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'users'
+                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>👥 Quản lý tài khoản</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-mono font-bold">
+                  {userAccounts.length}
+                </span>
+              </button>
+            )}
+
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('changelog')}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                  activeTab === 'changelog'
+                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shadow-xs'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
+                }`}
+              >
+                <History className="w-4 h-4" />
+                <span>📜 Lịch sử phiên bản (Changelog)</span>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-mono font-bold">
+                  {changelogs.length}
+                </span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('overview')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap cursor-pointer ml-auto ${
+                activeTab === 'overview'
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold'
+                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
+              }`}
+            >
+              <LayoutDashboard className="w-3.5 h-3.5" />
+              <span>Tổng quan</span>
+            </button>
+          </div>
+        </div>
 
         {/* Main Content Area */}
         <main
@@ -1570,7 +1652,7 @@ export default function UnifiedAdminPage() {
                   </p>
                 </div>
 
-                {currentUser.role === 'ADMIN' && (
+                {isAdmin && (
                   <div
                     onClick={() => setIsCreateUserModalOpen(true)}
                     className="p-5 rounded-2xl bg-gradient-to-br from-rose-500/10 to-pink-500/10 border border-rose-500/25 flex flex-col gap-2 hover:border-rose-500 hover:shadow-md transition cursor-pointer group"
@@ -1588,7 +1670,7 @@ export default function UnifiedAdminPage() {
                   </div>
                 )}
 
-                {currentUser.role === 'ADMIN' && (
+                {isAdmin && (
                   <div
                     onClick={handleOpenCreateChangelogModal}
                     className="p-5 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 border border-indigo-500/25 flex flex-col gap-2 hover:border-indigo-500 hover:shadow-md transition cursor-pointer group"
@@ -2107,7 +2189,7 @@ export default function UnifiedAdminPage() {
                               {k.createdBy ? (
                                 <span
                                   className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-                                    k.createdBy.role === 'ADMIN'
+                                    (k.createdBy.role || '').toLowerCase() === 'admin'
                                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                                       : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                                   }`}
@@ -2188,21 +2270,21 @@ export default function UnifiedAdminPage() {
           </div>
         )}
 
-        {/* TAB 2: Accounts Management (Admin & CTV) - STRICTLY ADMIN ONLY */}
-        {currentUser.role === 'ADMIN' && activeTab === 'users' && (
+        {/* TAB 2: Accounts Management (Admin, CTV & User) - STRICTLY ADMIN ONLY */}
+        {isAdmin && activeTab === 'users' && (
           <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col gap-4 transition-colors">
             {/* Header with Search and "+ Thêm tài khoản mới" button */}
             <div className="flex flex-wrap items-center justify-between border-b border-slate-200 dark:border-slate-800 pb-4 gap-3">
               <div>
                 <h2 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                   <Users className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                  <span>Danh Sách Tài Khoản Quản Trị & Cộng Tác Viên</span>
+                  <span>Danh Sách Tài Khoản Hệ Thống (Admin, CTV & User)</span>
                   <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500">
                     {filteredUsers.length} tài khoản
                   </span>
                 </h2>
                 <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                  Phân quyền Admin toàn hệ thống hoặc Cộng tác viên (CTV) kèm hạn mức tạo key
+                  Phân quyền Admin toàn hệ thống, Cộng tác viên (CTV) hoặc Thành viên (User)
                 </p>
               </div>
 
@@ -2213,7 +2295,7 @@ export default function UnifiedAdminPage() {
                     type="text"
                     value={userSearch}
                     onChange={(e) => setUserSearch(e.target.value)}
-                    placeholder="Tìm theo tên / username..."
+                    placeholder="Tìm theo tên / username / email..."
                     className="pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-rose-500 transition w-44 sm:w-56"
                   />
                 </div>
@@ -2222,10 +2304,10 @@ export default function UnifiedAdminPage() {
                   type="button"
                   onClick={() => setIsNeonUsersModalOpen(true)}
                   className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md shadow-cyan-950/30 cursor-pointer"
-                  title="Quản lý toàn bộ tài khoản người dùng Neon Database"
+                  title="Mở Bảng Quản lý Người dùng Nhanh (Modal)"
                 >
                   <Users className="w-4 h-4" />
-                  <span>Quản lý Người dùng Neon</span>
+                  <span>Quản trị nhanh (Modal)</span>
                 </button>
 
                 <button
@@ -2237,7 +2319,7 @@ export default function UnifiedAdminPage() {
                   className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md shadow-rose-950/30 cursor-pointer"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>+ Thêm tài khoản Staff</span>
+                  <span>+ Thêm tài khoản</span>
                 </button>
               </div>
             </div>
@@ -2246,11 +2328,11 @@ export default function UnifiedAdminPage() {
             <div className="overflow-x-auto w-full rounded-xl border border-slate-200/80 dark:border-slate-800/80">
               <table className="w-full min-w-[700px] text-left text-xs border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px]">
+                  <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:border-slate-400 uppercase tracking-wider text-[11px]">
                     <th className="py-2.5 px-3 whitespace-nowrap">Họ và Tên</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap">Tên Đăng Nhập</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Tên Đăng Nhập / Email</th>
                     <th className="py-2.5 px-3 whitespace-nowrap">Vai Trò</th>
-                    <th className="py-2.5 px-3 whitespace-nowrap">Hạn Mức Key (Đã Tạo / Tổng)</th>
+                    <th className="py-2.5 px-3 whitespace-nowrap">Hạn Mức Key / Bộ Sưu Tập</th>
                     <th className="py-2.5 px-3 text-center whitespace-nowrap">Trạng Thái</th>
                     <th className="py-2.5 px-3 text-right whitespace-nowrap">Thao Tác</th>
                   </tr>
@@ -2264,77 +2346,100 @@ export default function UnifiedAdminPage() {
                     </tr>
                   ) : (
                     filteredUsers.map((u) => {
+                      const uRole = (u.role || 'user').toLowerCase();
+                      const isUAdmin = uRole === 'admin';
+                      const isUStaff = uRole === 'staff' || uRole === 'ctv';
+                      const isUActive = u.isActive ?? u.is_active ?? (u.status === 'active');
                       const createdCount = u._count?.keys || 0;
-                      const quotaPercent =
-                        u.role === 'ADMIN'
-                          ? 100
-                          : Math.min(100, Math.round((createdCount / (u.maxCredits || 50)) * 100));
+                      const quotaPercent = isUAdmin
+                        ? 100
+                        : Math.min(100, Math.round((createdCount / (u.maxCredits || 50)) * 100));
 
                       return (
                         <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
                           <td className="py-3.5 px-3 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                             <div
                               className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                                u.role === 'ADMIN'
+                                isUAdmin
                                   ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                                  : 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                                  : isUStaff
+                                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                                  : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
                               }`}
                             >
-                              {u.name.charAt(0).toUpperCase()}
+                              {(u.name || u.username || 'U').charAt(0).toUpperCase()}
                             </div>
-                            <span>{u.name}</span>
+                            <div className="flex flex-col">
+                              <span>{u.name}</span>
+                              {u.email && u.email !== u.username && (
+                                <span className="text-[10px] text-slate-400 font-normal">{u.email}</span>
+                              )}
+                            </div>
                           </td>
 
                           <td className="py-3.5 px-3 font-mono font-medium text-slate-700 dark:text-slate-300">
-                            {u.username}
+                            {u.username || u.email}
+                            {u.apiKey && (
+                              <div className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                                🔑 {u.apiKey}
+                              </div>
+                            )}
                           </td>
 
                           <td className="py-3.5 px-3">
                             <span
                               className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
-                                u.role === 'ADMIN'
+                                isUAdmin
                                   ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                                  : 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30'
+                                  : isUStaff
+                                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30'
+                                  : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30'
                               }`}
                             >
-                              {u.role === 'ADMIN' ? 'Quản trị viên (ADMIN)' : 'Cộng tác viên (CTV)'}
+                              {isUAdmin ? 'Quản trị viên (ADMIN)' : isUStaff ? 'Cộng tác viên (CTV)' : 'Người dùng (USER)'}
                             </span>
                           </td>
 
                           <td className="py-3.5 px-3">
-                            {u.role === 'ADMIN' ? (
+                            {isUAdmin ? (
                               <span className="px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-bold text-[11px]">
                                 ∞ Vô hạn (Admin)
                               </span>
-                            ) : u.maxCredits === -1 ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[11px]">
-                                ∞ Không giới hạn ({createdCount} key)
-                              </span>
+                            ) : isUStaff ? (
+                              u.maxCredits === -1 ? (
+                                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[11px]">
+                                  ∞ Không giới hạn ({createdCount} key)
+                                </span>
+                              ) : (
+                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                  <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400">
+                                    <span>{createdCount} / {u.maxCredits || 50} key</span>
+                                    <span className="font-semibold">{quotaPercent}%</span>
+                                  </div>
+                                  <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
+                                      style={{ width: `${quotaPercent}%` }}
+                                    ></div>
+                                  </div>
+                                </div>
+                              )
                             ) : (
-                              <div className="flex flex-col gap-1 min-w-[140px]">
-                                <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400">
-                                  <span>{createdCount} / {u.maxCredits} key</span>
-                                  <span className="font-semibold">{quotaPercent}%</span>
-                                </div>
-                                <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                                  <div
-                                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
-                                    style={{ width: `${quotaPercent}%` }}
-                                  ></div>
-                                </div>
-                              </div>
+                              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-medium text-[11px]">
+                                🖼️ {u.saved_diagrams_count ?? u.savedDiagramsCount ?? 0} hình đã lưu
+                              </span>
                             )}
                           </td>
 
                           <td className="py-3.5 px-3 text-center">
                             <span
                               className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                                u.isActive
+                                isUActive
                                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                                   : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                               }`}
                             >
-                              {u.isActive ? 'Hoạt động' : 'Đang khóa'}
+                              {isUActive ? 'Hoạt động' : 'Đang khóa'}
                             </span>
                           </td>
 
@@ -2353,11 +2458,11 @@ export default function UnifiedAdminPage() {
                               {/* Toggle Active Button (except self) */}
                               {u.id !== currentUser.id && (
                                 <button
-                                  onClick={() => handleToggleUserStatus(u.id, u.isActive)}
+                                  onClick={() => handleToggleUserStatus(u.id, isUActive)}
                                   className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
-                                  title={u.isActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
+                                  title={isUActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                 >
-                                  {u.isActive ? (
+                                  {isUActive ? (
                                     <ToggleRight className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
                                   ) : (
                                     <ToggleLeft className="w-5 h-5 text-slate-400 dark:text-slate-600" />
@@ -2388,7 +2493,7 @@ export default function UnifiedAdminPage() {
         )}
 
         {/* TAB 3: Changelog Management (Admin Only) */}
-        {currentUser.role === 'ADMIN' && activeTab === 'changelog' && (
+        {isAdmin && activeTab === 'changelog' && (
           <div className="bg-white/80 dark:bg-slate-900/60 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl p-5 shadow-sm dark:shadow-lg flex flex-col gap-4 transition-colors">
             {/* Header & Controls */}
             <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200 dark:border-slate-800">

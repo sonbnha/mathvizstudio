@@ -9,7 +9,7 @@ export const revalidate = 0;
 
 async function checkAdmin(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return null;
   }
   return user;

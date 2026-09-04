@@ -26,9 +26,11 @@ export async function DELETE(
     }
 
     // Check ownership if STAFF
-    if (user.role !== 'ADMIN') {
+    if ((user.role || '').toLowerCase() !== 'admin') {
       const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
-      if (!keyRecord || keyRecord.createdById !== user.id) {
+      const cuid = (user as any).cuid;
+      const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
+      if (!isOwner) {
         return NextResponse.json(
           { error: 'Bạn không có quyền xóa License Key này.' },
           { status: 403 }

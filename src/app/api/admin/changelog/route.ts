@@ -11,7 +11,7 @@ export const revalidate = 0;
 // GET /api/admin/changelog: Get all changelogs (Admin only)
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
       { error: 'Bạn không có quyền truy cập quản lý Changelog (Chỉ dành cho Admin).' },
       { status: 403 }
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 // POST /api/admin/changelog: Create a new changelog release
 export async function POST(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
       { error: 'Bạn không có quyền thêm mới Changelog (Chỉ dành cho Admin).' },
       { status: 403 }
