@@ -25,6 +25,9 @@ import {
   Moon,
   MousePointerClick,
   BookOpen,
+  LogIn,
+  LogOut,
+  CloudCheck,
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
@@ -40,6 +43,7 @@ import UnifiedProblemInput from '@/components/UnifiedProblemInput';
 import SavedCollection from '@/components/SavedCollection';
 import ExportDropdown from '@/components/ExportDropdown';
 import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
+import AuthModal, { AuthUser } from '@/components/AuthModal';
 import { REAL_WORLD_MATH_SAMPLES } from '@/data/samplePrompts';
 
 const PRESETS = REAL_WORLD_MATH_SAMPLES;
@@ -153,6 +157,11 @@ function HomeContent() {
 
   // Feature 2: Personal History & Saved Collection
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
+
+  // Feature 3: User Authentication & Neon DB Sync
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isSyncingCollection, setIsSyncingCollection] = useState(false);
 
   // Main Active Tab Switcher: useSearchParams is the Single Source of Truth
   const searchParams = useSearchParams();
@@ -331,6 +340,134 @@ function HomeContent() {
     }
   }, []);
 
+  // Fetch logged in user on Mount
+  useEffect(() => {
+    const fetchUserSession = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.user) {
+            setCurrentUser(data.user);
+          }
+        }
+      } catch (err) {
+        console.warn('Lỗi kiểm tra phiên đăng nhập:', err);
+      }
+    };
+    fetchUserSession();
+  }, []);
+
+  const MAX_GALLERY_ITEMS = 50;
+
+  const cleanSvgPayload = (svg: string): string => {
+    if (!svg) return '';
+    // Strip HTML/SVG comments and collapse extra whitespace to minimize localStorage size
+    return svg
+      .replace(/<!--[\s\S]*?-->/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  // Đồng bộ 2 chiều bộ sưu tập hình vẽ với Neon Cloud Database
+  const syncWithNeon = useCallback(async (user: AuthUser) => {
+    if (!user) return;
+    setIsSyncingCollection(true);
+    try {
+      // 1. Lấy danh sách từ server Neon
+      const res = await fetch('/api/diagrams');
+      let cloudDiagrams: any[] = [];
+      if (res.ok) {
+        const data = await res.json();
+        cloudDiagrams = data.diagrams || [];
+      }
+
+      // 2. Lấy dữ liệu local hiện tại
+      let localItems: HistoryItem[] = [];
+      try {
+        const saved = localStorage.getItem('mathviz_history_items');
+        if (saved) localItems = JSON.parse(saved);
+      } catch {}
+
+      // 3. Đẩy các hình từ local chưa có trên Neon lên server
+      const cloudSvgSet = new Set(cloudDiagrams.map((d: any) => cleanSvgPayload(d.svgContent)));
+      const toSync = localItems.filter(
+        (local) => local.svgCode && !cloudSvgSet.has(cleanSvgPayload(local.svgCode))
+      );
+
+      if (toSync.length > 0) {
+        await fetch('/api/diagrams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            diagrams: toSync.map((item) => ({
+              title: item.title,
+              promptText: item.promptText,
+              svgContent: cleanSvgPayload(item.svgCode),
+            })),
+          }),
+        });
+
+        // Lấy lại danh sách mới nhất sau khi đẩy
+        const freshRes = await fetch('/api/diagrams');
+        if (freshRes.ok) {
+          const freshData = await freshRes.json();
+          cloudDiagrams = freshData.diagrams || [];
+        }
+      }
+
+      // 4. Hợp nhất vào local và state
+      const mergedMap = new Map<string, HistoryItem>();
+      for (const item of localItems) {
+        const key = cleanSvgPayload(item.svgCode);
+        if (key) mergedMap.set(key, item);
+      }
+      for (const c of cloudDiagrams) {
+        const key = cleanSvgPayload(c.svgContent);
+        if (key) {
+          mergedMap.set(key, {
+            id: c.id,
+            title: c.title || 'Mô hình hình học',
+            promptText: c.prompt || '',
+            svgCode: c.svgContent,
+            timestamp: new Date(c.createdAt).getTime() || Date.now(),
+            topic: classifyTopic(c.prompt || c.title || ''),
+          });
+        }
+      }
+
+      const finalList = Array.from(mergedMap.values())
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, MAX_GALLERY_ITEMS);
+
+      setHistoryItems(finalList);
+      try {
+        localStorage.setItem('mathviz_history_items', JSON.stringify(finalList));
+      } catch {}
+    } catch (err) {
+      console.warn('Lỗi đồng bộ bộ sưu tập với Neon DB:', err);
+    } finally {
+      setIsSyncingCollection(false);
+    }
+  }, []);
+
+  // Tự động đồng bộ mỗi khi người dùng đăng nhập thành công
+  useEffect(() => {
+    if (currentUser) {
+      syncWithNeon(currentUser);
+    }
+  }, [currentUser, syncWithNeon]);
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (e) {
+      console.warn('Lỗi đăng xuất:', e);
+    } finally {
+      setCurrentUser(null);
+    }
+  };
+
   // Đọc trạng thái đóng/mở danh sách bài toán thực tế mẫu từ localStorage
   useEffect(() => {
     try {
@@ -357,17 +494,6 @@ function HomeContent() {
     try {
       localStorage.setItem('real_world_math_examples_collapsed', 'true');
     } catch {}
-  };
-
-  const MAX_GALLERY_ITEMS = 50;
-
-  const cleanSvgPayload = (svg: string): string => {
-    if (!svg) return '';
-    // Strip HTML/SVG comments and collapse extra whitespace to minimize localStorage size
-    return svg
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/\s+/g, ' ')
-      .trim();
   };
 
   const saveToHistory = (svgCode: string, promptText: string) => {
@@ -406,6 +532,19 @@ function HomeContent() {
         }
         return updated;
       });
+
+      // Lưu đồng thời lên Neon Database nếu người dùng đã đăng nhập
+      if (currentUser) {
+        fetch('/api/diagrams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: newItem.title,
+            prompt: newItem.promptText,
+            svgContent: newItem.svgCode,
+          }),
+        }).catch((err) => console.warn('Lỗi lưu hình lên Neon:', err));
+      }
     } catch (e) {
       console.warn('Lỗi khi lưu lịch sử:', e);
     }
@@ -420,6 +559,13 @@ function HomeContent() {
       } catch {}
       return updated;
     });
+
+    // Xóa khỏi Neon Database nếu người dùng đã đăng nhập
+    if (currentUser) {
+      fetch(`/api/diagrams?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      }).catch((err) => console.warn('Lỗi xóa hình trên Neon:', err));
+    }
   };
 
   const handleClearAllHistory = () => {
@@ -1111,6 +1257,59 @@ function HomeContent() {
             ></span>
           </button>
 
+          {/* User Auth Section: Login Button or User Profile Pill */}
+          {!currentUser ? (
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen(true)}
+              className="h-10 px-3 sm:px-3.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600 via-cyan-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
+              title="Đăng nhập hoặc đăng ký tài khoản Neon"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Đăng nhập</span>
+            </button>
+          ) : (
+            <div className="flex items-center gap-1.5 shrink-0">
+              {/* Sync Status Badge */}
+              <div
+                className="hidden md:flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-2 py-1.5 rounded-xl shadow-xs"
+                title={isSyncingCollection ? 'Đang đồng bộ dữ liệu với Neon Database...' : 'Đã đồng bộ Neon Cloud Database'}
+              >
+                <CloudCheck
+                  className={`w-3.5 h-3.5 text-emerald-500 ${
+                    isSyncingCollection ? 'animate-pulse' : ''
+                  }`}
+                />
+                <span className="font-medium text-[10px]">
+                  {isSyncingCollection ? 'Đang sync...' : 'Neon DB'}
+                </span>
+              </div>
+
+              {/* User Avatar + Name + Logout */}
+              <div className="h-10 flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-1.5 pr-2 py-1 shadow-xs">
+                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
+                  {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div className="hidden lg:flex flex-col text-left">
+                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[90px] truncate leading-tight">
+                    {currentUser.name || currentUser.email.split('@')[0]}
+                  </span>
+                  <span className="text-[9px] text-slate-400 dark:text-slate-500 max-w-[90px] truncate leading-tight">
+                    {currentUser.email}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="p-1.5 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-400 hover:text-rose-500 dark:hover:text-rose-400 transition cursor-pointer"
+                  title="Đăng xuất tài khoản"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Theme Toggle Button */}
           <button
             type="button"
@@ -1757,6 +1956,15 @@ function HomeContent() {
           </div>
         </div>
       )}
+
+      {/* Neon User Authentication Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        onSuccess={(user) => {
+          setCurrentUser(user);
+        }}
+      />
     </div>
   );
 }

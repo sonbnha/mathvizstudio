@@ -12,10 +12,13 @@ export async function GET(req: NextRequest) {
       );
     }
 
-    // Get count of keys created by this user
-    const createdKeysCount = await prisma.licenseKey.count({
-      where: { createdById: user.id },
-    });
+    // Get count of keys created by this user if admin/staff
+    let createdKeysCount = 0;
+    try {
+      createdKeysCount = await prisma.licenseKey.count({
+        where: { createdById: user.id },
+      });
+    } catch {}
 
     return NextResponse.json({
       user: {

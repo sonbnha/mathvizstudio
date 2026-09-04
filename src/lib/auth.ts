@@ -6,8 +6,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'mathviz-secure-jwt-secret-key-2026
 
 export interface TokenPayload {
   userId: string;
-  username: string;
-  role: 'ADMIN' | 'STAFF' | string;
+  username?: string;
+  email?: string;
+  name?: string;
+  role: 'ADMIN' | 'STAFF' | 'user' | string;
 }
 
 export function signToken(payload: TokenPayload): string {
@@ -39,20 +41,48 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
   const payload = verifyToken(token);
   if (!payload || !payload.userId) return null;
 
-  const user = await prisma.user.findUnique({
-    where: { id: payload.userId },
-    select: {
-      id: true,
-      username: true,
-      name: true,
-      role: true,
-      maxCredits: true,
-      isActive: true,
-      createdAt: true,
-    },
-  });
+  // 3. Try Neon Postgres users table first
+  try {
+    const { getDb } = await import('./db');
+    const sql = getDb();
+    const rows = await sql`
+      SELECT id, email, name, role, created_at
+      FROM users
+      WHERE id = ${payload.userId}::uuid
+    `;
+    if (rows && rows.length > 0) {
+      const u = rows[0] as any;
+      return {
+        id: u.id,
+        email: u.email,
+        name: u.name,
+        role: u.role || 'user',
+        createdAt: u.created_at,
+      };
+    }
+  } catch {
+    // Neon query failed or table doesn't have this user, fallback to Prisma
+  }
 
-  if (!user || !user.isActive) return null;
+  // 4. Fallback to Prisma User (for Admin / CTV staff)
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        role: true,
+        maxCredits: true,
+        isActive: true,
+        createdAt: true,
+      },
+    });
 
-  return user;
+    if (user && user.isActive) {
+      return user;
+    }
+  } catch {}
+
+  return null;
 }
