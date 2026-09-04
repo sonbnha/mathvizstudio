@@ -22,7 +22,7 @@ export async function PUT(
 ) {
   const admin = await checkAdmin(req);
   if (!admin) {
-    return NextResponse.json({ error: 'Quyền truy cập bị từ chối (Chỉ dành cho Admin).' }, { status: 403 });
+    return NextResponse.json({ error: 'Page not found' }, { status: 404 });
   }
 
   try {
@@ -77,7 +77,7 @@ export async function PATCH(
 ) {
   const admin = await checkAdmin(req);
   if (!admin) {
-    return NextResponse.json({ error: 'Quyền truy cập bị từ chối.' }, { status: 403 });
+    return NextResponse.json({ error: 'Page not found' }, { status: 404 });
   }
 
   try {
@@ -113,7 +113,7 @@ export async function DELETE(
 ) {
   const admin = await checkAdmin(req);
   if (!admin) {
-    return NextResponse.json({ error: 'Quyền truy cập bị từ chối.' }, { status: 403 });
+    return NextResponse.json({ error: 'Page not found' }, { status: 404 });
   }
 
   try {

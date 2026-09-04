@@ -182,17 +182,6 @@ function HomeContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Handle unauthorized error param from middleware or admin guard
-  const [unauthorizedBanner, setUnauthorizedBanner] = useState(false);
-
-  useEffect(() => {
-    if (searchParams.get('error') === 'unauthorized') {
-      setUnauthorizedBanner(true);
-      if (!currentUser) {
-        setIsAuthModalOpen(true);
-      }
-    }
-  }, [searchParams, currentUser]);
 
   const tabParam = searchParams.get('tab');
   const mainTab: 'geometry' | 'lesson-plan' = tabParam === 'lesson-plan' ? 'lesson-plan' : 'geometry';
@@ -1452,24 +1441,6 @@ function HomeContent() {
         </div>
       </header>
 
-      {/* 1.1 UNAUTHORIZED WARNING BANNER */}
-      {unauthorizedBanner && (
-        <div className="shrink-0 px-4 lg:px-8 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-amber-800 dark:text-amber-200 text-xs sm:text-sm flex items-center justify-between gap-3 shadow-xs">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>
-              <strong>Quyền truy cập bị từ chối:</strong> Bạn cần đăng nhập tài khoản <strong>Quản trị viên (Admin)</strong> để truy cập cổng quản trị hệ thống.
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => setUnauthorizedBanner(false)}
-            className="p-1 rounded-md hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 transition cursor-pointer"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
 
       {/* 2. KHÔNG GIAN LÀM VIỆC (Flex-1 min-h-0, không bị tràn ra ngoài) */}
       <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col">

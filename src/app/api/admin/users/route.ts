@@ -22,8 +22,8 @@ export async function GET(req: NextRequest) {
   const admin = await checkAdmin(req);
   if (!admin) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền quản lý tài khoản.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
@@ -134,8 +134,8 @@ export async function POST(req: NextRequest) {
   const admin = await checkAdmin(req);
   if (!admin) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền tạo tài khoản.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 

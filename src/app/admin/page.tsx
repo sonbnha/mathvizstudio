@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, notFound } from 'next/navigation';
 import {
   ShieldCheck,
   KeyRound,
@@ -243,7 +243,7 @@ export default function UnifiedAdminPage() {
     }
   };
 
-  // Check Auth Session (Only allow ADMIN role, redirect unauthorized to home)
+  // Check Auth Session (Allow admin or ctv role)
   const checkAuth = useCallback(async (showLoading = true) => {
     if (showLoading) {
       setAuthLoading(true);
@@ -253,38 +253,26 @@ export default function UnifiedAdminPage() {
       const data = await res.json();
       if (res.ok && data.user) {
         const role = (data.user.role || '').toLowerCase();
-        if (role === 'admin') {
+        if (role === 'admin' || role === 'ctv' || role === 'staff') {
           setCurrentUser(data.user);
         } else {
           setCurrentUser(null);
-          router.replace('/?error=unauthorized');
         }
       } else {
         setCurrentUser(null);
-        router.replace('/?error=unauthorized');
       }
     } catch {
       setCurrentUser(null);
-      router.replace('/?error=unauthorized');
     } finally {
       if (showLoading) {
         setAuthLoading(false);
       }
     }
-  }, [router]);
+  }, []);
 
   useEffect(() => {
     checkAuth(true);
   }, [checkAuth]);
-
-  // Client Guard: Immediately push to home if not admin after auth verification
-  useEffect(() => {
-    if (!authLoading) {
-      if (!currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
-        router.replace('/?error=unauthorized');
-      }
-    }
-  }, [authLoading, currentUser, router]);
 
   // Fetch Keys (supports silent refresh)
   const fetchKeys = useCallback(async (showLoading = true) => {
@@ -867,17 +855,22 @@ export default function UnifiedAdminPage() {
   };
 
   // ----------------------------------------------------
-  // SECURITY GUARD: Checking Auth Session or Unauthorized Access
+  // SECURITY GUARD: Checking Auth Session or Disguise as 404
   // ----------------------------------------------------
-  if (authLoading || !currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-3 text-slate-500 dark:text-slate-400">
           <RefreshCw className="w-8 h-8 animate-spin text-cyan-600 dark:text-cyan-400" />
-          <p className="text-xs font-medium">Đang kiểm tra quyền truy cập...</p>
+          <p className="text-xs font-medium">Đang tải...</p>
         </div>
       </div>
     );
+  }
+
+  const role = currentUser?.role?.toLowerCase();
+  if (!currentUser || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
+    notFound();
   }
 
   // ----------------------------------------------------

@@ -13,8 +13,8 @@ export async function GET(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
   if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
-      { error: 'Bạn không có quyền truy cập quản lý Changelog (Chỉ dành cho Admin).' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
@@ -65,8 +65,8 @@ export async function POST(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
   if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return NextResponse.json(
-      { error: 'Bạn không có quyền thêm mới Changelog (Chỉ dành cho Admin).' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 

@@ -8,10 +8,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user || (user.role || '').toLowerCase() !== 'admin') {
+  const role = (user?.role || '').toLowerCase();
+  if (!user || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền xóa License Key.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
@@ -23,6 +24,19 @@ export async function DELETE(
         { error: 'Thiếu ID của License Key cần xóa.' },
         { status: 400 }
       );
+    }
+
+    // Check ownership if STAFF / CTV
+    if (role !== 'admin') {
+      const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
+      const cuid = (user as any).cuid;
+      const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
+      if (!isOwner) {
+        return NextResponse.json(
+          { error: 'Page not found' },
+          { status: 404 }
+        );
+      }
     }
 
     await prisma.licenseKey.delete({

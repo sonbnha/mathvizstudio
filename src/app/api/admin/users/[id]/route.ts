@@ -24,8 +24,8 @@ async function handleUpdateUser(
   const admin = await checkAdmin(req);
   if (!admin) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền cập nhật.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
@@ -217,8 +217,8 @@ export async function DELETE(
   const admin = await checkAdmin(req);
   if (!admin) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền xóa.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 

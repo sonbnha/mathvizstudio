@@ -13,12 +13,13 @@ export async function middleware(req: NextRequest) {
       req.headers.get('authorization')?.replace(/^Bearer\s+/i, '');
 
     if (!token) {
-      return NextResponse.redirect(new URL('/?error=unauthorized', req.url));
+      return NextResponse.rewrite(new URL('/404', req.url));
     }
 
     const payload = await verifyJwtToken(token);
-    if (!payload || (payload.role || '').toLowerCase() !== 'admin') {
-      return NextResponse.redirect(new URL('/?error=unauthorized', req.url));
+    const role = (payload?.role || '').toLowerCase();
+    if (!payload || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
+      return NextResponse.rewrite(new URL('/404', req.url));
     }
   }
 

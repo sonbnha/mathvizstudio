@@ -11,18 +11,28 @@ function generateRandomKey(type: 'VIP' | 'TRIAL' = 'VIP'): string {
   return `MV-VIP-${p1}-${p2}`;
 }
 
-// GET: Fetch license keys (Only for ADMIN)
+// GET: Fetch license keys (Admin or CTV/Staff)
 export async function GET(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user || (user.role || '').toLowerCase() !== 'admin') {
+  const role = (user?.role || '').toLowerCase();
+  if (!user || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền truy cập.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
   try {
+    const isStaff = role === 'staff' || role === 'ctv';
+    const cuid = (user as any).cuid;
+    const whereCondition = isStaff
+      ? (cuid
+        ? { OR: [{ createdById: user.id }, { createdById: cuid }] }
+        : { createdById: user.id })
+      : {};
+
     const keys = await prisma.licenseKey.findMany({
+      where: whereCondition,
       include: {
         createdBy: {
           select: { id: true, username: true, name: true, role: true },
@@ -41,13 +51,14 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Create a new license key (Only for ADMIN)
+// POST: Create a new license key (Admin or CTV/Staff)
 export async function POST(req: NextRequest) {
   const currentUser = await getCurrentUserFromRequest(req);
-  if (!currentUser || (currentUser.role || '').toLowerCase() !== 'admin') {
+  const role = (currentUser?.role || '').toLowerCase();
+  if (!currentUser || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
     return NextResponse.json(
-      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền tạo License Key.' },
-      { status: 403 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
@@ -147,10 +158,11 @@ export async function POST(req: NextRequest) {
 // DELETE: Delete key
 export async function DELETE(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user) {
+  const role = (user?.role || '').toLowerCase();
+  if (!user || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
     return NextResponse.json(
-      { error: 'Chưa đăng nhập hoặc phiên làm việc đã hết hạn.' },
-      { status: 401 }
+      { error: 'Page not found' },
+      { status: 404 }
     );
   }
 
@@ -165,15 +177,15 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Check ownership if STAFF
-    if ((user.role || '').toLowerCase() !== 'admin') {
+    // Check ownership if STAFF / CTV
+    if (role !== 'admin') {
       const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
       const cuid = (user as any).cuid;
       const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
       if (!isOwner) {
         return NextResponse.json(
-          { error: 'Bạn không có quyền xóa License Key này.' },
-          { status: 403 }
+          { error: 'Page not found' },
+          { status: 404 }
         );
       }
     }
