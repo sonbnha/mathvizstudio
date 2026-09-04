@@ -2,20 +2,13 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
-  MousePointer,
-  Spline,
-  Type,
-  Palette,
   SquareCode,
   Check,
   Undo2,
   Redo2,
   Trash2,
-  Sparkles,
-  Move,
-  Maximize2,
-  X,
   Equal,
+  X,
 } from 'lucide-react';
 
 export type EditorTool =
@@ -49,9 +42,6 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   onCloseEditMode,
   mountContainerId = 'svgMount',
 }) => {
-  // Active Tool
-  const [activeTool, setActiveTool] = useState<EditorTool>('select');
-
   // Undo / Redo History Stack
   const [history, setHistory] = useState<string[]>([]);
   const [future, setFuture] = useState<string[]>([]);
@@ -197,6 +187,11 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         setSelectedElementId(null);
       }
 
+      // If clicking directly on SVG root or whitespace background, exit
+      if (target === svg || (target as Element) === mount || target.tagName.toLowerCase() === 'svg') {
+        return;
+      }
+
       // Check element types
       const textTarget = (target.tagName.toLowerCase() === 'text'
         ? target
@@ -217,54 +212,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         ? target
         : target.closest('.right-angle-marker')) as SVGElement | null;
 
-      // Tool-specific action handlers
-      if (activeTool === 'angle') {
-        // Stamp right-angle symbol at point/click location or snapped to circle vertex
-        e.preventDefault();
-        let clickX: number, clickY: number;
-        if (circleTarget) {
-          clickX = parseFloat(circleTarget.getAttribute('cx') || '0');
-          clickY = parseFloat(circleTarget.getAttribute('cy') || '0');
-        } else {
-          const coords = getSvgCoordinates(svg, e.clientX, e.clientY);
-          clickX = coords.x;
-          clickY = coords.y;
-        }
-        addRightAngleMarker(svg, clickX, clickY);
-        return;
-      }
-
-      if (activeTool === 'tick' && lineTarget) {
-        // Stamp equal tick marks on line
-        e.preventDefault();
-        toggleEqualTicksOnLine(svg, lineTarget);
-        return;
-      }
-
-      if (activeTool === 'dash' && lineTarget) {
-        // Toggle solid / dashed line
-        e.preventDefault();
-        toggleLineDash(svg, lineTarget);
-        return;
-      }
-
-      if (activeTool === 'highlight' && (polygonTarget || lineTarget)) {
-        // Open highlight menu directly
-        e.preventDefault();
-        const targetEl = polygonTarget || lineTarget;
-        if (!targetEl) return;
-        const editId = getOrAssignEditId(targetEl);
-        setSelectedElementId(editId);
-        setContextMenu({
-          x: e.clientX,
-          y: e.clientY,
-          elementId: editId,
-          type: 'polygon',
-        });
-        return;
-      }
-
-      // Default 'select' or contextual click
+      // 1. Text elements -> initiate drag
       if (textTarget) {
         e.preventDefault();
         const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
@@ -280,7 +228,11 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           type: 'text',
         };
         textTarget.classList.add('opacity-70');
-      } else if (circleTarget) {
+        return;
+      }
+
+      // 2. Circle point vertices -> initiate drag
+      if (circleTarget) {
         e.preventDefault();
         const { x: startX, y: startY } = getSvgCoordinates(svg, e.clientX, e.clientY);
         const initX = parseFloat(circleTarget.getAttribute('cx') || '0');
@@ -295,8 +247,12 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           type: 'circle',
         };
         circleTarget.classList.add('opacity-70');
-      } else if (angleTarget) {
-        // Open angle contextual options menu (rotate 90, delete)
+        return;
+      }
+
+      // 3. Right angle marker -> open angle rotation / deletion menu
+      if (angleTarget) {
+        e.preventDefault();
         const editId = getOrAssignEditId(angleTarget);
         setSelectedElementId(editId);
         setContextMenu({
@@ -305,8 +261,12 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           elementId: editId,
           type: 'angle',
         });
-      } else if (polygonTarget) {
-        // Open polygon area highlight menu
+        return;
+      }
+
+      // 4. Closed polygon / area -> open area highlight menu
+      if (polygonTarget && target.tagName.toLowerCase() !== 'line') {
+        e.preventDefault();
         const editId = getOrAssignEditId(polygonTarget);
         setSelectedElementId(editId);
         setContextMenu({
@@ -315,8 +275,12 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           elementId: editId,
           type: 'polygon',
         });
-      } else if (lineTarget) {
-        // Open line contextual options menu
+        return;
+      }
+
+      // 5. Line / path / polyline -> open contextual line style menu
+      if (lineTarget) {
+        e.preventDefault();
         const editId = getOrAssignEditId(lineTarget);
         setSelectedElementId(editId);
         setContextMenu({
@@ -325,9 +289,10 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           elementId: editId,
           type: 'line',
         });
+        return;
       }
     },
-    [isEditMode, activeTool, mountContainerId, contextMenu]
+    [isEditMode, mountContainerId, contextMenu]
   );
 
   // 2. POINTER MOVE - Live Drag Movement
@@ -412,7 +377,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     [isEditMode]
   );
 
-  // Attach and detach DOM listeners on SVG
+  // Attach and detach DOM listeners on SVG & Container
   useEffect(() => {
     if (!isEditMode) return;
     const mount = document.getElementById(mountContainerId);
@@ -420,13 +385,29 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     const svg = mount.querySelector('svg');
     if (!svg) return;
 
+    const handleOutsideClick = (e: PointerEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        !target.closest('.editor-context-menu') &&
+        !target.closest('#' + mountContainerId)
+      ) {
+        setContextMenu(null);
+        setSelectedElementId(null);
+      }
+    };
+
     svg.addEventListener('pointerdown', handlePointerDown);
+    mount.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerdown', handleOutsideClick);
     window.addEventListener('pointermove', handlePointerMove);
     window.addEventListener('pointerup', handlePointerUp);
     svg.addEventListener('dblclick', handleDoubleClick);
 
     return () => {
       svg.removeEventListener('pointerdown', handlePointerDown);
+      mount.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerdown', handleOutsideClick);
       window.removeEventListener('pointermove', handlePointerMove);
       window.removeEventListener('pointerup', handlePointerUp);
       svg.removeEventListener('dblclick', handleDoubleClick);
@@ -448,17 +429,6 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     commitSvgChange(serialized);
   };
 
-  // TOGGLE SOLID / DASHED LINE
-  const toggleLineDash = (svg: SVGSVGElement, lineElement: SVGElement) => {
-    const currentDash = lineElement.getAttribute('stroke-dasharray');
-    if (!currentDash || currentDash === 'none' || currentDash === '0') {
-      lineElement.setAttribute('stroke-dasharray', '5 4');
-    } else {
-      lineElement.removeAttribute('stroke-dasharray');
-    }
-    const serialized = new XMLSerializer().serializeToString(svg);
-    commitSvgChange(serialized);
-  };
 
   // TOGGLE EQUAL TICKS ON LINE (Ký hiệu bằng nhau)
   const toggleEqualTicksOnLine = (svg: SVGSVGElement, lineElement: SVGElement) => {
@@ -628,95 +598,24 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         `}</style>
       )}
 
-      {/* 1. THANH CÔNG CỤ NỔI CỐ ĐỊNH Ở MÉP TRÊN CANVAS (Floating Editor Toolbar) */}
-      <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl px-2.5 py-1.5 shadow-xl shadow-slate-900/10 dark:shadow-black/50 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
-        <div className="flex items-center gap-1 pr-1 border-r border-slate-200 dark:border-slate-800">
+      {/* 1. THANH TRẠNG THÁI GỌN GÀNG (Floating Action Pill) */}
+      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-full px-3 py-1 shadow-md shadow-slate-900/5 dark:shadow-black/40 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="flex items-center gap-1.5 pr-2 border-r border-slate-200 dark:border-slate-800">
           <span className="text-xs">✏️</span>
-          <span className="text-[11px] font-semibold text-slate-700 dark:text-slate-300 hidden md:inline">
-            Chỉnh sửa trực tiếp
+          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 select-none">
+            <span className="font-semibold text-slate-800 dark:text-slate-100">Chế độ chỉnh sửa</span>
+            <span className="hidden sm:inline text-slate-400 dark:text-slate-500 mx-1">•</span>
+            <span className="hidden sm:inline text-slate-500 dark:text-slate-400 text-[10.5px]">Click vào đường nét hoặc kéo điểm để thay đổi</span>
           </span>
         </div>
 
-        {/* Tool Buttons */}
-        <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => setActiveTool('select')}
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 font-medium transition cursor-pointer ${
-              activeTool === 'select'
-                ? 'bg-cyan-600 text-white shadow-xs'
-                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-            }`}
-            title="Kéo thả nhãn điểm, số đo hoặc tên điểm"
-          >
-            <MousePointer className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Kéo nhãn</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTool('dash')}
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 font-medium transition cursor-pointer ${
-              activeTool === 'dash'
-                ? 'bg-cyan-600 text-white shadow-xs'
-                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-            }`}
-            title="Bấm vào đường để đổi Nét đứt / Nét liền"
-          >
-            <Spline className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Nét đứt/liền</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTool('angle')}
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 font-medium transition cursor-pointer ${
-              activeTool === 'angle'
-                ? 'bg-cyan-600 text-white shadow-xs'
-                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-            }`}
-            title="Bấm vào đỉnh góc để chèn ký hiệu góc vuông"
-          >
-            <SquareCode className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Góc vuông</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTool('tick')}
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 font-medium transition cursor-pointer ${
-              activeTool === 'tick'
-                ? 'bg-cyan-600 text-white shadow-xs'
-                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-            }`}
-            title="Bấm vào cạnh để thêm vạch bằng nhau (1 vạch / 2 vạch)"
-          >
-            <Equal className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Ký hiệu //</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setActiveTool('highlight')}
-            className={`px-2 py-1 rounded-lg flex items-center gap-1 font-medium transition cursor-pointer ${
-              activeTool === 'highlight'
-                ? 'bg-cyan-600 text-white shadow-xs'
-                : 'hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400'
-            }`}
-            title="Tô màu nền diện tích tam giác/đa giác"
-          >
-            <Palette className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Tô diện tích</span>
-          </button>
-        </div>
-
         {/* Undo / Redo */}
-        <div className="flex items-center gap-0.5 px-1 border-l border-slate-200 dark:border-slate-800">
+        <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
           <button
             type="button"
             onClick={handleUndo}
             disabled={history.length === 0}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             title="Hoàn tác (Ctrl+Z)"
           >
             <Undo2 className="w-3.5 h-3.5" />
@@ -726,7 +625,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             type="button"
             onClick={handleRedo}
             disabled={future.length === 0}
-            className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
             title="Làm lại (Ctrl+Y)"
           >
             <Redo2 className="w-3.5 h-3.5" />
@@ -734,14 +633,14 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         </div>
 
         {/* Nút Hoàn tất */}
-        <div className="pl-1 border-l border-slate-200 dark:border-slate-800">
+        <div>
           <button
             type="button"
             onClick={onCloseEditMode}
-            className="px-3 py-1 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-900/30 transition cursor-pointer"
+            className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
             title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
           >
-            <Check className="w-3.5 h-3.5" />
+            <Check className="w-3 h-3" />
             <span>Hoàn tất</span>
           </button>
         </div>
@@ -887,9 +786,9 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                 </div>
               </div>
 
-              {/* Đánh dấu vạch bằng nhau */}
+              {/* Đánh dấu: Vạch bằng nhau & Ký hiệu góc vuông */}
               <div className="flex items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 w-14">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400 w-14 shrink-0">
                   Đánh dấu:
                 </span>
                 <div className="flex items-center gap-1 flex-1">
@@ -907,10 +806,51 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                         toggleEqualTicksOnLine(svg, target);
                       }
                     }}
-                    className="flex-1 py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1 text-slate-700 dark:text-slate-300"
+                    className="flex-1 py-1 px-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1 text-slate-700 dark:text-slate-300 transition"
+                    title="Đánh dấu vạch bằng nhau (1 vạch / 2 vạch / Xóa)"
                   >
                     <Equal className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                    <span>Vạch bằng nhau (/) (//)</span>
+                    <span>Vạch //</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const editId = selectedElementId || contextMenu?.elementId;
+                      if (!editId) return;
+                      const mount = document.getElementById(mountContainerId);
+                      if (!mount) return;
+                      const svg = mount.querySelector('svg');
+                      if (!svg) return;
+                      const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+                      if (!target) return;
+
+                      let x1 = parseFloat(target.getAttribute('x1') || '0');
+                      let y1 = parseFloat(target.getAttribute('y1') || '0');
+                      let x2 = parseFloat(target.getAttribute('x2') || '0');
+                      let y2 = parseFloat(target.getAttribute('y2') || '0');
+
+                      if (x1 === x2 && y1 === y2 && (target as SVGGraphicsElement).getBBox) {
+                        const bbox = (target as SVGGraphicsElement).getBBox();
+                        x1 = bbox.x;
+                        y1 = bbox.y;
+                        x2 = bbox.x + bbox.width;
+                        y2 = bbox.y + bbox.height;
+                      }
+
+                      const clickCoords = getSvgCoordinates(svg, contextMenu.x, contextMenu.y);
+                      const d1 = Math.hypot(clickCoords.x - x1, clickCoords.y - y1);
+                      const d2 = Math.hypot(clickCoords.x - x2, clickCoords.y - y2);
+                      const anchorX = d1 <= d2 ? x1 : x2;
+                      const anchorY = d1 <= d2 ? y1 : y2;
+
+                      addRightAngleMarker(svg, anchorX, anchorY);
+                    }}
+                    className="flex-1 py-1 px-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1 text-slate-700 dark:text-slate-300 transition"
+                    title="Chèn ký hiệu góc vuông tại đỉnh gần nhất của đường này"
+                  >
+                    <SquareCode className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
+                    <span>Góc vuông</span>
                   </button>
                 </div>
               </div>
