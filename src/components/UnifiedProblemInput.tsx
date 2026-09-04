@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Paperclip, Loader2, Sparkles, Search } from 'lucide-react';
+import LatexPreview from '@/components/LatexPreview';
 
 export interface UnifiedInputSubmitData {
   text: string;
@@ -174,6 +175,9 @@ export const UnifiedProblemInput: React.FC<UnifiedInputProps> = ({
         rows={2}
         className="w-full bg-transparent resize-none border-none outline-none text-[13px] leading-relaxed text-slate-800 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 min-h-[52px]"
       />
+
+      {/* Vùng Xem trước Công thức Toán học LaTeX */}
+      <LatexPreview content={currentText} />
 
       {/* 2. Vùng Thumbnail & Nút OCR (Nằm dưới text) */}
       {currentPreviewUrl && (
