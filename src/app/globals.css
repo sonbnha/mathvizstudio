@@ -30,3 +30,12 @@ html:not(.dark) {
   text-anchor: middle;
   dominant-baseline: central;
 }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
