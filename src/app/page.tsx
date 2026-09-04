@@ -40,6 +40,11 @@ import { APP_VERSION } from '@/config/version';
 import { CHANGELOG, mergeAndSortChangelogs } from '@/config/changelog';
 import LessonPlanView from '@/components/LessonPlanView';
 import { useApiKey } from '@/context/ApiKeyContext';
+import {
+  generateGeometrySvgClient,
+  extractOcrTextFromImage,
+  generateMathWithFallback,
+} from '@/lib/geminiClient';
 
 const PRESETS = [
   {
@@ -142,7 +147,7 @@ interface LicenseCheckResult {
 
 function HomeContent() {
   // Gemini API Key Context
-  const { isCustomKeyActive, openApiKeyModal, getApiKeyHeaders, handleRateLimitError } = useApiKey();
+  const { customApiKey, isCustomKeyActive, openApiKeyModal, getApiKeyHeaders, handleRateLimitError } = useApiKey();
 
   // Theme State (Default to Light Mode)
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
@@ -173,6 +178,7 @@ function HomeContent() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isOcrLoading, setIsOcrLoading] = useState(false);
 
   // Feature 1: Interactive SVG Canvas Edit Mode
   const [isEditMode, setIsEditMode] = useState(false);
@@ -582,7 +588,38 @@ function HomeContent() {
     }
   };
 
-  // Call API generate
+  // Trích xuất văn bản đề bài từ ảnh (OCR trực tiếp từ Client)
+  const handleExtractText = async () => {
+    if (!imagePreview) return;
+    setIsOcrLoading(true);
+    setErrorMsg(null);
+    try {
+      const extractedText = await extractOcrTextFromImage({
+        imageBase64: imagePreview,
+        mimeType: imageMimeType,
+        apiKey: customApiKey || undefined,
+      });
+
+      setPrompt((prev) => (prev && prev.trim() ? `${prev.trim()}\n\n${extractedText}` : extractedText));
+    } catch (err: any) {
+      console.error('Lỗi OCR trích xuất chữ:', err);
+      const errMsg = String(err?.message || '');
+      const isRateLimit =
+        errMsg.toLowerCase().includes('429') ||
+        errMsg.toLowerCase().includes('quota') ||
+        errMsg.toLowerCase().includes('resource_exhausted');
+
+      if (isRateLimit) {
+        handleRateLimitError(errMsg);
+      } else {
+        setErrorMsg('Không thể trích xuất chữ từ ảnh: ' + (errMsg || 'Vui lòng kiểm tra API Key hoặc thử lại.'));
+      }
+    } finally {
+      setIsOcrLoading(false);
+    }
+  };
+
+  // Gọi trực tiếp Google Gemini Client-Side (loại bỏ hoàn toàn timeout 10s của Vercel)
   const handleGenerate = async (overridePrompt?: string, isRefinement = false) => {
     const activePrompt = overridePrompt !== undefined ? overridePrompt : prompt;
     if (!activePrompt.trim() && !imagePreview) {
@@ -603,64 +640,59 @@ function HomeContent() {
     }
 
     try {
-      const res = await fetch('/api/generate', {
+      // 1. Kiểm tra License Key nhanh qua endpoint nội bộ (< 80ms)
+      const checkRes = await fetch('/api/license/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: licenseKey.trim() }),
+      });
+      const checkData = await checkRes.json();
+      if (!checkRes.ok || !checkData.valid) {
+        throw new Error(checkData.message || 'License key không hợp lệ hoặc đã hết lượt sử dụng.');
+      }
+
+      // 2. Gọi Google Gemini trực tiếp từ Client trình duyệt qua chuỗi Cascade
+      const { svg: generatedSvg } = await generateGeometrySvgClient({
+        prompt: activePrompt,
+        imageBase64: imagePreview || undefined,
+        mimeType: imageMimeType,
+        styleMode,
+        apiKey: customApiKey || undefined,
+      });
+
+      setSvgOutput(generatedSvg);
+      saveToHistory(generatedSvg, activePrompt);
+
+      // 3. Trừ credit License trong nền (< 50ms, không cản trở hiển thị hình)
+      fetch('/api/license/consume', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'X-License-Key': licenseKey.trim(),
-          ...getApiKeyHeaders(),
         },
-        body: JSON.stringify({
-          prompt: activePrompt,
-          imageBase64: imagePreview || undefined,
-          mimeType: imageMimeType,
-          styleMode,
-        }),
-      });
+      }).catch((e) => console.warn('Lỗi cập nhật credit:', e));
 
-      const rawText = await res.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(rawText);
-      } catch {
-        if (res.status === 429) {
-          handleRateLimitError();
-          throw new Error('Hệ thống đang quá tải lượt gọi AI. Vui lòng nhập Gemini API Key cá nhân để tiếp tục.');
-        }
-        if (!res.ok) {
-          throw new Error(rawText || `Lỗi máy chủ (${res.status})`);
-        }
-        throw new Error(`Dữ liệu máy chủ phản hồi không đúng định dạng JSON: ${rawText.slice(0, 120)}...`);
-      }
-
-      if (!res.ok) {
-        if (
-          res.status === 429 ||
-          data.isRateLimit ||
-          String(data.error || '').toLowerCase().includes('429') ||
-          String(data.error || '').toLowerCase().includes('quota') ||
-          String(data.error || '').toLowerCase().includes('resource_exhausted')
-        ) {
-          handleRateLimitError(data.error);
-          throw new Error(data.error || 'Hệ thống đang quá tải lượt gọi AI. Vui lòng nhập Gemini API Key cá nhân để tiếp tục.');
-        }
-        throw new Error(data.error || `Đã có lỗi xảy ra khi tạo hình (${res.status}).`);
-      }
-
-      setSvgOutput(data.svg);
-      saveToHistory(data.svg, activePrompt);
-
-      // Hit 100% on success and delay 250ms with smooth completion effect
+      // Hoàn tất thanh tiến trình
       setProgress(100);
       await new Promise((resolve) => setTimeout(resolve, 250));
 
       if (isRefinement) {
         setRefineInput('');
       }
-      // Refresh license key status in real time
+      // Cập nhật lại số lượt sử dụng
       checkLicenseKey();
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối tới máy chủ.');
+      console.error('Lỗi sinh hình SVG:', err);
+      const errMsg = String(err?.message || '');
+      const isRateLimit =
+        errMsg.toLowerCase().includes('429') ||
+        errMsg.toLowerCase().includes('quota') ||
+        errMsg.toLowerCase().includes('resource_exhausted');
+
+      if (isRateLimit) {
+        handleRateLimitError(errMsg);
+      }
+      setErrorMsg(errMsg || 'Lỗi kết nối tạo hình SVG.');
       setProgress(0);
     } finally {
       setLoading(false);
@@ -1362,15 +1394,36 @@ function HomeContent() {
                       Gemini 3.6 Flash sẽ tự động đọc chữ (OCR) & dựng mô hình toán.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setImagePreview(null)}
-                    className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-medium transition flex items-center gap-1"
-                    title="Xóa ảnh"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    <span>Xóa ảnh</span>
-                  </button>
+                  <div className="flex flex-col sm:flex-row items-end sm:items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={handleExtractText}
+                      disabled={isOcrLoading}
+                      className="px-2.5 py-1.5 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs font-semibold transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-wait"
+                      title="Trích xuất đề bài toán bằng OCR vào ô văn bản"
+                    >
+                      {isOcrLoading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Đang đọc...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>⚡ Đọc chữ</span>
+                        </>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setImagePreview(null)}
+                      className="px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-500/20 text-xs font-medium transition flex items-center gap-1"
+                      title="Xóa ảnh"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Xóa ảnh</span>
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div
