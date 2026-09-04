@@ -38,7 +38,7 @@ interface InteractiveSvgEditorProps {
 interface ContextMenuState {
   x: number;
   y: number;
-  targetElement: SVGElement | null;
+  elementId: string;
   type: 'line' | 'text' | 'polygon' | 'angle';
 }
 
@@ -58,6 +58,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
 
   // Contextual popup state for selected element
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
 
   // Inline text editing state
   const [editingText, setEditingText] = useState<{
@@ -81,12 +82,23 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   // Ref to container for position calculations
   const editorRootRef = useRef<HTMLDivElement>(null);
 
+  // Helper to get or assign data-edit-id on an SVGElement
+  const getOrAssignEditId = (element: SVGElement): string => {
+    let editId = element.getAttribute('data-edit-id');
+    if (!editId) {
+      editId = 'elem_' + Math.random().toString(36).substring(2, 9);
+      element.setAttribute('data-edit-id', editId);
+    }
+    return editId;
+  };
+
   // Reset history on entering edit mode
   useEffect(() => {
     if (isEditMode) {
       setHistory([svgCode]);
       setFuture([]);
       setContextMenu(null);
+      setSelectedElementId(null);
       setEditingText(null);
     }
   }, [isEditMode]);
@@ -109,6 +121,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     setFuture((prev) => [svgCode, ...prev]);
     onUpdateSvg(previous);
     setContextMenu(null);
+    setSelectedElementId(null);
     setEditingText(null);
   }, [history, svgCode, onUpdateSvg]);
 
@@ -120,6 +133,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     setHistory((prev) => [...prev, svgCode]);
     onUpdateSvg(next);
     setContextMenu(null);
+    setSelectedElementId(null);
     setEditingText(null);
   }, [future, svgCode, onUpdateSvg]);
 
@@ -139,6 +153,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         handleRedo();
       } else if (e.key === 'Escape') {
         setContextMenu(null);
+        setSelectedElementId(null);
         setEditingText(null);
       }
     };
@@ -172,12 +187,14 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       if (!svg) return;
 
       // Close open context menu if clicking elsewhere
+      const currentTargetEditId = target.getAttribute('data-edit-id');
       if (
         contextMenu &&
-        contextMenu.targetElement !== target &&
+        contextMenu.elementId !== currentTargetEditId &&
         !target.closest('.editor-context-menu')
       ) {
         setContextMenu(null);
+        setSelectedElementId(null);
       }
 
       // Check element types
@@ -234,10 +251,14 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       if (activeTool === 'highlight' && (polygonTarget || lineTarget)) {
         // Open highlight menu directly
         e.preventDefault();
+        const targetEl = polygonTarget || lineTarget;
+        if (!targetEl) return;
+        const editId = getOrAssignEditId(targetEl);
+        setSelectedElementId(editId);
         setContextMenu({
           x: e.clientX,
           y: e.clientY,
-          targetElement: polygonTarget || lineTarget,
+          elementId: editId,
           type: 'polygon',
         });
         return;
@@ -276,26 +297,32 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         circleTarget.classList.add('opacity-70');
       } else if (angleTarget) {
         // Open angle contextual options menu (rotate 90, delete)
+        const editId = getOrAssignEditId(angleTarget);
+        setSelectedElementId(editId);
         setContextMenu({
           x: e.clientX,
           y: e.clientY,
-          targetElement: angleTarget,
+          elementId: editId,
           type: 'angle',
         });
       } else if (polygonTarget) {
         // Open polygon area highlight menu
+        const editId = getOrAssignEditId(polygonTarget);
+        setSelectedElementId(editId);
         setContextMenu({
           x: e.clientX,
           y: e.clientY,
-          targetElement: polygonTarget,
+          elementId: editId,
           type: 'polygon',
         });
       } else if (lineTarget) {
         // Open line contextual options menu
+        const editId = getOrAssignEditId(lineTarget);
+        setSelectedElementId(editId);
         setContextMenu({
           x: e.clientX,
           y: e.clientY,
-          targetElement: lineTarget,
+          elementId: editId,
           type: 'line',
         });
       }
@@ -544,18 +571,20 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   };
 
   // MODIFY ELEMENT STYLE (Stroke, Fill, Width)
-  const updateElementStyle = (
-    attribute: string,
-    value: string,
-    target: SVGElement | null = contextMenu?.targetElement || null
-  ) => {
-    if (!target) return;
+  const updateElementStyle = (attribute: string, value: string) => {
+    const editId = selectedElementId || contextMenu?.elementId;
+    if (!editId) return;
+
     const mount = document.getElementById(mountContainerId);
     if (!mount) return;
     const svg = mount.querySelector('svg');
     if (!svg) return;
 
-    if (value === 'none' && attribute === 'stroke-dasharray') {
+    // Luôn query tìm phần tử mới nhất đang tồn tại trong DOM hiện tại theo ID
+    const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+    if (!target) return;
+
+    if (attribute === 'stroke-dasharray' && (value === '' || value === 'none')) {
       target.removeAttribute(attribute);
     } else {
       target.setAttribute(attribute, value);
@@ -567,14 +596,20 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
 
   // DELETE SELECTED ELEMENT
   const deleteSelectedElement = () => {
-    if (!contextMenu?.targetElement) return;
+    const editId = selectedElementId || contextMenu?.elementId;
+    if (!editId) return;
+
     const mount = document.getElementById(mountContainerId);
     if (!mount) return;
     const svg = mount.querySelector('svg');
     if (!svg) return;
 
-    contextMenu.targetElement.remove();
+    const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+    if (target) {
+      target.remove();
+    }
     setContextMenu(null);
+    setSelectedElementId(null);
 
     const serialized = new XMLSerializer().serializeToString(svg);
     commitSvgChange(serialized);
@@ -584,6 +619,15 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
 
   return (
     <div ref={editorRootRef} className="absolute inset-0 pointer-events-none z-30">
+      {/* Hiệu ứng viền phát sáng nhẹ cho phần tử đang được chọn tinh chỉnh */}
+      {selectedElementId && (
+        <style>{`
+          [data-edit-id="${selectedElementId}"] {
+            filter: drop-shadow(0 0 3.5px #06b6d4) !important;
+          }
+        `}</style>
+      )}
+
       {/* 1. THANH CÔNG CỤ NỔI CỐ ĐỊNH Ở MÉP TRÊN CANVAS (Floating Editor Toolbar) */}
       <div className="absolute top-3 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-1 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700/80 rounded-2xl px-2.5 py-1.5 shadow-xl shadow-slate-900/10 dark:shadow-black/50 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
         <div className="flex items-center gap-1 pr-1 border-r border-slate-200 dark:border-slate-800">
@@ -764,7 +808,10 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
             </span>
             <button
               type="button"
-              onClick={() => setContextMenu(null)}
+              onClick={() => {
+                setContextMenu(null);
+                setSelectedElementId(null);
+              }}
               className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
             >
               ✕
@@ -781,14 +828,14 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                 <div className="flex items-center gap-1 flex-1">
                   <button
                     type="button"
-                    onClick={() => updateElementStyle('stroke-dasharray', 'none')}
+                    onClick={() => updateElementStyle('stroke-dasharray', '')}
                     className="flex-1 py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer"
                   >
                     Nét liền
                   </button>
                   <button
                     type="button"
-                    onClick={() => updateElementStyle('stroke-dasharray', '5 4')}
+                    onClick={() => updateElementStyle('stroke-dasharray', '5 5')}
                     className="flex-1 py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer"
                   >
                     Nét đứt
@@ -849,10 +896,15 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                   <button
                     type="button"
                     onClick={() => {
+                      const editId = selectedElementId || contextMenu?.elementId;
+                      if (!editId) return;
                       const mount = document.getElementById(mountContainerId);
-                      const svg = mount?.querySelector('svg');
-                      if (svg && contextMenu.targetElement) {
-                        toggleEqualTicksOnLine(svg, contextMenu.targetElement);
+                      if (!mount) return;
+                      const svg = mount.querySelector('svg');
+                      if (!svg) return;
+                      const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+                      if (target) {
+                        toggleEqualTicksOnLine(svg, target);
                       }
                     }}
                     className="flex-1 py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1 text-slate-700 dark:text-slate-300"
@@ -874,8 +926,14 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (!contextMenu.targetElement) return;
-                  const el = contextMenu.targetElement;
+                  const editId = selectedElementId || contextMenu?.elementId;
+                  if (!editId) return;
+                  const mount = document.getElementById(mountContainerId);
+                  if (!mount) return;
+                  const svg = mount.querySelector('svg');
+                  if (!svg) return;
+                  const el = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+                  if (!el) return;
                   const currentTransform = el.getAttribute('transform') || '';
                   const match = currentTransform.match(/rotate\((\d+)/);
                   const currentAngle = match ? parseInt(match[1], 10) : 0;
@@ -884,12 +942,8 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
                   const cx = bbox.x + bbox.width / 2;
                   const cy = bbox.y + bbox.height / 2;
                   el.setAttribute('transform', `rotate(${nextAngle} ${cx} ${cy})`);
-                  const mount = document.getElementById(mountContainerId);
-                  const svg = mount?.querySelector('svg');
-                  if (svg) {
-                    const serialized = new XMLSerializer().serializeToString(svg);
-                    commitSvgChange(serialized);
-                  }
+                  const serialized = new XMLSerializer().serializeToString(svg);
+                  commitSvgChange(serialized);
                 }}
                 className="py-1 px-2 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1"
               >
