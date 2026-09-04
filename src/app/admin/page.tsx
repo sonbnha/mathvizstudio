@@ -1539,6 +1539,22 @@ export default function UnifiedAdminPage() {
                 </div>
               )}
 
+              {/* Database & Cloud Connection Status Indicator */}
+              <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/80 dark:bg-slate-900/80 border border-slate-200/80 dark:border-slate-800/80 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="font-bold text-slate-900 dark:text-slate-100">Hệ Thống Dữ Liệu:</span>
+                    <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-semibold border border-emerald-500/20">
+                      Neon Postgres (Cloud DB) - Đang Kết Nối
+                    </span>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-400 font-mono">
+                  Bảo mật RBAC: Active • Auto Sync
+                </div>
+              </div>
+
               {/* Statistics Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div

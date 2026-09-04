@@ -27,7 +27,6 @@ import {
   BookOpen,
   LogIn,
   LogOut,
-  CloudCheck,
   Shield,
   ChevronDown,
   Bookmark,
@@ -1286,21 +1285,6 @@ function HomeContent() {
             </button>
           ) : (
             <div className="flex items-center gap-2 shrink-0">
-              {/* Sync Status Badge */}
-              <div
-                className="hidden md:flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-2 py-1.5 rounded-xl shadow-xs"
-                title={isSyncingCollection ? 'Đang đồng bộ dữ liệu với Neon Database...' : 'Đã đồng bộ Neon Cloud Database'}
-              >
-                <CloudCheck
-                  className={`w-3.5 h-3.5 text-emerald-500 ${
-                    isSyncingCollection ? 'animate-pulse' : ''
-                  }`}
-                />
-                <span className="font-medium text-[10px]">
-                  {isSyncingCollection ? 'Đang sync...' : 'Neon DB'}
-                </span>
-              </div>
-
               {/* User Avatar + Name + Role Badge + Dropdown Menu */}
               <div ref={userDropdownRef} className="relative">
                 <button
