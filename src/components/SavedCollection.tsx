@@ -25,7 +25,20 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
 }) => {
   // Trạng thái thu gọn / mở rộng (Lưu vào localStorage)
   const [isExpanded, setIsExpanded] = useState(false);
+  const [hasOverflow, setHasOverflow] = useState(false);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const checkScroll = () => {
+    if (scrollContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      const overflow = scrollWidth > clientWidth + 4;
+      setHasOverflow(overflow);
+      setCanScrollLeft(overflow && scrollLeft > 8);
+      setCanScrollRight(overflow && scrollLeft < scrollWidth - clientWidth - 8);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -37,6 +50,24 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
       console.warn('Lỗi đọc localStorage saved_collection_collapsed:', e);
     }
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(checkScroll, 50);
+    const container = scrollContainerRef.current;
+    if (!container) return () => clearTimeout(timer);
+
+    container.addEventListener('scroll', checkScroll, { passive: true });
+    const observer = new ResizeObserver(checkScroll);
+    observer.observe(container);
+    window.addEventListener('resize', checkScroll);
+
+    return () => {
+      clearTimeout(timer);
+      container.removeEventListener('scroll', checkScroll);
+      observer.disconnect();
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [items, isExpanded]);
 
   const toggleExpand = () => {
     const next = !isExpanded;
@@ -102,28 +133,35 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
 
       {/* Băng trượt ngang khi mở (Single-row Horizontal Scroll Carousel) */}
       {isExpanded && (
-        <div className="relative px-2 py-2 border-t border-slate-100 dark:border-slate-800/80 group/carousel">
+        <div className="relative w-full px-2 py-2 border-t border-slate-100 dark:border-slate-800/80 group/carousel">
           {items.length === 0 ? (
             <div className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">
               Chưa có hình vẽ nào được lưu vào bộ sưu tập.
             </div>
           ) : (
             <>
-              {/* Nút lùi trái */}
-              <button
-                type="button"
-                onClick={() => scroll('left')}
-                className="absolute left-1 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs transition-opacity opacity-75 hover:opacity-100 cursor-pointer"
-                title="Cuộn sang trái"
-              >
-                ‹
-              </button>
+              {/* Nút lùi trái - Chỉ hiển thị khi có tràn nội dung */}
+              {hasOverflow && (
+                <button
+                  type="button"
+                  onClick={() => scroll('left')}
+                  disabled={!canScrollLeft}
+                  className={`absolute left-1.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-800/90 dark:bg-slate-700/90 border border-slate-700/80 dark:border-slate-600/80 shadow-md flex items-center justify-center text-slate-300 text-xs transition-all ${
+                    canScrollLeft
+                      ? 'hover:text-white hover:bg-slate-700 cursor-pointer opacity-90 hover:opacity-100'
+                      : 'opacity-0 pointer-events-none'
+                  }`}
+                  title="Cuộn sang trái"
+                >
+                  ‹
+                </button>
+              )}
 
-              {/* Vùng trượt ngang */}
+              {/* Container danh sách thẻ: Đệm px-11 để thẻ đầu và thẻ cuối không bao giờ bị nút đè */}
               <div
                 ref={scrollContainerRef}
                 onWheel={handleWheel}
-                className="flex items-center gap-2.5 overflow-x-auto scroll-smooth py-1 px-5 no-scrollbar"
+                className="flex items-center gap-3 overflow-x-auto scroll-smooth py-1 px-11 no-scrollbar"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {items.map((item) => (
@@ -180,15 +218,22 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
                 ))}
               </div>
 
-              {/* Nút tiến phải */}
-              <button
-                type="button"
-                onClick={() => scroll('right')}
-                className="absolute right-1 top-1/2 -translate-y-1/2 z-10 w-6 h-6 rounded-full bg-white/95 dark:bg-slate-800/95 border border-slate-200 dark:border-slate-700 shadow-sm flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs transition-opacity opacity-75 hover:opacity-100 cursor-pointer"
-                title="Cuộn sang phải"
-              >
-                ›
-              </button>
+              {/* Nút tiến phải - Chỉ hiển thị khi có tràn nội dung */}
+              {hasOverflow && (
+                <button
+                  type="button"
+                  onClick={() => scroll('right')}
+                  disabled={!canScrollRight}
+                  className={`absolute right-1.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-800/90 dark:bg-slate-700/90 border border-slate-700/80 dark:border-slate-600/80 shadow-md flex items-center justify-center text-slate-300 text-xs transition-all ${
+                    canScrollRight
+                      ? 'hover:text-white hover:bg-slate-700 cursor-pointer opacity-90 hover:opacity-100'
+                      : 'opacity-0 pointer-events-none'
+                  }`}
+                  title="Cuộn sang phải"
+                >
+                  ›
+                </button>
+              )}
             </>
           )}
         </div>
