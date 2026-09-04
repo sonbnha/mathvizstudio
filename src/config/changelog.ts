@@ -10,6 +10,20 @@ export interface VersionRelease {
 
 export const CHANGELOG: VersionRelease[] = [
   {
+    version: "v1.2.1",
+    date: "05/09/2026",
+    title: "Tối Ưu Edit Mode, Băng Trượt Bộ Sưu Tập & Tăng Cường Null-safety",
+    changes: [
+      { type: "feat", description: "Hoán đổi trực tiếp thanh Header Canvas thành thanh Ribbon định dạng khi vào chế độ chỉnh sửa, giải phóng toàn bộ diện tích Canvas SVG" },
+      { type: "feat", description: "Hỗ trợ click chọn cụm Điểm - Nhãn thông minh kèm bộ chọn màu riêng biệt (đổi màu chấm tròn circle và nhãn text độc lập)" },
+      { type: "feat", description: "Băng trượt ngang Bộ sưu tập (Horizontal Carousel): đưa về đáy Canvas gọn gàng, hỗ trợ đóng/mở toàn thanh, căn thẳng hàng mép trái px-3 và ẩn/hiện nút thông minh" },
+      { type: "feat", description: "Nâng cấp 6 bài toán thực tế bám sát chương trình với các công thức, góc, độ dài chuẩn hóa LaTeX ($...$)" },
+      { type: "fix", description: "Khắc phục lỗi crash ứng dụng bằng cơ chế Null-safety guard và phân định luồng scan SVG" },
+      { type: "fix", description: "Sửa lỗi tràn viền (overflow) nút Tạo hình và tối ưu độ thoáng cho cột nhập đề bài bên trái" },
+      { type: "improve", description: "Xóa bỏ các dòng chú thích phụ gây dính chữ ở tiêu đề nhập liệu" },
+    ],
+  },
+  {
     version: "v1.2.0",
     date: "05/09/2026",
     title: "Trình Chỉnh Sửa SVG Tương Tác, Chuẩn Hóa LaTeX & Tối Ưu Bố Cục Canvas",

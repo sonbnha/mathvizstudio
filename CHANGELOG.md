@@ -6,6 +6,21 @@ Tất cả các thay đổi đáng chú ý của dự án **MathViz Studio** s�
 
 ---
 
+## [1.2.1] - 2026-09-05
+
+### ✨ Tính năng mới & Cải tiến UI/UX
+- **Tối ưu thanh công cụ Edit Mode:** Hoán đổi trực tiếp thanh Header Canvas thành thanh Ribbon định dạng khi vào chế độ chỉnh sửa, giải phóng toàn bộ diện tích trong lòng Canvas SVG.
+- **Chỉnh sửa độc lập Chấm điểm & Nhãn chữ:** Hỗ trợ click chọn cụm thông minh kèm bộ chọn màu riêng biệt (đổi màu chấm tròn `<circle>` và nhãn `<text>` độc lập mà không bị dính chùm).
+- **Băng trượt ngang Bộ sưu tập (Horizontal Carousel):** Đưa bộ sưu tập về lại đáy Canvas dạng trượt ngang gọn gàng, hỗ trợ nút đóng/mở toàn thanh, căn thẳng hàng mép trái và tự động ẩn/hiện nút điều hướng thông minh.
+- **Bộ bài toán thực tế mẫu chuẩn LaTeX:** Nâng cấp 6 bài toán thực tế bám sát chương trình với các công thức, góc, độ dài chuẩn hóa `$ ... $`.
+
+### 🐛 Sửa lỗi & Phòng vệ hệ thống (Bug Fixes)
+- Khắc phục lỗi crash ứng dụng ("This page couldn't load") bằng cơ chế Null-safety guard và phân định luồng scan SVG.
+- Sửa lỗi tràn viền (overflow) nút "Tạo hình" và tối ưu độ thoáng cho cột nhập đề bài bên trái.
+- Xóa bỏ các dòng chú thích phụ gây dính chữ ở tiêu đề nhập liệu.
+
+---
+
 ## [1.2.0] - 05/09/2026
 
 ### ✨ Tính Năng Mới (Features)
