@@ -25,18 +25,15 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
 }) => {
   // Trạng thái thu gọn / mở rộng (Lưu vào localStorage)
   const [isExpanded, setIsExpanded] = useState(false);
-  const [hasOverflow, setHasOverflow] = useState(false);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   const checkScroll = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      const overflow = scrollWidth > clientWidth + 4;
-      setHasOverflow(overflow);
-      setCanScrollLeft(overflow && scrollLeft > 8);
-      setCanScrollRight(overflow && scrollLeft < scrollWidth - clientWidth - 8);
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 10);
+      setCanScrollRight(scrollWidth - clientWidth - scrollLeft > 10);
     }
   };
 
@@ -53,19 +50,18 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
 
   useEffect(() => {
     const timer = setTimeout(checkScroll, 50);
-    const container = scrollContainerRef.current;
-    if (!container) return () => clearTimeout(timer);
-
-    container.addEventListener('scroll', checkScroll, { passive: true });
-    const observer = new ResizeObserver(checkScroll);
-    observer.observe(container);
     window.addEventListener('resize', checkScroll);
+
+    let observer: ResizeObserver | null = null;
+    if (scrollRef.current && typeof ResizeObserver !== 'undefined') {
+      observer = new ResizeObserver(checkScroll);
+      observer.observe(scrollRef.current);
+    }
 
     return () => {
       clearTimeout(timer);
-      container.removeEventListener('scroll', checkScroll);
-      observer.disconnect();
       window.removeEventListener('resize', checkScroll);
+      if (observer) observer.disconnect();
     };
   }, [items, isExpanded]);
 
@@ -78,15 +74,15 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
   };
 
   const scroll = (direction: 'left' | 'right') => {
-    if (scrollContainerRef.current) {
+    if (scrollRef.current) {
       const scrollAmount = direction === 'left' ? -260 : 260;
-      scrollContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+      scrollRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
     }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
-    if (scrollContainerRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      scrollContainerRef.current.scrollLeft += e.deltaY;
+    if (scrollRef.current && Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      scrollRef.current.scrollLeft += e.deltaY;
     }
   };
 
@@ -133,35 +129,31 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
 
       {/* Băng trượt ngang khi mở (Single-row Horizontal Scroll Carousel) */}
       {isExpanded && (
-        <div className="relative w-full px-2 py-2 border-t border-slate-100 dark:border-slate-800/80 group/carousel">
+        <div className="relative w-full border-t border-slate-100 dark:border-slate-800/80 group/carousel">
           {items.length === 0 ? (
             <div className="text-center py-4 text-xs text-slate-400 dark:text-slate-500">
               Chưa có hình vẽ nào được lưu vào bộ sưu tập.
             </div>
           ) : (
             <>
-              {/* Nút lùi trái - Chỉ hiển thị khi có tràn nội dung */}
-              {hasOverflow && (
+              {/* Nút lùi trái: Chỉ hiện khi ĐÃ cuộn sang phải */}
+              {canScrollLeft && (
                 <button
                   type="button"
                   onClick={() => scroll('left')}
-                  disabled={!canScrollLeft}
-                  className={`absolute left-1.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-800/90 dark:bg-slate-700/90 border border-slate-700/80 dark:border-slate-600/80 shadow-md flex items-center justify-center text-slate-300 text-xs transition-all ${
-                    canScrollLeft
-                      ? 'hover:text-white hover:bg-slate-700 cursor-pointer opacity-90 hover:opacity-100'
-                      : 'opacity-0 pointer-events-none'
-                  }`}
+                  className="absolute left-1 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 transition-all cursor-pointer"
                   title="Cuộn sang trái"
                 >
                   ‹
                 </button>
               )}
 
-              {/* Container danh sách thẻ: Đệm px-11 để thẻ đầu và thẻ cuối không bao giờ bị nút đè */}
+              {/* Danh sách thẻ: px-3 căn thẳng hàng với header */}
               <div
-                ref={scrollContainerRef}
+                ref={scrollRef}
+                onScroll={checkScroll}
                 onWheel={handleWheel}
-                className="flex items-center gap-3 overflow-x-auto scroll-smooth py-1 px-11 no-scrollbar"
+                className="flex items-center gap-3 overflow-x-auto scroll-smooth py-2 px-3 no-scrollbar"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
                 {items.map((item) => (
@@ -218,17 +210,12 @@ export const SavedCollection: React.FC<SavedCollectionProps> = ({
                 ))}
               </div>
 
-              {/* Nút tiến phải - Chỉ hiển thị khi có tràn nội dung */}
-              {hasOverflow && (
+              {/* Nút tiến phải: Chỉ hiện khi danh sách BỊ TRÀN sang phải */}
+              {canScrollRight && (
                 <button
                   type="button"
                   onClick={() => scroll('right')}
-                  disabled={!canScrollRight}
-                  className={`absolute right-1.5 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-slate-800/90 dark:bg-slate-700/90 border border-slate-700/80 dark:border-slate-600/80 shadow-md flex items-center justify-center text-slate-300 text-xs transition-all ${
-                    canScrollRight
-                      ? 'hover:text-white hover:bg-slate-700 cursor-pointer opacity-90 hover:opacity-100'
-                      : 'opacity-0 pointer-events-none'
-                  }`}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 z-20 w-7 h-7 rounded-full bg-white/90 dark:bg-slate-800/90 shadow-md border border-slate-200 dark:border-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 hover:scale-105 transition-all cursor-pointer"
                   title="Cuộn sang phải"
                 >
                   ›
