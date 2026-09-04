@@ -26,13 +26,6 @@ import {
   Sun,
   Moon,
   MousePointerClick,
-  FolderClock,
-  Search,
-  FolderOpen,
-  Filter,
-  Layers,
-  ArrowUpRight,
-  BookmarkCheck,
   BookOpen,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -46,6 +39,7 @@ import {
   generateMathWithFallback,
 } from '@/lib/geminiClient';
 import UnifiedProblemInput from '@/components/UnifiedProblemInput';
+import SavedCollection from '@/components/SavedCollection';
 
 const PRESETS = [
   {
@@ -69,14 +63,6 @@ const PRESETS = [
     prompt:
       'Một cây xanh cao 8m có bóng trên mặt đất dài 6m. Tính góc tạo bởi tia nắng mặt trời với mặt đất (làm tròn đến độ).',
   },
-];
-
-const TOPIC_CATEGORIES = [
-  'Tất cả',
-  'Toán 9 - Hệ thức lượng & Tỉ số lượng giác',
-  'Toán 10 - Hệ thức lượng tam giác',
-  'Toán 11/12 - Hình học không gian',
-  'Hình học thực tế & Mô hình hóa',
 ];
 
 export interface HistoryItem {
@@ -194,11 +180,8 @@ function HomeContent() {
     type: 'text' | 'circle';
   } | null>(null);
 
-  // Feature 2: Personal History & Subject Library
+  // Feature 2: Personal History & Saved Collection
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
-  const [historySearch, setHistorySearch] = useState('');
-  const [selectedTopic, setSelectedTopic] = useState('Tất cả');
-  const [historyCardCopiedId, setHistoryCardCopiedId] = useState<string | null>(null);
 
   // Main Active Tab Switcher: useSearchParams is the Single Source of Truth
   const searchParams = useSearchParams();
@@ -457,11 +440,13 @@ function HomeContent() {
     }
   };
 
-  const handleDeleteHistoryItem = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDeleteHistoryItem = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
     setHistoryItems((prev) => {
       const updated = prev.filter((item) => item.id !== id);
-      localStorage.setItem('mathviz_history_items', JSON.stringify(updated));
+      try {
+        localStorage.setItem('mathviz_history_items', JSON.stringify(updated));
+      } catch {}
       return updated;
     });
   };
@@ -1020,16 +1005,6 @@ function HomeContent() {
     };
   }, [isEditMode, svgOutput]);
 
-  // Filtered History
-  const filteredHistory = historyItems.filter((item) => {
-    const matchesSearch =
-      historySearch.trim() === '' ||
-      item.title.toLowerCase().includes(historySearch.toLowerCase()) ||
-      item.promptText.toLowerCase().includes(historySearch.toLowerCase());
-    const matchesTopic = selectedTopic === 'Tất cả' || item.topic === selectedTopic;
-    return matchesSearch && matchesTopic;
-  });
-
   return (
     <div className="h-screen flex flex-col overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans selection:bg-cyan-500 selection:text-white transition-colors duration-200">
       {/* Background visual elements */}
@@ -1488,8 +1463,10 @@ function HomeContent() {
           </div>
         </section>
 
-        {/* CỘT 2: KHUNG VẼ CANVAS SVG (Tự nở rộng chiếm không gian chính, h-full) */}
-        <section className="flex-1 min-w-0 h-full flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
+        {/* CỘT 2: KHUNG VẼ CANVAS SVG VÀ BỘ SƯU TẬP ĐÃ LƯU */}
+        <div className="flex-1 min-w-0 h-full flex flex-col gap-3 overflow-hidden">
+          {/* Khung Canvas SVG */}
+          <section className="flex-1 min-h-0 flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
           {/* Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200 dark:border-slate-800 shrink-0">
             <div className="flex items-center gap-2">
@@ -1731,138 +1708,24 @@ function HomeContent() {
                 </button>
               </div>
             </div>
-        </section>
+          </section>
 
-        {/* CỘT 3: BỘ SƯU TẬP HIỂN THỊ MẶC ĐỊNH (Cố định bên phải, h-full) */}
-        <aside className="w-full lg:w-[320px] xl:w-[340px] shrink-0 h-full flex flex-col rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-4 shadow-xs overflow-hidden">
-          <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-100 dark:border-slate-800">
-            <span className="font-bold text-sm text-slate-800 dark:text-slate-100 flex items-center gap-2">
-              <FolderClock className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-              Bộ sưu tập đã lưu ({historyItems.length})
-            </span>
-            {historyItems.length > 0 && (
-              <button
-                type="button"
-                onClick={handleClearAllHistory}
-                className="text-xs text-rose-500 hover:text-rose-600 transition-colors font-medium cursor-pointer"
-              >
-                Xóa hết
-              </button>
-            )}
-          </div>
-
-          {/* Thanh tìm kiếm & Tabs lọc danh mục */}
-          <div className="mb-3 space-y-2">
-            <div className="relative w-full">
-              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-              <input
-                type="text"
-                value={historySearch}
-                onChange={(e) => setHistorySearch(e.target.value)}
-                placeholder="Tìm kiếm hình vẽ..."
-                className="w-full pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 outline-none focus:border-indigo-500 transition"
-              />
-            </div>
-
-            <div className="flex items-center gap-1 overflow-x-auto w-full pb-1">
-              {TOPIC_CATEGORIES.map((topic) => (
-                <button
-                  key={topic}
-                  onClick={() => setSelectedTopic(topic)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] whitespace-nowrap font-medium transition cursor-pointer ${
-                    selectedTopic === topic
-                      ? 'bg-indigo-600 text-white shadow-xs'
-                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {topic.startsWith('Toán') ? topic.split(' - ')[0] : topic}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Danh sách cuộn độc lập */}
-          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
-            {filteredHistory.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center text-slate-400">
-                <FolderOpen className="w-7 h-7 mb-2 text-slate-300 dark:text-slate-600" />
-                <p className="text-xs font-semibold text-slate-600 dark:text-slate-400">
-                  Không có hình vẽ nào
-                </p>
-              </div>
-            ) : (
-              filteredHistory.map((item) => (
-                <div
-                  key={item.id}
-                  className="group bg-slate-50/70 dark:bg-slate-950/70 border border-slate-200 dark:border-slate-800 hover:border-indigo-500/50 rounded-xl p-2.5 flex flex-col gap-2 transition shadow-xs hover:shadow-sm"
-                >
-                  {/* SVG Thumbnail Container */}
-                  <div className="w-full h-28 bg-white rounded-lg border border-slate-200 dark:border-slate-700/80 p-1 flex items-center justify-center overflow-hidden relative shadow-2xs">
-                    <div
-                      className="w-full h-full flex items-center justify-center [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:w-auto [&>svg]:h-auto pointer-events-none"
-                      dangerouslySetInnerHTML={{ __html: item.svgCode }}
-                    />
-                    <span className="absolute top-1.5 left-1.5 text-[8px] px-1.5 py-0.2 rounded-full bg-slate-900/80 backdrop-blur-xs text-slate-200 font-semibold">
-                      {item.topic.split(' - ')[0]}
-                    </span>
-                  </div>
-
-                  {/* Info & Actions */}
-                  <div>
-                    <h4 className="text-xs font-bold text-slate-900 dark:text-slate-100 line-clamp-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition">
-                      {item.title}
-                    </h4>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-1 mt-0.5">
-                      {item.promptText}
-                    </p>
-                  </div>
-
-                  <div className="flex items-center justify-between text-[9px] text-slate-400 border-t border-slate-200/80 dark:border-slate-800/80 pt-1.5 mt-0.5">
-                    <span>{new Date(item.timestamp).toLocaleDateString('vi-VN')}</span>
-
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigator.clipboard.writeText(item.svgCode);
-                          setHistoryCardCopiedId(item.id);
-                          setTimeout(() => setHistoryCardCopiedId(null), 2000);
-                        }}
-                        className="p-1 rounded hover:bg-slate-200 dark:hover:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-200 transition cursor-pointer"
-                        title="Copy mã SVG"
-                      >
-                        {historyCardCopiedId === item.id ? (
-                          <Check className="w-3 h-3 text-emerald-500" />
-                        ) : (
-                          <Copy className="w-3 h-3" />
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => handleDeleteHistoryItem(item.id, e)}
-                        className="p-1 rounded hover:bg-rose-500/10 text-slate-400 hover:text-rose-500 transition cursor-pointer"
-                        title="Xóa hình này"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleLoadFromHistory(item)}
-                        className="px-2 py-0.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-[10px] transition flex items-center gap-1 shadow-2xs cursor-pointer"
-                      >
-                        <span>Mở</span>
-                        <ArrowUpRight className="w-2.5 h-2.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </aside>
+          {/* Bộ sưu tập đã lưu (Collapsible Accordion dạng thanh mỏng ở đáy) */}
+          <SavedCollection
+            items={historyItems.map((item) => ({
+              id: item.id,
+              title: item.title,
+              svgContent: item.svgCode,
+              createdAt: new Date(item.timestamp).toLocaleDateString('vi-VN'),
+            }))}
+            onSelectItem={(saved) => {
+              const found = historyItems.find((h) => h.id === saved.id);
+              if (found) handleLoadFromHistory(found);
+            }}
+            onDeleteItem={(id) => handleDeleteHistoryItem(id)}
+            onClearAll={handleClearAllHistory}
+          />
+        </div>
         </div>
 
         {/* TAB 2: Soạn giáo án tự động */}
