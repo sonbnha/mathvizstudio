@@ -1267,13 +1267,12 @@ function HomeContent() {
             </div>
 
             {/* Unified Multimodal Input Box */}
-            <div className="w-full max-w-full mx-auto flex flex-col gap-1.5 flex-1 min-h-0 overflow-hidden box-border">
-              <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
-                <span>Nội dung đề bài</span>
-                <span className="text-[10px] text-slate-500 font-normal">
-                  Hỗ trợ văn bản hoặc dán ảnh (Ctrl+V)
-                </span>
-              </label>
+            <div className="w-full max-w-full mx-auto flex flex-col flex-1 min-h-0 overflow-hidden box-border">
+              <div className="mb-2 px-0.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                  Nội dung đề bài
+                </label>
+              </div>
 
               <UnifiedProblemInput
                 value={prompt}
