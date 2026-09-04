@@ -101,6 +101,8 @@ interface UserAccountItem {
   email?: string;
   role: string;
   status?: string;
+  key_quota?: number;
+  keyQuota?: number;
   maxCredits?: number;
   isActive: boolean;
   is_active?: boolean;
@@ -182,7 +184,7 @@ export default function UnifiedAdminPage() {
   const [newAccName, setNewAccName] = useState('');
   const [newAccUsername, setNewAccUsername] = useState('');
   const [newAccPassword, setNewAccPassword] = useState('');
-  const [newAccRole, setNewAccRole] = useState<'ADMIN' | 'STAFF'>('STAFF');
+  const [newAccRole, setNewAccRole] = useState<'ADMIN' | 'STAFF' | 'USER'>('STAFF');
   const [isNewAccUnlimitedCredits, setIsNewAccUnlimitedCredits] = useState(false);
   const [newAccMaxCredits, setNewAccMaxCredits] = useState<number>(50);
 
@@ -197,6 +199,8 @@ export default function UnifiedAdminPage() {
   const [editAccPassword, setEditAccPassword] = useState('');
   const [editAccRole, setEditAccRole] = useState<'admin' | 'ctv' | 'user'>('user');
   const [editAccStatus, setEditAccStatus] = useState<'active' | 'banned'>('active');
+  const [editAccKeyQuota, setEditAccKeyQuota] = useState<number>(50);
+  const [isEditAccUnlimitedQuota, setIsEditAccUnlimitedQuota] = useState(false);
 
   // Changelog Management State (Admin Only)
   const [changelogs, setChangelogs] = useState<ChangelogItem[]>([]);
@@ -560,6 +564,15 @@ export default function UnifiedAdminPage() {
     setCreateAccountLoading(true);
 
     try {
+      const quotaValue =
+        newAccRole === 'ADMIN'
+          ? -1
+          : newAccRole === 'USER'
+          ? 0
+          : isNewAccUnlimitedCredits
+          ? -1
+          : Number(newAccMaxCredits) || 50;
+
       const res = await fetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -568,10 +581,8 @@ export default function UnifiedAdminPage() {
           username: newAccUsername.trim(),
           password: newAccPassword.trim(),
           role: newAccRole,
-          maxCredits:
-            newAccRole === 'ADMIN' || isNewAccUnlimitedCredits
-              ? -1
-              : Number(newAccMaxCredits) || 50,
+          maxCredits: quotaValue,
+          key_quota: quotaValue,
         }),
       });
 
@@ -589,7 +600,7 @@ export default function UnifiedAdminPage() {
       setIsNewAccUnlimitedCredits(false);
       setNewAccMaxCredits(50);
       setIsCreateUserModalOpen(false);
-      showToast('Thêm tài khoản CTV thành công!');
+      showToast('Thêm tài khoản thành công!');
     } catch (err: any) {
       setCreateAccountError(err.message);
     } finally {
@@ -610,6 +621,22 @@ export default function UnifiedAdminPage() {
     const isAct = userItem.isActive !== false && userItem.is_active !== false && userItem.status !== 'banned';
     setEditAccStatus(isAct ? 'active' : 'banned');
     setEditAccPassword('');
+
+    // Initialize key quota
+    const rawQuota = userItem.key_quota !== undefined
+      ? userItem.key_quota
+      : (userItem.keyQuota !== undefined
+        ? userItem.keyQuota
+        : (userItem.maxCredits !== undefined ? userItem.maxCredits : 50));
+
+    if (rawQuota === -1 || rawQuota >= 999999) {
+      setIsEditAccUnlimitedQuota(true);
+      setEditAccKeyQuota(50);
+    } else {
+      setIsEditAccUnlimitedQuota(false);
+      setEditAccKeyQuota(rawQuota > 0 ? rawQuota : 50);
+    }
+
     setEditUserError(null);
     setIsEditUserModalOpen(true);
   };
@@ -640,6 +667,15 @@ export default function UnifiedAdminPage() {
     setEditUserLoading(true);
 
     try {
+      const quotaValue =
+        editAccRole === 'admin'
+          ? -1
+          : editAccRole === 'user'
+          ? 0
+          : isEditAccUnlimitedQuota
+          ? -1
+          : Number(editAccKeyQuota) || 50;
+
       const res = await fetch(`/api/admin/users/${editingUserId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -649,6 +685,8 @@ export default function UnifiedAdminPage() {
           username: editAccUsername.trim(),
           role: editAccRole,
           status: editAccStatus,
+          key_quota: quotaValue,
+          maxCredits: quotaValue,
           newPassword: editAccPassword.trim() || undefined,
         }),
       });
@@ -2247,9 +2285,11 @@ export default function UnifiedAdminPage() {
                       const isUStaff = uRole === 'staff' || uRole === 'ctv';
                       const isUActive = u.isActive ?? u.is_active ?? (u.status === 'active');
                       const createdCount = u._count?.keys || 0;
-                      const quotaPercent = isUAdmin
+                      const quotaLimit = u.key_quota !== undefined ? u.key_quota : (u.maxCredits !== undefined ? u.maxCredits : 50);
+                      const isUnlimitedQuota = isUAdmin || quotaLimit === -1;
+                      const quotaPercent = isUnlimitedQuota
                         ? 100
-                        : Math.min(100, Math.round((createdCount / (u.maxCredits || 50)) * 100));
+                        : Math.min(100, Math.round((createdCount / (quotaLimit || 50)) * 100));
 
                       return (
                         <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition">
@@ -2309,14 +2349,14 @@ export default function UnifiedAdminPage() {
                                 ∞ Vô hạn (Admin)
                               </span>
                             ) : isUStaff ? (
-                              u.maxCredits === -1 ? (
+                              quotaLimit === -1 ? (
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[11px] whitespace-nowrap">
                                   ∞ Không giới hạn ({createdCount} key)
                                 </span>
                               ) : (
                                 <div className="flex flex-col gap-1 min-w-[130px] max-w-[160px] justify-center">
                                   <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400">
-                                    <span>{createdCount} / {u.maxCredits || 50} key</span>
+                                    <span>{createdCount} / {quotaLimit} key</span>
                                     <span className="font-semibold">{quotaPercent}%</span>
                                   </div>
                                   <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
@@ -2794,40 +2834,62 @@ export default function UnifiedAdminPage() {
                 <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                   Vai Trò (Role)
                 </label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setNewAccRole('ADMIN')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 ${
+                    className={`py-2 px-2 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1 cursor-pointer ${
                       newAccRole === 'ADMIN'
                         ? 'bg-rose-500/15 border-rose-500 text-rose-600 dark:text-rose-400 shadow-sm'
                         : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <Shield className="w-3.5 h-3.5" />
-                    <span>Quản trị viên (ADMIN)</span>
+                    <Shield className="w-3.5 h-3.5 shrink-0" />
+                    <span>Admin</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => setNewAccRole('STAFF')}
-                    className={`py-2 px-3 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1.5 ${
+                    className={`py-2 px-2 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1 cursor-pointer ${
                       newAccRole === 'STAFF'
                         ? 'bg-cyan-500/15 border-cyan-500 text-cyan-600 dark:text-cyan-400 shadow-sm'
                         : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
                     }`}
                   >
-                    <User className="w-3.5 h-3.5" />
-                    <span>Cộng tác viên (CTV)</span>
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    <span>CTV</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setNewAccRole('USER')}
+                    className={`py-2 px-2 rounded-xl text-xs font-semibold border transition flex items-center justify-center gap-1 cursor-pointer ${
+                      newAccRole === 'USER'
+                        ? 'bg-slate-500/15 border-slate-500 text-slate-700 dark:text-slate-300 shadow-sm'
+                        : 'bg-slate-50 dark:bg-slate-950 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    <User className="w-3.5 h-3.5 shrink-0" />
+                    <span>User</span>
                   </button>
                 </div>
               </div>
 
+              {/* Admin key quota info */}
+              {newAccRole === 'ADMIN' && (
+                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-xs flex items-center justify-between">
+                  <span className="font-medium">Hạn mức tạo License Key:</span>
+                  <span className="font-bold">∞ Vô hạn (Admin)</span>
+                </div>
+              )}
+
+              {/* CTV key quota input */}
               {newAccRole === 'STAFF' && (
                 <div className="flex flex-col gap-2">
                   <div className="flex items-center justify-between">
                     <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
-                      Hạn Mức Tạo Key Cấp Cho CTV
+                      Hạn Mức Tạo License Key
                     </label>
                     <label className="flex items-center gap-1.5 cursor-pointer select-none">
                       <input
@@ -2876,7 +2938,7 @@ export default function UnifiedAdminPage() {
                   {/* Quick Preset Chips */}
                   <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                     <span className="text-[10px] text-slate-400 font-medium">Chọn nhanh:</span>
-                    {[20, 50, 100, 200].map((count) => (
+                    {[20, 50, 100, 200, 500].map((count) => (
                       <button
                         key={count}
                         type="button"
@@ -2884,7 +2946,7 @@ export default function UnifiedAdminPage() {
                           setIsNewAccUnlimitedCredits(false);
                           setNewAccMaxCredits(count);
                         }}
-                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition ${
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition cursor-pointer ${
                           !isNewAccUnlimitedCredits && newAccMaxCredits === count
                             ? 'bg-rose-500/15 border-rose-500 text-rose-700 dark:text-rose-300 font-bold'
                             : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
@@ -2897,7 +2959,7 @@ export default function UnifiedAdminPage() {
                     <button
                       type="button"
                       onClick={() => setIsNewAccUnlimitedCredits(true)}
-                      className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition ${
+                      className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
                         isNewAccUnlimitedCredits
                           ? 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300 shadow-sm'
                           : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400 hover:border-purple-400'
@@ -3052,6 +3114,100 @@ export default function UnifiedAdminPage() {
                   )}
                 </div>
               </div>
+
+              {/* 3.1 Hạn Mức Tạo License Key (Dành cho CTV / Admin) */}
+              {editAccRole === 'admin' && (
+                <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-400 text-xs flex items-center justify-between">
+                  <span className="font-medium">Hạn mức tạo License Key:</span>
+                  <span className="font-bold">∞ Vô hạn (Admin)</span>
+                </div>
+              )}
+
+              {editAccRole === 'ctv' && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
+                      Hạn Mức Tạo License Key
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={isEditAccUnlimitedQuota}
+                        onChange={(e) => setIsEditAccUnlimitedQuota(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div
+                        className={`w-7 h-4 rounded-full transition-colors relative flex items-center p-0.5 ${
+                          isEditAccUnlimitedQuota ? 'bg-purple-600' : 'bg-slate-300 dark:bg-slate-700'
+                        }`}
+                      >
+                        <div
+                          className={`w-3 h-3 rounded-full bg-white transition-transform ${
+                            isEditAccUnlimitedQuota ? 'translate-x-3' : 'translate-x-0'
+                          }`}
+                        />
+                      </div>
+                      <span className="text-[11px] font-semibold text-purple-600 dark:text-purple-400">
+                        ∞ Không giới hạn
+                      </span>
+                    </label>
+                  </div>
+
+                  {isEditAccUnlimitedQuota ? (
+                    <div className="p-2.5 rounded-xl bg-purple-500/10 border border-purple-500/30 text-purple-700 dark:text-purple-300 font-semibold text-xs flex items-center justify-between">
+                      <span>Cấp quyền tạo key không giới hạn</span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-purple-500/20 font-bold font-mono">
+                        ∞ Vô hạn
+                      </span>
+                    </div>
+                  ) : (
+                    <input
+                      type="number"
+                      min={1}
+                      max={100000}
+                      value={editAccKeyQuota}
+                      onChange={(e) => setEditAccKeyQuota(Math.max(1, Number(e.target.value)))}
+                      placeholder="Ví dụ: 20, 50, 100, 200..."
+                      className="bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-cyan-500 rounded-xl px-3.5 py-2 text-xs text-slate-900 dark:text-slate-200 outline-none transition"
+                      required
+                    />
+                  )}
+
+                  {/* Preset chips */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-medium">Chọn nhanh:</span>
+                    {[20, 50, 100, 200, 500].map((count) => (
+                      <button
+                        key={count}
+                        type="button"
+                        onClick={() => {
+                          setIsEditAccUnlimitedQuota(false);
+                          setEditAccKeyQuota(count);
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[11px] font-medium border transition cursor-pointer ${
+                          !isEditAccUnlimitedQuota && editAccKeyQuota === count
+                            ? 'bg-cyan-500/15 border-cyan-500 text-cyan-700 dark:text-cyan-300 font-bold'
+                            : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300 dark:hover:border-slate-600'
+                        }`}
+                      >
+                        {count} key
+                      </button>
+                    ))}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsEditAccUnlimitedQuota(true)}
+                      className={`px-2 py-0.5 rounded-lg text-[11px] font-bold border transition cursor-pointer ${
+                        isEditAccUnlimitedQuota
+                          ? 'bg-purple-500/20 border-purple-500 text-purple-700 dark:text-purple-300 shadow-sm'
+                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-purple-600 dark:text-purple-400 hover:border-purple-400'
+                      }`}
+                    >
+                      ∞ Vô hạn
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* 4. Trạng thái (Status): Dropdown chọn [Hoạt động / Đang khóa] */}
               <div className="flex flex-col gap-1">

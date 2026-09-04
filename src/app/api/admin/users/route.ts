@@ -76,11 +76,14 @@ export async function GET(req: NextRequest) {
           u.api_key,
           u.cuid,
           u.created_at,
-          COUNT(d.id)::int AS saved_diagrams_count
+          COALESCE(u.key_quota, 50) AS key_quota,
+          COUNT(DISTINCT d.id)::int AS saved_diagrams_count,
+          COUNT(DISTINCT lk.id)::int AS created_keys_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
+        LEFT JOIN "LicenseKey" lk ON (lk."createdById" = u.id::text OR (u.cuid IS NOT NULL AND lk."createdById" = u.cuid))
         WHERE u.name ILIKE ${pattern} OR u.email ILIKE ${pattern} OR (u.username IS NOT NULL AND u.username ILIKE ${pattern})
-        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at, u.key_quota
         ORDER BY u.created_at DESC
       `;
     } else {
@@ -96,10 +99,13 @@ export async function GET(req: NextRequest) {
           u.api_key,
           u.cuid,
           u.created_at,
-          COUNT(d.id)::int AS saved_diagrams_count
+          COALESCE(u.key_quota, 50) AS key_quota,
+          COUNT(DISTINCT d.id)::int AS saved_diagrams_count,
+          COUNT(DISTINCT lk.id)::int AS created_keys_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
-        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at
+        LEFT JOIN "LicenseKey" lk ON (lk."createdById" = u.id::text OR (u.cuid IS NOT NULL AND lk."createdById" = u.cuid))
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at, u.key_quota
         ORDER BY u.created_at DESC
       `;
     }
@@ -120,6 +126,12 @@ export async function GET(req: NextRequest) {
       createdAt: r.created_at,
       saved_diagrams_count: Number(r.saved_diagrams_count || 0),
       savedDiagramsCount: Number(r.saved_diagrams_count || 0),
+      key_quota: r.role === 'admin' ? -1 : Number(r.key_quota ?? 50),
+      keyQuota: r.role === 'admin' ? -1 : Number(r.key_quota ?? 50),
+      maxCredits: r.role === 'admin' ? -1 : Number(r.key_quota ?? 50),
+      _count: {
+        keys: Number(r.created_keys_count || 0),
+      },
     }));
 
     return NextResponse.json({ success: true, users });
@@ -141,7 +153,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { email, username, password, name, role = 'user', source = 'neon', maxCredits = 50 } = body;
+    const { email, username, password, name, role = 'user', source = 'neon', maxCredits = 50, key_quota } = body;
 
     const identifier = (email || username || '').trim().toLowerCase();
     if (!identifier || !password || !name) {
@@ -151,38 +163,69 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. Tạo trên Neon nếu là source neon hoặc email có @
-    if (source === 'neon' || identifier.includes('@')) {
+    // 1. Tạo trên Neon
+    if (source === 'neon' || identifier.includes('@') || role) {
       await initDb();
       const sql = getDb();
 
-      const existing = await sql`SELECT id FROM users WHERE LOWER(email) = ${identifier} LIMIT 1`;
+      const cleanUsername = (username || (identifier.includes('@') ? identifier.split('@')[0] : identifier)).trim().toLowerCase();
+      const cleanEmail = (email || (identifier.includes('@') ? identifier : `${cleanUsername}@mathviz.local`)).trim().toLowerCase();
+
+      const existing = await sql`SELECT id FROM users WHERE LOWER(email) = ${cleanEmail} OR (username IS NOT NULL AND LOWER(username) = ${cleanUsername}) LIMIT 1`;
       if (existing && existing.length > 0) {
         return NextResponse.json(
-          { error: `Email "${identifier}" đã được đăng ký.` },
+          { error: `Tên đăng nhập hoặc Email "${identifier}" đã được đăng ký.` },
           { status: 400 }
         );
       }
 
       const passwordHash = await bcrypt.hash(password, 10);
       const normalizedRole = ['admin', 'ctv', 'user'].includes(role.toLowerCase()) ? role.toLowerCase() : 'user';
+      const effectiveKeyQuota = normalizedRole === 'admin'
+        ? -1
+        : (key_quota !== undefined ? Number(key_quota) : (maxCredits !== undefined ? Number(maxCredits) : 50));
 
       const inserted = await sql`
-        INSERT INTO users (email, password_hash, name, role, is_active)
-        VALUES (${identifier}, ${passwordHash}, ${name.trim()}, ${normalizedRole}, true)
-        RETURNING id, name, email, role, is_active, created_at
+        INSERT INTO users (email, username, password_hash, name, role, is_active, key_quota)
+        VALUES (${cleanEmail}, ${cleanUsername}, ${passwordHash}, ${name.trim()}, ${normalizedRole}, true, ${effectiveKeyQuota})
+        RETURNING id, name, email, username, role, is_active, key_quota, created_at
       `;
 
       const u = inserted[0] as any;
+
+      try {
+        if (normalizedRole === 'admin' || normalizedRole === 'ctv') {
+          const prismaRole = normalizedRole === 'admin' ? 'ADMIN' : 'STAFF';
+          const pUser = await prisma.user.create({
+            data: {
+              id: u.id,
+              username: cleanUsername,
+              passwordHash,
+              name: name.trim(),
+              role: prismaRole,
+              maxCredits: effectiveKeyQuota,
+              isActive: true,
+            },
+          });
+          await sql`UPDATE users SET cuid = ${pUser.id} WHERE id = ${u.id}::uuid;`;
+        }
+      } catch (err) {
+        console.error('Prisma user sync notice:', err);
+      }
+
       return NextResponse.json({
         success: true,
         user: {
           id: u.id,
           name: u.name,
           email: u.email,
+          username: u.username,
           role: u.role,
           is_active: u.is_active,
           isActive: u.is_active,
+          key_quota: u.key_quota,
+          keyQuota: u.key_quota,
+          maxCredits: u.key_quota,
           created_at: u.created_at,
           createdAt: u.created_at,
           savedDiagramsCount: 0,

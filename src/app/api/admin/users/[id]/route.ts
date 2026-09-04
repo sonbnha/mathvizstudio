@@ -31,8 +31,8 @@ async function handleUpdateUser(
 
   try {
     const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const { name, email, username, role, status, newPassword, password, isActive, is_active } = body;
+    const body = await req.json();
+    const { name, email, username, role, status, newPassword, password, isActive, is_active, key_quota, keyQuota, maxCredits } = body;
 
     await initDb();
     const sql = getDb();
@@ -40,11 +40,11 @@ async function handleUpdateUser(
     // 1. Tìm người dùng trong database theo id (UUID hoặc cuid)
     let targetUser: any = null;
     if (isUuid(id)) {
-      const rows = await sql`SELECT id, name, email, username, role, status, cuid, password_hash FROM users WHERE id = ${id}::uuid LIMIT 1`;
+      const rows = await sql`SELECT id, name, email, username, role, status, cuid, password_hash, key_quota FROM users WHERE id = ${id}::uuid LIMIT 1`;
       if (rows && rows.length > 0) targetUser = rows[0];
     }
     if (!targetUser) {
-      const rows = await sql`SELECT id, name, email, username, role, status, cuid, password_hash FROM users WHERE cuid = ${id} OR id::text = ${id} LIMIT 1`;
+      const rows = await sql`SELECT id, name, email, username, role, status, cuid, password_hash, key_quota FROM users WHERE cuid = ${id} OR id::text = ${id} LIMIT 1`;
       if (rows && rows.length > 0) targetUser = rows[0];
     }
 
@@ -133,6 +133,22 @@ async function handleUpdateUser(
     const rawPass = (newPassword || password || '').toString().trim();
     const passwordHash = rawPass ? await bcrypt.hash(rawPass, 10) : null;
 
+    // Chuẩn hóa Key Quota
+    let effectiveKeyQuota: number = targetUser.key_quota ?? 50;
+    if (cleanRole === 'admin') {
+      effectiveKeyQuota = -1;
+    } else if (cleanRole === 'ctv') {
+      if (key_quota !== undefined) effectiveKeyQuota = Number(key_quota);
+      else if (keyQuota !== undefined) effectiveKeyQuota = Number(keyQuota);
+      else if (maxCredits !== undefined) effectiveKeyQuota = Number(maxCredits);
+      else effectiveKeyQuota = targetUser.key_quota ?? 50;
+    } else {
+      if (key_quota !== undefined) effectiveKeyQuota = Number(key_quota);
+      else if (keyQuota !== undefined) effectiveKeyQuota = Number(keyQuota);
+      else if (maxCredits !== undefined) effectiveKeyQuota = Number(maxCredits);
+      else effectiveKeyQuota = targetUser.key_quota ?? 50;
+    }
+
     // 3. Thực thi UPDATE trực tiếp vào bảng users trên Neon Postgres
     const updatedRows = await sql`
       UPDATE users 
@@ -142,9 +158,10 @@ async function handleUpdateUser(
           role = ${cleanRole},
           status = ${cleanStatus},
           is_active = ${isActiveBool},
+          key_quota = ${effectiveKeyQuota},
           password_hash = COALESCE(${passwordHash}, password_hash)
       WHERE id = ${targetUser.id}::uuid
-      RETURNING id, name, email, username, role, status;
+      RETURNING id, name, email, username, role, status, is_active, key_quota;
     `;
 
     if (!updatedRows || updatedRows.length === 0) {
@@ -159,7 +176,8 @@ async function handleUpdateUser(
         const prismaUpdate: any = {
           name: cleanName,
           isActive: isActiveBool,
-          role: cleanRole === 'admin' ? 'ADMIN' : 'STAFF',
+          role: cleanRole === 'admin' ? 'ADMIN' : (cleanRole === 'ctv' ? 'STAFF' : 'USER'),
+          maxCredits: effectiveKeyQuota,
         };
         if (cleanUsername) prismaUpdate.username = cleanUsername;
         if (passwordHash) prismaUpdate.passwordHash = passwordHash;
@@ -180,6 +198,9 @@ async function handleUpdateUser(
           status: u.status,
           is_active: u.status === 'active',
           isActive: u.status === 'active',
+          key_quota: u.key_quota,
+          keyQuota: u.key_quota,
+          maxCredits: u.key_quota,
         },
       },
       { status: 200 }
