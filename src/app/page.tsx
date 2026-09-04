@@ -40,30 +40,9 @@ import UnifiedProblemInput from '@/components/UnifiedProblemInput';
 import SavedCollection from '@/components/SavedCollection';
 import ExportDropdown from '@/components/ExportDropdown';
 import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
+import { REAL_WORLD_MATH_SAMPLES } from '@/data/samplePrompts';
 
-const PRESETS = [
-  {
-    id: 'thang',
-    title: 'Thang dựa tường',
-    desc: 'Hình học 9 - Góc nghiêng 60°',
-    prompt:
-      'Một chiếc thang dài 4m dựa vào tường nhà tạo với mặt đất một góc 60 độ. Tính chiều cao thang đạt được trên tường và khoảng cách từ chân thang đến chân tường.',
-  },
-  {
-    id: 'haidang',
-    title: 'Ngọn hải đăng',
-    desc: 'Lượng giác - Góc hạ 30°',
-    prompt:
-      'Từ đỉnh ngọn hải đăng cao 38m, người ta nhìn thấy một con thuyền dưới một góc hạ 30 độ so với phương nằm ngang. Tính khoảng cách từ thuyền đến chân hải đăng.',
-  },
-  {
-    id: 'bongcay',
-    title: 'Bóng cây mặt trời',
-    desc: 'Tam giác vuông - Tỉ số lượng giác',
-    prompt:
-      'Một cây xanh cao 8m có bóng trên mặt đất dài 6m. Tính góc tạo bởi tia nắng mặt trời với mặt đất (làm tròn đến độ).',
-  },
-];
+const PRESETS = REAL_WORLD_MATH_SAMPLES;
 
 export interface HistoryItem {
   id: string;
@@ -1204,15 +1183,15 @@ function HomeContent() {
                     className="text-left p-2.5 rounded-xl bg-slate-50 dark:bg-slate-950/60 hover:bg-slate-100 dark:hover:bg-slate-800/80 border border-slate-200 dark:border-slate-800 hover:border-cyan-500/40 dark:hover:border-cyan-500/40 transition group cursor-pointer"
                     title="Bấm để đưa bài này vào khung nhập"
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition flex items-center gap-1.5">
-                        <span className="text-[10px] px-1 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono">
+                    <div className="flex items-center justify-between mb-1 gap-2">
+                      <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 group-hover:text-cyan-600 dark:group-hover:text-cyan-400 transition flex items-center gap-1.5 truncate">
+                        <span className="text-[10px] px-1 py-0.2 rounded bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-mono shrink-0">
                           #{idx + 1}
                         </span>
-                        {preset.title}
+                        <span className="truncate">{preset.title}</span>
                       </span>
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
-                        {preset.desc}
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-medium shrink-0">
+                        {preset.badge || preset.desc}
                       </span>
                     </div>
                     <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-2 leading-relaxed">
