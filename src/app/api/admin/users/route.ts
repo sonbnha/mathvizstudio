@@ -69,15 +69,18 @@ export async function GET(req: NextRequest) {
           u.id, 
           u.name, 
           u.email, 
+          u.username,
           u.role, 
           COALESCE(u.status, 'active') AS status,
           COALESCE(u.is_active, true) AS is_active, 
+          u.api_key,
+          u.cuid,
           u.created_at,
           COUNT(d.id)::int AS saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
-        WHERE u.name ILIKE ${pattern} OR u.email ILIKE ${pattern}
-        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
+        WHERE u.name ILIKE ${pattern} OR u.email ILIKE ${pattern} OR (u.username IS NOT NULL AND u.username ILIKE ${pattern})
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at
         ORDER BY u.created_at DESC
       `;
     } else {
@@ -86,27 +89,33 @@ export async function GET(req: NextRequest) {
           u.id, 
           u.name, 
           u.email, 
+          u.username,
           u.role, 
           COALESCE(u.status, 'active') AS status,
           COALESCE(u.is_active, true) AS is_active, 
+          u.api_key,
+          u.cuid,
           u.created_at,
           COUNT(d.id)::int AS saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
-        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at
         ORDER BY u.created_at DESC
       `;
     }
 
     const users = rows.map((r: any) => ({
       id: r.id,
-      name: r.name || r.email,
+      name: r.name || r.username || r.email,
       email: r.email,
-      username: r.email,
+      username: r.username || r.email,
       role: r.role || 'user',
       status: r.status || 'active',
       is_active: r.status === 'active',
       isActive: r.status === 'active',
+      api_key: r.api_key,
+      apiKey: r.api_key,
+      cuid: r.cuid,
       created_at: r.created_at,
       createdAt: r.created_at,
       saved_diagrams_count: Number(r.saved_diagrams_count || 0),

@@ -27,9 +27,12 @@ export async function POST(req: NextRequest) {
 
     const sql = getDb();
 
-    // Check if email already exists
+    // Check if email or username already exists
     const existing = await sql`
-      SELECT id FROM users WHERE LOWER(email) = LOWER(${email.trim()}) LIMIT 1
+      SELECT id FROM users 
+      WHERE LOWER(email) = LOWER(${email.trim()}) 
+         OR (username IS NOT NULL AND LOWER(username) = LOWER(${email.trim()}))
+      LIMIT 1
     `;
 
     if (existing && existing.length > 0) {
@@ -39,9 +42,9 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await sql`
-      INSERT INTO users (email, password_hash, name, role, status, is_active)
-      VALUES (${email.trim().toLowerCase()}, ${passwordHash}, ${displayName}, 'user', 'active', true)
-      RETURNING id, email, name, role, status, created_at
+      INSERT INTO users (email, username, password_hash, name, role, status, is_active)
+      VALUES (${email.trim().toLowerCase()}, ${email.trim().toLowerCase()}, ${passwordHash}, ${displayName}, 'user', 'active', true)
+      RETURNING id, email, username, name, role, status, created_at
     `;
 
     const user = result[0] as any;
@@ -49,6 +52,7 @@ export async function POST(req: NextRequest) {
     const token = signToken({
       userId: user.id,
       email: user.email,
+      username: user.username || user.email,
       name: user.name,
       role: user.role || 'user',
     });

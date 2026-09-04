@@ -15,8 +15,11 @@ export async function GET(req: NextRequest) {
     // Get count of keys created by this user if admin/staff
     let createdKeysCount = 0;
     try {
+      const cuid = (user as any).cuid;
       createdKeysCount = await prisma.licenseKey.count({
-        where: { createdById: user.id },
+        where: cuid
+          ? { OR: [{ createdById: user.id }, { createdById: cuid }] }
+          : { createdById: user.id },
       });
     } catch {}
 

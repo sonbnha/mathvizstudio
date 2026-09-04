@@ -29,9 +29,10 @@ export async function POST(req: NextRequest) {
       await initDb();
       const sql = getDb();
       const neonUsers = await sql`
-        SELECT id, email, password_hash, name, role, status, is_active
+        SELECT id, email, username, password_hash, name, role, status, is_active, api_key, cuid
         FROM users
         WHERE LOWER(email) = LOWER(${identifier})
+           OR (username IS NOT NULL AND LOWER(username) = LOWER(${identifier}))
         LIMIT 1
       `;
 
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
           const token = signToken({
             userId: user.id,
             email: user.email,
+            username: user.username || user.email,
             name: user.name,
             role: user.role || 'user',
           });
@@ -59,9 +61,11 @@ export async function POST(req: NextRequest) {
             user: {
               id: user.id,
               email: user.email,
+              username: user.username || user.email,
               name: user.name,
               role: user.role || 'user',
               status: user.status || 'active',
+              apiKey: user.api_key,
             },
           });
 

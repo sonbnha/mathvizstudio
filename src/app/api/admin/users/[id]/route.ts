@@ -70,14 +70,19 @@ async function handleUpdateUser(
         await sql`UPDATE users SET name = ${name.trim()} WHERE id = ${id}::uuid`;
       }
 
+      if (body.apiKey !== undefined || body.api_key !== undefined) {
+        const newKey = (body.apiKey || body.api_key || '').trim() || null;
+        await sql`UPDATE users SET api_key = ${newKey} WHERE id = ${id}::uuid`;
+      }
+
       const rows = await sql`
-        SELECT u.id, u.name, u.email, u.role, COALESCE(u.status, 'active') as status,
-               COALESCE(u.is_active, true) as is_active, u.created_at,
+        SELECT u.id, u.name, u.email, u.username, u.role, COALESCE(u.status, 'active') as status,
+               COALESCE(u.is_active, true) as is_active, u.api_key, u.cuid, u.created_at,
                COUNT(d.id)::int as saved_diagrams_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
         WHERE u.id = ${id}::uuid
-        GROUP BY u.id, u.name, u.email, u.role, u.status, u.is_active, u.created_at
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at
       `;
 
       if (!rows || rows.length === 0) {
@@ -85,16 +90,35 @@ async function handleUpdateUser(
       }
 
       const u = rows[0] as any;
+
+      // Sync Prisma if user has cuid
+      if (u.cuid) {
+        try {
+          const prismaUpdate: any = {};
+          if (role) prismaUpdate.role = role.toUpperCase() === 'ADMIN' ? 'ADMIN' : 'STAFF';
+          if (normalizedStatus) prismaUpdate.isActive = normalizedStatus === 'active';
+          if (name) prismaUpdate.name = name.trim();
+          if (password && password.trim()) prismaUpdate.passwordHash = await bcrypt.hash(password.trim(), 10);
+          if (Object.keys(prismaUpdate).length > 0) {
+            await prisma.user.update({ where: { id: u.cuid }, data: prismaUpdate });
+          }
+        } catch {}
+      }
+
       return NextResponse.json({
         success: true,
         user: {
           id: u.id,
           name: u.name,
           email: u.email,
+          username: u.username || u.email,
           role: u.role,
           status: u.status || 'active',
           is_active: u.status === 'active',
           isActive: u.status === 'active',
+          api_key: u.api_key,
+          apiKey: u.api_key,
+          cuid: u.cuid,
           created_at: u.created_at,
           createdAt: u.created_at,
           saved_diagrams_count: Number(u.saved_diagrams_count || 0),

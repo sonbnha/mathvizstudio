@@ -25,9 +25,13 @@ export interface AdminUserItem {
   id: string;
   name: string;
   email: string;
+  username?: string;
   role: 'admin' | 'ctv' | 'user' | string;
   status?: 'active' | 'banned' | string;
   is_active: boolean;
+  api_key?: string | null;
+  apiKey?: string | null;
+  cuid?: string | null;
   created_at: string;
   saved_diagrams_count: number;
 }
@@ -427,7 +431,15 @@ export const AdminUsersModal: React.FC<AdminUsersModalProps> = ({
                             </div>
                             <span className="text-[11px] text-slate-500 dark:text-slate-400 font-mono truncate">
                               {u.email}
+                              {u.username && u.username !== u.email && (
+                                <span className="ml-1 text-[10px] text-slate-400 font-sans">(@{u.username})</span>
+                              )}
                             </span>
+                            {u.api_key && (
+                              <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono truncate mt-0.5">
+                                🔑 {u.api_key}
+                              </span>
+                            )}
                             <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                               Tham gia: {new Date(u.created_at).toLocaleDateString('vi-VN')}
                             </span>

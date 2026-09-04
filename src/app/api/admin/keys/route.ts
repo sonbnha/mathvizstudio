@@ -22,7 +22,14 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const whereCondition = user.role === 'ADMIN' ? {} : { createdById: user.id };
+    const userRole = (user.role || '').toUpperCase();
+    const cuid = (user as any).cuid;
+    const whereCondition =
+      userRole === 'ADMIN'
+        ? {}
+        : cuid
+        ? { OR: [{ createdById: user.id }, { createdById: cuid }] }
+        : { createdById: user.id };
 
     const keys = await prisma.licenseKey.findMany({
       where: whereCondition,
@@ -59,8 +66,11 @@ export async function POST(req: NextRequest) {
     const { customerName, totalCredits = 50, durationDays = 0, customKey, note, keyType = 'VIP' } = body;
 
     // Fetch fresh user data with key count from database
-    const user = await prisma.user.findUnique({
-      where: { id: currentUser.id },
+    const cuid = (currentUser as any).cuid;
+    const user = await prisma.user.findFirst({
+      where: cuid
+        ? { OR: [{ id: currentUser.id }, { id: cuid }] }
+        : { id: currentUser.id },
       include: { _count: { select: { keys: true } } },
     });
 

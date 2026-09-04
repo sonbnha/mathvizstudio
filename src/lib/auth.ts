@@ -45,11 +45,19 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
   try {
     const { getDb } = await import('./db');
     const sql = getDb();
-    const rows = await sql`
-      SELECT id, email, name, role, status, is_active, created_at
-      FROM users
-      WHERE id = ${payload.userId}::uuid
-    `;
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.userId);
+    const rows = isUuid
+      ? await sql`
+          SELECT id, email, username, name, role, status, is_active, api_key, cuid, created_at
+          FROM users
+          WHERE id = ${payload.userId}::uuid
+        `
+      : await sql`
+          SELECT id, email, username, name, role, status, is_active, api_key, cuid, created_at
+          FROM users
+          WHERE cuid = ${payload.userId} OR username = ${payload.userId}
+        `;
+
     if (rows && rows.length > 0) {
       const u = rows[0] as any;
       if (u.status === 'banned' || u.is_active === false) {
@@ -58,9 +66,12 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
       return {
         id: u.id,
         email: u.email,
+        username: u.username,
         name: u.name,
         role: (u.role || 'user').toLowerCase(),
         status: u.status || 'active',
+        apiKey: u.api_key,
+        cuid: u.cuid,
         createdAt: u.created_at,
       };
     }
