@@ -1139,9 +1139,16 @@ export default function UnifiedAdminPage() {
                 <KeyRound className="w-4 h-4" />
                 <span>License Keys</span>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                {keys.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                  activeTab === 'keys'
+                    ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
+                  {keys.length}
+                </span>
+                <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'keys' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+              </div>
             </button>
           </div>
 
@@ -1159,17 +1166,24 @@ export default function UnifiedAdminPage() {
                 }}
                 className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
                   activeTab === 'users'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-l-4 border-rose-600 dark:border-rose-400 font-bold shadow-xs'
+                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-l-4 border-cyan-600 dark:border-cyan-400 font-bold shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Users className="w-4 h-4" />
-                  <span>Tài Khoản (CTV)</span>
+                  <span>Quản lý tài khoản</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                  {userAccounts.length}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    activeTab === 'users'
+                      ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {userAccounts.length}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'users' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+                </div>
               </button>
 
               <button
@@ -1180,7 +1194,7 @@ export default function UnifiedAdminPage() {
                 }}
                 className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
                   activeTab === 'changelog'
-                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-l-4 border-indigo-600 dark:border-indigo-400 font-bold shadow-xs'
+                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-l-4 border-cyan-600 dark:border-cyan-400 font-bold shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -1188,9 +1202,16 @@ export default function UnifiedAdminPage() {
                   <History className="w-4 h-4" />
                   <span>Lịch Sử Phiên Bản</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                  {changelogs.length}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    activeTab === 'changelog'
+                      ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {changelogs.length}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'changelog' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+                </div>
               </button>
             </div>
           )}
@@ -1299,9 +1320,16 @@ export default function UnifiedAdminPage() {
                 <KeyRound className="w-4 h-4" />
                 <span>License Keys</span>
               </div>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                {keys.length}
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                  activeTab === 'keys'
+                    ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
+                    : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                }`}>
+                  {keys.length}
+                </span>
+                <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'keys' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+              </div>
             </button>
           </div>
 
@@ -1316,17 +1344,24 @@ export default function UnifiedAdminPage() {
                 onClick={() => setActiveTab('users')}
                 className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
                   activeTab === 'users'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border-l-4 border-rose-600 dark:border-rose-400 font-bold shadow-xs'
+                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-l-4 border-cyan-600 dark:border-cyan-400 font-bold shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
                 <div className="flex items-center gap-3">
                   <Users className="w-4 h-4" />
-                  <span>Tài Khoản (CTV)</span>
+                  <span>Quản lý tài khoản</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                  {userAccounts.length}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    activeTab === 'users'
+                      ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {userAccounts.length}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'users' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+                </div>
               </button>
 
               <button
@@ -1334,7 +1369,7 @@ export default function UnifiedAdminPage() {
                 onClick={() => setActiveTab('changelog')}
                 className={`w-full px-3.5 py-2.5 rounded-xl font-semibold flex items-center justify-between transition-all duration-150 ${
                   activeTab === 'changelog'
-                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-l-4 border-indigo-600 dark:border-indigo-400 font-bold shadow-xs'
+                    ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-l-4 border-cyan-600 dark:border-cyan-400 font-bold shadow-xs'
                     : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100/80 dark:hover:bg-slate-800/60 hover:text-slate-900 dark:hover:text-slate-200'
                 }`}
               >
@@ -1342,9 +1377,16 @@ export default function UnifiedAdminPage() {
                   <History className="w-4 h-4" />
                   <span>Lịch Sử Phiên Bản</span>
                 </div>
-                <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400">
-                  {changelogs.length}
-                </span>
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded-full ${
+                    activeTab === 'changelog'
+                      ? 'bg-cyan-500/20 text-cyan-600 dark:text-cyan-400'
+                      : 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400'
+                  }`}>
+                    {changelogs.length}
+                  </span>
+                  <ChevronRight className={`w-3.5 h-3.5 transition-transform ${activeTab === 'changelog' ? 'opacity-100 text-cyan-500' : 'opacity-0'}`} />
+                </div>
               </button>
             </div>
           )}
@@ -1442,76 +1484,6 @@ export default function UnifiedAdminPage() {
             </button>
           </div>
         </header>
-
-        {/* TOP TAB NAVIGATION BAR */}
-        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 pb-0">
-          <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-white/90 dark:bg-slate-900/90 border border-slate-200/80 dark:border-slate-800/80 overflow-x-auto shadow-xs">
-            <button
-              type="button"
-              onClick={() => setActiveTab('keys')}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                activeTab === 'keys'
-                  ? 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30 shadow-xs'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-              }`}
-            >
-              <KeyRound className="w-4 h-4" />
-              <span>🔑 Quản lý API Key & Cấu hình</span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 font-mono font-bold">
-                {keys.length}
-              </span>
-            </button>
-
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('users')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === 'users'
-                    ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                <span>👥 Quản lý tài khoản</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-rose-500/15 text-rose-600 dark:text-rose-400 font-mono font-bold">
-                  {userAccounts.length}
-                </span>
-              </button>
-            )}
-
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('changelog')}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
-                  activeTab === 'changelog'
-                    ? 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30 shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800/60'
-                }`}
-              >
-                <History className="w-4 h-4" />
-                <span>📜 Lịch sử phiên bản (Changelog)</span>
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 font-mono font-bold">
-                  {changelogs.length}
-                </span>
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={() => setActiveTab('overview')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all whitespace-nowrap cursor-pointer ml-auto ${
-                activeTab === 'overview'
-                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100 font-bold'
-                  : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200'
-              }`}
-            >
-              <LayoutDashboard className="w-3.5 h-3.5" />
-              <span>Tổng quan</span>
-            </button>
-          </div>
-        </div>
 
         {/* Main Content Area */}
         <main
@@ -1617,7 +1589,7 @@ export default function UnifiedAdminPage() {
                         <Users className="w-6 h-6" />
                       </div>
                       <div>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Tài Khoản (CTV)</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">Quản Lý Tài Khoản</p>
                         <p className="text-2xl font-bold text-rose-600 dark:text-rose-400">{userAccounts.length}</p>
                       </div>
                     </div>
@@ -1667,9 +1639,9 @@ export default function UnifiedAdminPage() {
                       </div>
                       <ChevronRight className="w-4 h-4 text-rose-500 group-hover:translate-x-1 transition" />
                     </div>
-                    <h3 className="font-bold text-sm text-slate-900 dark:text-white mt-1">Thêm Tài Khoản CTV</h3>
+                    <h3 className="font-bold text-sm text-slate-900 dark:text-white mt-1">Thêm Tài Khoản Mới</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                      Cấp tài khoản đăng nhập và phân bổ hạn mức tạo License Key cho Cộng tác viên.
+                      Cấp tài khoản đăng nhập cho người dùng, cộng tác viên hoặc quản trị viên trên hệ thống.
                     </p>
                   </div>
                 )}
