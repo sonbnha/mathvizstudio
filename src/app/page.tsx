@@ -28,6 +28,7 @@ import {
   LogIn,
   LogOut,
   CloudCheck,
+  Shield,
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
@@ -44,6 +45,7 @@ import SavedCollection from '@/components/SavedCollection';
 import ExportDropdown from '@/components/ExportDropdown';
 import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
 import AuthModal, { AuthUser } from '@/components/AuthModal';
+import AdminUsersModal from '@/components/AdminUsersModal';
 import { REAL_WORLD_MATH_SAMPLES } from '@/data/samplePrompts';
 
 const PRESETS = REAL_WORLD_MATH_SAMPLES;
@@ -161,6 +163,7 @@ function HomeContent() {
   // Feature 3: User Authentication & Neon DB Sync
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
 
   // Main Active Tab Switcher: useSearchParams is the Single Source of Truth
@@ -1270,6 +1273,20 @@ function HomeContent() {
             </button>
           ) : (
             <div className="flex items-center gap-1.5 shrink-0">
+              {/* Nút Quản trị hệ thống (Admin Panel) - Dành riêng cho role === 'admin' */}
+              {(currentUser.role || '').toLowerCase() === 'admin' && (
+                <button
+                  type="button"
+                  onClick={() => setIsAdminModalOpen(true)}
+                  className="h-10 px-2.5 sm:px-3 rounded-xl bg-gradient-to-r from-rose-600 via-rose-500 to-red-600 hover:from-rose-700 hover:to-red-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer shrink-0 animate-in fade-in"
+                  title="Mở bảng Quản trị người dùng hệ thống (Admin Panel)"
+                >
+                  <Shield className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Quản trị hệ thống (Admin Panel)</span>
+                  <span className="sm:hidden">Admin</span>
+                </button>
+              )}
+
               {/* Sync Status Badge */}
               <div
                 className="hidden md:flex items-center gap-1 text-[11px] text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800/60 px-2 py-1.5 rounded-xl shadow-xs"
@@ -1287,13 +1304,36 @@ function HomeContent() {
 
               {/* User Avatar + Name + Logout */}
               <div className="h-10 flex items-center gap-2 bg-slate-100/90 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700/80 rounded-2xl pl-1.5 pr-2 py-1 shadow-xs">
-                <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0">
+                <div
+                  onClick={() => {
+                    if ((currentUser.role || '').toLowerCase() === 'admin') {
+                      setIsAdminModalOpen(true);
+                    }
+                  }}
+                  className={`w-7 h-7 rounded-xl ${
+                    (currentUser.role || '').toLowerCase() === 'admin'
+                      ? 'bg-gradient-to-tr from-rose-500 to-red-600 cursor-pointer ring-2 ring-rose-500/30'
+                      : 'bg-gradient-to-tr from-cyan-500 to-blue-600'
+                  } text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0`}
+                  title={
+                    (currentUser.role || '').toLowerCase() === 'admin'
+                      ? 'Bấm để mở Admin Panel'
+                      : currentUser.name
+                  }
+                >
                   {(currentUser.name || currentUser.email || 'U').charAt(0).toUpperCase()}
                 </div>
                 <div className="hidden lg:flex flex-col text-left">
-                  <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[90px] truncate leading-tight">
-                    {currentUser.name || currentUser.email.split('@')[0]}
-                  </span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 max-w-[90px] truncate leading-tight">
+                      {currentUser.name || currentUser.email.split('@')[0]}
+                    </span>
+                    {(currentUser.role || '').toLowerCase() === 'admin' && (
+                      <span className="text-[9px] font-bold px-1 rounded bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                        ADMIN
+                      </span>
+                    )}
+                  </div>
                   <span className="text-[9px] text-slate-400 dark:text-slate-500 max-w-[90px] truncate leading-tight">
                     {currentUser.email}
                   </span>
@@ -1965,6 +2005,15 @@ function HomeContent() {
           setCurrentUser(user);
         }}
       />
+
+      {/* Admin Users Management Modal */}
+      {currentUser && (currentUser.role || '').toLowerCase() === 'admin' && (
+        <AdminUsersModal
+          isOpen={isAdminModalOpen}
+          onClose={() => setIsAdminModalOpen(false)}
+          currentUserId={currentUser.id}
+        />
+      )}
     </div>
   );
 }

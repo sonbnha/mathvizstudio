@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       await initDb();
       const sql = getDb();
       const neonUsers = await sql`
-        SELECT id, email, password_hash, name, role
+        SELECT id, email, password_hash, name, role, is_active
         FROM users
         WHERE LOWER(email) = LOWER(${identifier})
         LIMIT 1
@@ -37,6 +37,13 @@ export async function POST(req: NextRequest) {
 
       if (neonUsers && neonUsers.length > 0) {
         const user = neonUsers[0] as any;
+        if (user.is_active === false) {
+          return NextResponse.json(
+            { error: 'Tài khoản của bạn đã bị tạm khóa. Vui lòng liên hệ Quản trị viên.' },
+            { status: 403 }
+          );
+        }
+
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (isMatch) {
           const token = signToken({

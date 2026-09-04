@@ -2,35 +2,105 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
+import { getDb } from '@/lib/db';
+import { initDb } from '@/lib/init-db';
+
+const isUuid = (val: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val);
 
 async function checkAdmin(req: NextRequest) {
   const user = await getCurrentUserFromRequest(req);
-  if (!user || user.role !== 'ADMIN') {
+  if (!user || (user.role || '').toLowerCase() !== 'admin') {
     return null;
   }
   return user;
 }
 
-// PUT /api/admin/users/[id]: Update user by route param
-export async function PUT(
+// Handler chung cho cả PATCH và PUT
+async function handleUpdateUser(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  params: Promise<{ id: string }>
 ) {
   const admin = await checkAdmin(req);
   if (!admin) {
-    return NextResponse.json({ error: 'Quyền truy cập bị từ chối.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền cập nhật.' },
+      { status: 403 }
+    );
   }
 
   try {
     const { id } = await params;
-    const body = await req.json();
-    const { isActive, maxCredits, password, name, role } = body;
+    const body = await req.json().catch(() => ({}));
+    const { isActive, is_active, maxCredits, password, name, role } = body;
 
+    // 1. Nếu là tài khoản Neon Database (UUID)
+    if (isUuid(id)) {
+      await initDb();
+      const sql = getDb();
+
+      if (role) {
+        const normalizedRole = role.toLowerCase();
+        const validRole = ['admin', 'ctv', 'user'].includes(normalizedRole)
+          ? normalizedRole
+          : 'user';
+        await sql`UPDATE users SET role = ${validRole} WHERE id = ${id}::uuid`;
+      }
+
+      const activeStatus = typeof is_active === 'boolean' ? is_active : typeof isActive === 'boolean' ? isActive : undefined;
+      if (activeStatus !== undefined) {
+        await sql`UPDATE users SET is_active = ${activeStatus} WHERE id = ${id}::uuid`;
+      }
+
+      if (password && password.trim()) {
+        const passwordHash = await bcrypt.hash(password.trim(), 10);
+        await sql`UPDATE users SET password_hash = ${passwordHash} WHERE id = ${id}::uuid`;
+      }
+
+      if (name && name.trim()) {
+        await sql`UPDATE users SET name = ${name.trim()} WHERE id = ${id}::uuid`;
+      }
+
+      const rows = await sql`
+        SELECT u.id, u.name, u.email, u.role, COALESCE(u.is_active, true) as is_active, u.created_at,
+               COUNT(d.id)::int as saved_diagrams_count
+        FROM users u
+        LEFT JOIN saved_diagrams d ON d.user_id = u.id
+        WHERE u.id = ${id}::uuid
+        GROUP BY u.id, u.name, u.email, u.role, u.is_active, u.created_at
+      `;
+
+      if (!rows || rows.length === 0) {
+        return NextResponse.json({ error: 'Không tìm thấy người dùng.' }, { status: 404 });
+      }
+
+      const u = rows[0] as any;
+      return NextResponse.json({
+        success: true,
+        user: {
+          id: u.id,
+          name: u.name,
+          email: u.email,
+          role: u.role,
+          is_active: u.is_active,
+          isActive: u.is_active,
+          created_at: u.created_at,
+          createdAt: u.created_at,
+          saved_diagrams_count: Number(u.saved_diagrams_count || 0),
+          savedDiagramsCount: Number(u.saved_diagrams_count || 0),
+        },
+      });
+    }
+
+    // 2. Tài khoản Prisma Staff / Admin (CUID)
     const updateData: any = {};
     if (typeof isActive === 'boolean') updateData.isActive = isActive;
+    if (typeof is_active === 'boolean') updateData.isActive = is_active;
     if (typeof maxCredits === 'number') updateData.maxCredits = maxCredits;
     if (name) updateData.name = name.trim();
-    if (role && (role === 'ADMIN' || role === 'STAFF')) updateData.role = role;
+    if (role && (role.toUpperCase() === 'ADMIN' || role.toUpperCase() === 'STAFF')) {
+      updateData.role = role.toUpperCase();
+    }
     if (password && password.trim()) {
       updateData.passwordHash = await bcrypt.hash(password.trim(), 10);
     }
@@ -52,18 +122,37 @@ export async function PUT(
     return NextResponse.json({ success: true, user: updatedUser });
   } catch (error: any) {
     console.error('Error updating user:', error);
-    return NextResponse.json({ error: 'Không thể cập nhật thông tin người dùng.' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Không thể cập nhật thông tin người dùng.' }, { status: 500 });
   }
 }
 
-// DELETE /api/admin/users/[id]: Delete user by route param
+// PATCH /api/admin/users/[id]
+export async function PATCH(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return handleUpdateUser(req, context.params);
+}
+
+// PUT /api/admin/users/[id]
+export async function PUT(
+  req: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return handleUpdateUser(req, context.params);
+}
+
+// DELETE /api/admin/users/[id]: Delete user or clear violations
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const admin = await checkAdmin(req);
   if (!admin) {
-    return NextResponse.json({ error: 'Quyền truy cập bị từ chối.' }, { status: 403 });
+    return NextResponse.json(
+      { error: 'Quyền truy cập bị từ chối. Chỉ Administrator mới có quyền xóa.' },
+      { status: 403 }
+    );
   }
 
   try {
@@ -76,6 +165,31 @@ export async function DELETE(
       );
     }
 
+    const { searchParams } = new URL(req.url);
+    const action = searchParams.get('action');
+
+    // 1. Hành động: Chỉ xóa toàn bộ hình vẽ vi phạm của người dùng
+    if (action === 'clear_diagrams') {
+      if (isUuid(id)) {
+        await initDb();
+        const sql = getDb();
+        await sql`DELETE FROM saved_diagrams WHERE user_id = ${id}::uuid`;
+        return NextResponse.json({
+          success: true,
+          message: 'Đã dọn sạch toàn bộ hình vẽ trong bộ sưu tập của người dùng.',
+        });
+      }
+    }
+
+    // 2. Xóa toàn bộ tài khoản
+    if (isUuid(id)) {
+      await initDb();
+      const sql = getDb();
+      await sql`DELETE FROM users WHERE id = ${id}::uuid`;
+      return NextResponse.json({ success: true, message: 'Đã xóa tài khoản người dùng thành công.' });
+    }
+
+    // Tài khoản Prisma
     await prisma.user.delete({
       where: { id },
     });
@@ -83,6 +197,6 @@ export async function DELETE(
     return NextResponse.json({ success: true, message: 'Đã xóa tài khoản thành công.' });
   } catch (error: any) {
     console.error('Error deleting user:', error);
-    return NextResponse.json({ error: 'Lỗi khi xóa người dùng.' }, { status: 500 });
+    return NextResponse.json({ error: error?.message || 'Lỗi khi xóa người dùng.' }, { status: 500 });
   }
 }

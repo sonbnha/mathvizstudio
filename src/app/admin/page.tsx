@@ -49,6 +49,7 @@ import {
 } from 'lucide-react';
 import { APP_VERSION, formatDateVN } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
+import AdminUsersModal from '@/components/AdminUsersModal';
 
 export interface ChangelogItem {
   id: string;
@@ -122,6 +123,7 @@ export default function UnifiedAdminPage() {
   // 3. Dashboard State (Active when currentUser !== null)
   const [activeTab, setActiveTab] = useState<'overview' | 'keys' | 'users' | 'changelog'>('overview');
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isNeonUsersModalOpen, setIsNeonUsersModalOpen] = useState(false);
 
   // License Keys State
   const [keys, setKeys] = useState<LicenseKeyItem[]>([]);
@@ -285,7 +287,7 @@ export default function UnifiedAdminPage() {
       setUserAccountsLoading(true);
     }
     try {
-      const res = await fetch('/api/admin/users');
+      const res = await fetch('/api/admin/users?source=staff');
       const data = await res.json();
       if (res.ok && data.users) {
         setUserAccounts(data.users);
@@ -2218,14 +2220,24 @@ export default function UnifiedAdminPage() {
 
                 <button
                   type="button"
+                  onClick={() => setIsNeonUsersModalOpen(true)}
+                  className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md shadow-cyan-950/30 cursor-pointer"
+                  title="Quản lý toàn bộ tài khoản người dùng Neon Database"
+                >
+                  <Users className="w-4 h-4" />
+                  <span>Quản lý Người dùng Neon</span>
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => {
                     setCreateAccountError(null);
                     setIsCreateUserModalOpen(true);
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md shadow-rose-950/30"
+                  className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition flex items-center gap-1.5 shadow-md shadow-rose-950/30 cursor-pointer"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>+ Thêm tài khoản mới</span>
+                  <span>+ Thêm tài khoản Staff</span>
                 </button>
               </div>
             </div>
@@ -3451,6 +3463,13 @@ export default function UnifiedAdminPage() {
           </div>
         </div>
       )}
+
+      {/* Modal Quản lý Người dùng Neon */}
+      <AdminUsersModal
+        isOpen={isNeonUsersModalOpen}
+        onClose={() => setIsNeonUsersModalOpen(false)}
+        currentUserId={currentUser?.id}
+      />
     </div>
   );
 }
