@@ -2252,62 +2252,69 @@ export default function UnifiedAdminPage() {
                         : Math.min(100, Math.round((createdCount / (u.maxCredits || 50)) * 100));
 
                       return (
-                        <tr key={u.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
-                          <td className="py-3.5 px-3 font-semibold text-slate-900 dark:text-slate-100 flex items-center gap-2">
-                            <div
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs ${
-                                isUAdmin
-                                  ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                                  : isUStaff
-                                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
-                                  : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
-                              }`}
-                            >
-                              {(u.name || u.username || 'U').charAt(0).toUpperCase()}
+                        <tr key={u.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/30 transition">
+                          {/* 1. Họ và Tên */}
+                          <td className="py-3 px-3 align-middle">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-7 h-7 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
+                                  isUAdmin
+                                    ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                    : isUStaff
+                                    ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                                    : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
+                                }`}
+                              >
+                                {(u.name || u.username || 'U').charAt(0).toUpperCase()}
+                              </div>
+                              <span className="font-semibold text-slate-900 dark:text-slate-100 truncate max-w-[180px]">
+                                {u.name || u.username || '—'}
+                              </span>
                             </div>
-                            <div className="flex flex-col">
-                              <span>{u.name}</span>
-                              {u.email && u.email !== u.username && (
-                                <span className="text-[10px] text-slate-400 font-normal">{u.email}</span>
+                          </td>
+
+                          {/* 2. Tên Đăng Nhập / Email (Chỉ hiển thị thuần túy username & email, gỡ bỏ license key lộ diện) */}
+                          <td className="py-3 px-3 align-middle">
+                            <div className="flex flex-col justify-center">
+                              <span className="font-mono font-medium text-slate-800 dark:text-slate-200 text-xs">
+                                {u.username || u.email}
+                              </span>
+                              {u.email && u.username && u.email.toLowerCase() !== u.username.toLowerCase() && (
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-normal truncate max-w-[200px]">
+                                  {u.email}
+                                </span>
                               )}
                             </div>
                           </td>
 
-                          <td className="py-3.5 px-3 font-mono font-medium text-slate-700 dark:text-slate-300">
-                            {u.username || u.email}
-                            {u.apiKey && (
-                              <div className="text-[10px] text-amber-600 dark:text-amber-400 font-mono mt-0.5">
-                                🔑 {u.apiKey}
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="py-3.5 px-3">
+                          {/* 3. Vai Trò */}
+                          <td className="py-3 px-3 align-middle">
                             <span
-                              className={`px-2.5 py-0.5 rounded-full font-bold text-[11px] border ${
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full font-bold text-[11px] border whitespace-nowrap ${
                                 isUAdmin
                                   ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
                                   : isUStaff
-                                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30'
-                                  : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30'
+                                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                                  : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
                               }`}
                             >
                               {isUAdmin ? 'Quản trị viên (ADMIN)' : isUStaff ? 'Cộng tác viên (CTV)' : 'Người dùng (USER)'}
                             </span>
                           </td>
 
-                          <td className="py-3.5 px-3">
+                          {/* 4. Hạn Mức Key / Bộ Sưu Tập */}
+                          <td className="py-3 px-3 align-middle">
                             {isUAdmin ? (
-                              <span className="px-2.5 py-0.5 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-bold text-[11px]">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-500/20 font-bold text-[11px] whitespace-nowrap">
                                 ∞ Vô hạn (Admin)
                               </span>
                             ) : isUStaff ? (
                               u.maxCredits === -1 ? (
-                                <span className="px-2.5 py-0.5 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[11px]">
+                                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-700 dark:text-purple-300 border border-purple-500/30 font-bold text-[11px] whitespace-nowrap">
                                   ∞ Không giới hạn ({createdCount} key)
                                 </span>
                               ) : (
-                                <div className="flex flex-col gap-1 min-w-[140px]">
+                                <div className="flex flex-col gap-1 min-w-[130px] max-w-[160px] justify-center">
                                   <div className="flex items-center justify-between text-[10px] text-slate-600 dark:text-slate-400">
                                     <span>{createdCount} / {u.maxCredits || 50} key</span>
                                     <span className="font-semibold">{quotaPercent}%</span>
@@ -2321,15 +2328,16 @@ export default function UnifiedAdminPage() {
                                 </div>
                               )
                             ) : (
-                              <span className="px-2.5 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-medium text-[11px]">
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 font-medium text-[11px] whitespace-nowrap">
                                 🖼️ {u.saved_diagrams_count ?? u.savedDiagramsCount ?? 0} hình đã lưu
                               </span>
                             )}
                           </td>
 
-                          <td className="py-3.5 px-3 text-center">
+                          {/* 5. Trạng Thái */}
+                          <td className="py-3 px-3 text-center align-middle">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold whitespace-nowrap ${
                                 isUActive
                                   ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
                                   : 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
@@ -2339,12 +2347,13 @@ export default function UnifiedAdminPage() {
                             </span>
                           </td>
 
-                          <td className="py-3.5 px-3 text-right">
+                          {/* 6. Thao Tác */}
+                          <td className="py-3 px-3 text-right align-middle">
                             <div className="flex items-center justify-end gap-1.5">
                               {/* Edit / Reset Password Button */}
                               <button
                                 onClick={() => handleOpenEditUserModal(u)}
-                                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1"
+                                className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium border border-slate-200 dark:border-transparent transition flex items-center gap-1 cursor-pointer"
                                 title="Sửa thông tin hoặc Đổi mật khẩu"
                               >
                                 <Edit className="w-3.5 h-3.5" />
@@ -2355,7 +2364,7 @@ export default function UnifiedAdminPage() {
                               {u.id !== currentUser.id && (
                                 <button
                                   onClick={() => handleToggleUserStatus(u.id, isUActive)}
-                                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+                                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
                                   title={isUActive ? 'Khóa tài khoản' : 'Mở khóa tài khoản'}
                                 >
                                   {isUActive ? (
