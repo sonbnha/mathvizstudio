@@ -9,6 +9,7 @@ import {
   Trash2,
   Equal,
   X,
+  RotateCw,
 } from 'lucide-react';
 
 export type EditorTool =
@@ -28,13 +29,6 @@ interface InteractiveSvgEditorProps {
   mountContainerId?: string;
 }
 
-interface ContextMenuState {
-  x: number;
-  y: number;
-  elementId: string;
-  type: 'line' | 'text' | 'polygon' | 'angle';
-}
-
 export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   svgCode,
   isEditMode,
@@ -46,9 +40,10 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
   const [history, setHistory] = useState<string[]>([]);
   const [future, setFuture] = useState<string[]>([]);
 
-  // Contextual popup state for selected element
-  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  // Fixed top shape toolbar state for selected element
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
+  const [selectedElementType, setSelectedElementType] = useState<'line' | 'polygon' | 'angle' | null>(null);
+  const lastClickCoordsRef = useRef<{ x: number; y: number } | null>(null);
 
   // Inline text editing state
   const [editingText, setEditingText] = useState<{
@@ -87,8 +82,8 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     if (isEditMode) {
       setHistory([svgCode]);
       setFuture([]);
-      setContextMenu(null);
       setSelectedElementId(null);
+      setSelectedElementType(null);
       setEditingText(null);
     }
   }, [isEditMode]);
@@ -103,6 +98,12 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     [svgCode, onUpdateSvg]
   );
 
+  // Deselect element
+  const deselectElement = useCallback(() => {
+    setSelectedElementId(null);
+    setSelectedElementType(null);
+  }, []);
+
   // Undo
   const handleUndo = useCallback(() => {
     if (history.length === 0) return;
@@ -110,8 +111,8 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     setHistory((prev) => prev.slice(0, prev.length - 1));
     setFuture((prev) => [svgCode, ...prev]);
     onUpdateSvg(previous);
-    setContextMenu(null);
     setSelectedElementId(null);
+    setSelectedElementType(null);
     setEditingText(null);
   }, [history, svgCode, onUpdateSvg]);
 
@@ -122,12 +123,32 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     setFuture((prev) => prev.slice(1));
     setHistory((prev) => [...prev, svgCode]);
     onUpdateSvg(next);
-    setContextMenu(null);
     setSelectedElementId(null);
+    setSelectedElementType(null);
     setEditingText(null);
   }, [future, svgCode, onUpdateSvg]);
 
-  // Keyboard shortcut listener (Ctrl/Cmd+Z, Ctrl/Cmd+Y, Esc)
+  // DELETE SELECTED ELEMENT
+  const deleteSelectedElement = useCallback(() => {
+    if (!selectedElementId) return;
+
+    const mount = document.getElementById(mountContainerId);
+    if (!mount) return;
+    const svg = mount.querySelector('svg');
+    if (!svg) return;
+
+    const target = mount.querySelector(`[data-edit-id="${selectedElementId}"]`) as SVGElement | null;
+    if (target) {
+      target.remove();
+    }
+    setSelectedElementId(null);
+    setSelectedElementType(null);
+
+    const serialized = new XMLSerializer().serializeToString(svg);
+    commitSvgChange(serialized);
+  }, [selectedElementId, mountContainerId, commitSvgChange]);
+
+  // Keyboard shortcut listener (Ctrl/Cmd+Z, Ctrl/Cmd+Y, Esc, Delete)
   useEffect(() => {
     if (!isEditMode) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -142,14 +163,21 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         e.preventDefault();
         handleRedo();
       } else if (e.key === 'Escape') {
-        setContextMenu(null);
         setSelectedElementId(null);
+        setSelectedElementType(null);
         setEditingText(null);
+      } else if ((e.key === 'Delete' || e.key === 'Backspace') && selectedElementId && !editingText) {
+        // Prevent deleting element if typing in an input
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        if (activeTag !== 'input' && activeTag !== 'textarea') {
+          e.preventDefault();
+          deleteSelectedElement();
+        }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isEditMode, handleUndo, handleRedo]);
+  }, [isEditMode, handleUndo, handleRedo, selectedElementId, editingText, deleteSelectedElement]);
 
   // Transform screen coordinates to SVG coordinates
   const getSvgCoordinates = (svg: SVGSVGElement, clientX: number, clientY: number) => {
@@ -164,31 +192,28 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     return { x: clientX, y: clientY };
   };
 
-  // 1. POINTER DOWN - Handles Dragging and Tool Clicks
+  // 1. POINTER DOWN - Handles Dragging and Element Selection for Top Toolbar
   const handlePointerDown = useCallback(
     (e: PointerEvent) => {
       if (!isEditMode) return;
       const target = e.target as SVGElement;
       if (!target) return;
 
+      // Don't trigger element selection if clicking inside top toolbar or text input
+      const targetEl = target as Element;
+      if (targetEl.closest('.editor-toolbar-pill') || targetEl.closest('.editor-text-input-popover')) {
+        return;
+      }
+
       const mount = document.getElementById(mountContainerId);
       if (!mount) return;
       const svg = mount.querySelector('svg');
       if (!svg) return;
 
-      // Close open context menu if clicking elsewhere
-      const currentTargetEditId = target.getAttribute('data-edit-id');
-      if (
-        contextMenu &&
-        contextMenu.elementId !== currentTargetEditId &&
-        !target.closest('.editor-context-menu')
-      ) {
-        setContextMenu(null);
-        setSelectedElementId(null);
-      }
-
-      // If clicking directly on SVG root or whitespace background, exit
+      // If clicking directly on SVG root or whitespace background, deselect active element
       if (target === svg || (target as Element) === mount || target.tagName.toLowerCase() === 'svg') {
+        setSelectedElementId(null);
+        setSelectedElementType(null);
         return;
       }
 
@@ -199,6 +224,9 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       const circleTarget = (target.tagName.toLowerCase() === 'circle'
         ? target
         : target.closest('circle')) as SVGCircleElement | null;
+      const angleTarget = (target.classList.contains('right-angle-marker')
+        ? target
+        : target.closest('.right-angle-marker')) as SVGElement | null;
       const lineTarget = (['line', 'path', 'polyline'].includes(target.tagName.toLowerCase())
         ? target
         : target.closest('line, path, polyline')) as SVGGeometryElement | null;
@@ -208,9 +236,6 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       const polygonTarget = (['polygon', 'rect'].includes(target.tagName.toLowerCase()) || isClosedPath
         ? target
         : target.closest('polygon, rect')) as SVGGeometryElement | null;
-      const angleTarget = (target.classList.contains('right-angle-marker')
-        ? target
-        : target.closest('.right-angle-marker')) as SVGElement | null;
 
       // 1. Text elements -> initiate drag
       if (textTarget) {
@@ -250,49 +275,39 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         return;
       }
 
-      // 3. Right angle marker -> open angle rotation / deletion menu
+      // 3. Right angle marker -> select angle in top toolbar
       if (angleTarget) {
         e.preventDefault();
         const editId = getOrAssignEditId(angleTarget);
         setSelectedElementId(editId);
-        setContextMenu({
-          x: e.clientX,
-          y: e.clientY,
-          elementId: editId,
-          type: 'angle',
-        });
+        setSelectedElementType('angle');
         return;
       }
 
-      // 4. Closed polygon / area -> open area highlight menu
+      // 4. Closed polygon / area -> select polygon in top toolbar
       if (polygonTarget && target.tagName.toLowerCase() !== 'line') {
         e.preventDefault();
         const editId = getOrAssignEditId(polygonTarget);
         setSelectedElementId(editId);
-        setContextMenu({
-          x: e.clientX,
-          y: e.clientY,
-          elementId: editId,
-          type: 'polygon',
-        });
+        setSelectedElementType('polygon');
         return;
       }
 
-      // 5. Line / path / polyline -> open contextual line style menu
+      // 5. Line / path / polyline -> select line in top toolbar
       if (lineTarget) {
         e.preventDefault();
         const editId = getOrAssignEditId(lineTarget);
         setSelectedElementId(editId);
-        setContextMenu({
-          x: e.clientX,
-          y: e.clientY,
-          elementId: editId,
-          type: 'line',
-        });
+        setSelectedElementType('line');
+        lastClickCoordsRef.current = getSvgCoordinates(svg, e.clientX, e.clientY);
         return;
       }
+
+      // Clicking any other unrecognized element -> deselect
+      setSelectedElementId(null);
+      setSelectedElementType(null);
     },
-    [isEditMode, mountContainerId, contextMenu]
+    [isEditMode, mountContainerId]
   );
 
   // 2. POINTER MOVE - Live Drag Movement
@@ -389,11 +404,12 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
       const target = e.target as HTMLElement | null;
       if (
         target &&
-        !target.closest('.editor-context-menu') &&
+        !target.closest('.editor-toolbar-pill') &&
+        !target.closest('.editor-text-input-popover') &&
         !target.closest('#' + mountContainerId)
       ) {
-        setContextMenu(null);
         setSelectedElementId(null);
+        setSelectedElementType(null);
       }
     };
 
@@ -542,8 +558,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
 
   // MODIFY ELEMENT STYLE (Stroke, Fill, Width)
   const updateElementStyle = (attribute: string, value: string) => {
-    const editId = selectedElementId || contextMenu?.elementId;
-    if (!editId) return;
+    if (!selectedElementId) return;
 
     const mount = document.getElementById(mountContainerId);
     if (!mount) return;
@@ -551,7 +566,7 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     if (!svg) return;
 
     // Luôn query tìm phần tử mới nhất đang tồn tại trong DOM hiện tại theo ID
-    const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+    const target = mount.querySelector(`[data-edit-id="${selectedElementId}"]`) as SVGElement | null;
     if (!target) return;
 
     if (attribute === 'stroke-dasharray' && (value === '' || value === 'none')) {
@@ -564,28 +579,95 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
     commitSvgChange(serialized);
   };
 
-  // DELETE SELECTED ELEMENT
-  const deleteSelectedElement = () => {
-    const editId = selectedElementId || contextMenu?.elementId;
-    if (!editId) return;
+  // Read attributes of selected element from live DOM
+  const getSelectedElementAttrs = () => {
+    if (!selectedElementId) return null;
+    const mount = document.getElementById(mountContainerId);
+    if (!mount) return null;
+    const el = mount.querySelector(`[data-edit-id="${selectedElementId}"]`) as SVGElement | null;
+    if (!el) return null;
+    return {
+      dasharray: el.getAttribute('stroke-dasharray') || '',
+      strokeWidth: el.getAttribute('stroke-width') || '1.5',
+      stroke: el.getAttribute('stroke') || '#0f172a',
+      fill: el.getAttribute('fill') || 'none',
+    };
+  };
 
+  // Toggle equal ticks on selected line
+  const handleToggleTicksOnSelectedLine = () => {
+    if (!selectedElementId) return;
     const mount = document.getElementById(mountContainerId);
     if (!mount) return;
     const svg = mount.querySelector('svg');
     if (!svg) return;
-
-    const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
+    const target = mount.querySelector(`[data-edit-id="${selectedElementId}"]`) as SVGElement | null;
     if (target) {
-      target.remove();
+      toggleEqualTicksOnLine(svg, target);
     }
-    setContextMenu(null);
-    setSelectedElementId(null);
+  };
 
+  // Add right angle marker to closest vertex of selected line
+  const handleAddRightAngleToSelectedLine = () => {
+    if (!selectedElementId) return;
+    const mount = document.getElementById(mountContainerId);
+    if (!mount) return;
+    const svg = mount.querySelector('svg');
+    if (!svg) return;
+    const target = mount.querySelector(`[data-edit-id="${selectedElementId}"]`) as SVGElement | null;
+    if (!target) return;
+
+    let x1 = parseFloat(target.getAttribute('x1') || '0');
+    let y1 = parseFloat(target.getAttribute('y1') || '0');
+    let x2 = parseFloat(target.getAttribute('x2') || '0');
+    let y2 = parseFloat(target.getAttribute('y2') || '0');
+
+    if (x1 === x2 && y1 === y2 && (target as SVGGraphicsElement).getBBox) {
+      const bbox = (target as SVGGraphicsElement).getBBox();
+      x1 = bbox.x;
+      y1 = bbox.y;
+      x2 = bbox.x + bbox.width;
+      y2 = bbox.y + bbox.height;
+    }
+
+    const clickPos = lastClickCoordsRef.current;
+    let anchorX = x1;
+    let anchorY = y1;
+    if (clickPos) {
+      const d1 = Math.hypot(clickPos.x - x1, clickPos.y - y1);
+      const d2 = Math.hypot(clickPos.x - x2, clickPos.y - y2);
+      anchorX = d1 <= d2 ? x1 : x2;
+      anchorY = d1 <= d2 ? y1 : y2;
+    }
+
+    addRightAngleMarker(svg, anchorX, anchorY);
+  };
+
+  // Rotate selected right-angle marker by 90 degrees
+  const handleRotateSelectedAngle = () => {
+    if (!selectedElementId) return;
+    const mount = document.getElementById(mountContainerId);
+    if (!mount) return;
+    const svg = mount.querySelector('svg');
+    if (!svg) return;
+    const el = mount.querySelector(`[data-edit-id="${selectedElementId}"]`) as SVGElement | null;
+    if (!el) return;
+    const currentTransform = el.getAttribute('transform') || '';
+    const match = currentTransform.match(/rotate\((-?\d+)/);
+    const currentAngle = match ? parseInt(match[1], 10) : 0;
+    const nextAngle = (currentAngle + 90) % 360;
+    const bbox = (el as SVGGraphicsElement).getBBox();
+    const cx = bbox.x + bbox.width / 2;
+    const cy = bbox.y + bbox.height / 2;
+    el.setAttribute('transform', `rotate(${nextAngle} ${cx} ${cy})`);
     const serialized = new XMLSerializer().serializeToString(svg);
     commitSvgChange(serialized);
   };
 
   if (!isEditMode) return null;
+
+  const activeAttrs = getSelectedElementAttrs();
+  const isDashed = Boolean(activeAttrs?.dasharray && activeAttrs.dasharray !== 'none');
 
   return (
     <div ref={editorRootRef} className="absolute inset-0 pointer-events-none z-30">
@@ -598,58 +680,281 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
         `}</style>
       )}
 
-      {/* 1. THANH TRẠNG THÁI GỌN GÀNG (Floating Action Pill) */}
-      <div className="absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-auto flex items-center gap-2 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-full px-3 py-1 shadow-md shadow-slate-900/5 dark:shadow-black/40 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200">
-        <div className="flex items-center gap-1.5 pr-2 border-r border-slate-200 dark:border-slate-800">
-          <span className="text-xs">✏️</span>
-          <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 select-none">
-            <span className="font-semibold text-slate-800 dark:text-slate-100">Chế độ chỉnh sửa</span>
-            <span className="hidden sm:inline text-slate-400 dark:text-slate-500 mx-1">•</span>
-            <span className="hidden sm:inline text-slate-500 dark:text-slate-400 text-[10.5px]">Click vào đường nét hoặc kéo điểm để thay đổi</span>
-          </span>
-        </div>
+      {/* 1. THANH ĐỊNH DẠNG CỐ ĐỊNH PHÍA TRÊN CANVAS (Word-Style Shape Toolbar) */}
+      <div className="editor-toolbar-pill absolute top-2.5 left-1/2 -translate-x-1/2 pointer-events-auto max-w-[96%] overflow-x-auto scrollbar-none z-40">
+        {!selectedElementId ? (
+          // TRẠNG THÁI CHƯA CHỌN: Hướng dẫn ngắn gọn
+          <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200/90 dark:border-slate-800 rounded-full px-3 py-1.5 shadow-md shadow-slate-900/5 dark:shadow-black/40 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in slide-in-from-top-2 duration-200 whitespace-nowrap">
+            <div className="flex items-center gap-1.5 pr-2 border-r border-slate-200 dark:border-slate-800">
+              <span className="text-xs">✏️</span>
+              <span className="text-[11px] font-medium text-slate-600 dark:text-slate-300 select-none">
+                <span className="font-semibold text-slate-800 dark:text-slate-100">Chế độ chỉnh sửa</span>
+                <span className="hidden sm:inline text-slate-400 dark:text-slate-500 mx-1.5">•</span>
+                <span className="hidden sm:inline text-slate-500 dark:text-slate-400 text-[11px]">Click vào đường nét để chỉnh sửa hoặc kéo điểm để di chuyển</span>
+              </span>
+            </div>
 
-        {/* Undo / Redo */}
-        <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
-          <button
-            type="button"
-            onClick={handleUndo}
-            disabled={history.length === 0}
-            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-            title="Hoàn tác (Ctrl+Z)"
-          >
-            <Undo2 className="w-3.5 h-3.5" />
-          </button>
+            {/* Undo / Redo */}
+            <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={history.length === 0}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Hoàn tác (Ctrl+Z)"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleRedo}
+                disabled={future.length === 0}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Làm lại (Ctrl+Y)"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
 
-          <button
-            type="button"
-            onClick={handleRedo}
-            disabled={future.length === 0}
-            className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
-            title="Làm lại (Ctrl+Y)"
-          >
-            <Redo2 className="w-3.5 h-3.5" />
-          </button>
-        </div>
+            {/* Hoàn tất */}
+            <button
+              type="button"
+              onClick={onCloseEditMode}
+              className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
+              title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
+            >
+              <Check className="w-3 h-3" />
+              <span>Hoàn tất</span>
+            </button>
+          </div>
+        ) : (
+          // TRẠNG THÁI ĐÃ CHỌN ĐỐI TƯỢNG: Thanh định dạng nằm ngang (Shape Format Bar)
+          <div className="flex items-center gap-2 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-cyan-500/40 dark:border-cyan-500/40 rounded-full px-3 py-1.5 shadow-lg shadow-slate-900/10 dark:shadow-black/50 text-xs text-slate-800 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-150 whitespace-nowrap">
+            {/* Controls cho ĐƯỜNG NÉT */}
+            {selectedElementType === 'line' && (
+              <>
+                <div className="flex items-center gap-1 font-semibold text-[11px] text-cyan-600 dark:text-cyan-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <span>📐 Đường nét</span>
+                </div>
 
-        {/* Nút Hoàn tất */}
-        <div>
-          <button
-            type="button"
-            onClick={onCloseEditMode}
-            className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
-            title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
-          >
-            <Check className="w-3 h-3" />
-            <span>Hoàn tất</span>
-          </button>
-        </div>
+                {/* 1. Kiểu nét: Liền / Đứt */}
+                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => updateElementStyle('stroke-dasharray', '')}
+                    className={`py-0.5 px-2 rounded-full font-medium text-[11px] transition cursor-pointer ${
+                      !isDashed
+                        ? 'bg-cyan-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                    title="Nét liền"
+                  >
+                    Nét liền
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => updateElementStyle('stroke-dasharray', '5 5')}
+                    className={`py-0.5 px-2 rounded-full font-medium text-[11px] transition cursor-pointer ${
+                      isDashed
+                        ? 'bg-cyan-600 text-white shadow-xs'
+                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    }`}
+                    title="Nét đứt"
+                  >
+                    Nét đứt
+                  </button>
+                </div>
+
+                {/* 2. Độ dày nét: 1px, 1.5px, 2px, 3px */}
+                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  {['1', '1.5', '2', '3'].map((w) => {
+                    const isActive = activeAttrs?.strokeWidth === w || (!activeAttrs?.strokeWidth && w === '1.5');
+                    return (
+                      <button
+                        key={w}
+                        type="button"
+                        onClick={() => updateElementStyle('stroke-width', w)}
+                        className={`py-0.5 px-1.5 rounded-md font-mono text-[10.5px] transition cursor-pointer ${
+                          isActive
+                            ? 'bg-cyan-600 text-white font-bold shadow-xs'
+                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                        }`}
+                        title={`Độ dày ${w}px`}
+                      >
+                        {w}px
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 3. Bảng màu nét vẽ (5 màu) */}
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  {[
+                    { color: '#0f172a', title: 'Đen' },
+                    { color: '#2563eb', title: 'Xanh dương' },
+                    { color: '#dc2626', title: 'Đỏ' },
+                    { color: '#ea580c', title: 'Cam' },
+                    { color: '#16a34a', title: 'Xanh lá' },
+                  ].map((c) => {
+                    const isSelected = activeAttrs?.stroke.toLowerCase() === c.color.toLowerCase();
+                    return (
+                      <button
+                        key={c.color}
+                        type="button"
+                        onClick={() => updateElementStyle('stroke', c.color)}
+                        className={`w-4 h-4 rounded-full transition-transform cursor-pointer ${
+                          isSelected
+                            ? 'scale-125 ring-2 ring-cyan-500 ring-offset-1 dark:ring-offset-slate-900'
+                            : 'border border-white/60 dark:border-slate-800 hover:scale-115'
+                        }`}
+                        style={{ backgroundColor: c.color }}
+                        title={c.title}
+                      />
+                    );
+                  })}
+                </div>
+
+                {/* 4. Ký hiệu bằng nhau & Góc vuông */}
+                <div className="flex items-center gap-1 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={handleToggleTicksOnSelectedLine}
+                    className="py-0.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                    title="Đánh dấu vạch bằng nhau (1 vạch / 2 vạch / Xóa)"
+                  >
+                    <Equal className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>= Vạch //</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleAddRightAngleToSelectedLine}
+                    className="py-0.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                    title="Chèn ký hiệu góc vuông tại đỉnh gần nhất của đường này"
+                  >
+                    <SquareCode className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>⟂ Góc vuông</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Controls cho ĐA GIÁC / VÙNG DIỆN TÍCH */}
+            {selectedElementType === 'polygon' && (
+              <>
+                <div className="flex items-center gap-1 font-semibold text-[11px] text-amber-600 dark:text-amber-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <span>🎨 Tô màu diện tích</span>
+                </div>
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  {[
+                    { color: 'none', label: 'Xóa màu' },
+                    { color: 'rgba(59, 130, 246, 0.25)', label: 'Xanh' },
+                    { color: 'rgba(234, 179, 8, 0.25)', label: 'Vàng' },
+                    { color: 'rgba(16, 185, 129, 0.25)', label: 'Lá' },
+                    { color: 'rgba(239, 68, 68, 0.25)', label: 'Đỏ' },
+                  ].map((item) => {
+                    const isSelected = (activeAttrs?.fill || 'none') === item.color;
+                    return (
+                      <button
+                        key={item.color}
+                        type="button"
+                        onClick={() => updateElementStyle('fill', item.color)}
+                        className={`px-2 py-0.5 rounded-full text-[10.5px] font-medium border transition cursor-pointer ${
+                          isSelected
+                            ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-950/40 text-cyan-700 dark:text-cyan-300 font-semibold'
+                            : 'border-slate-200 dark:border-slate-700 hover:border-cyan-500'
+                        }`}
+                        style={{
+                          backgroundColor: item.color === 'none' ? 'transparent' : item.color,
+                        }}
+                      >
+                        {item.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Controls cho KÝ HIỆU GÓC VUÔNG */}
+            {selectedElementType === 'angle' && (
+              <>
+                <div className="flex items-center gap-1 font-semibold text-[11px] text-indigo-600 dark:text-indigo-400 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <span>📐 Ký hiệu góc</span>
+                </div>
+                <div className="flex items-center gap-1.5 pr-1.5 border-r border-slate-200 dark:border-slate-800">
+                  <button
+                    type="button"
+                    onClick={handleRotateSelectedAngle}
+                    className="py-0.5 px-2 rounded-md bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 font-medium text-[11px] flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <RotateCw className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
+                    <span>Xoay góc 90°</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Xóa phần tử */}
+            <button
+              type="button"
+              onClick={deleteSelectedElement}
+              className="p-1 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition cursor-pointer"
+              title="Xóa phần tử này (Delete)"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Bỏ chọn */}
+            <button
+              type="button"
+              onClick={deselectElement}
+              className="p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer border-r border-slate-200 dark:border-slate-800 pr-1"
+              title="Bỏ chọn (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Undo / Redo */}
+            <div className="flex items-center gap-0.5 pr-1 border-r border-slate-200 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={handleUndo}
+                disabled={history.length === 0}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Hoàn tác (Ctrl+Z)"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={handleRedo}
+                disabled={future.length === 0}
+                className="p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 disabled:opacity-30 disabled:cursor-not-allowed transition cursor-pointer"
+                title="Làm lại (Ctrl+Y)"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Hoàn tất */}
+            <button
+              type="button"
+              onClick={onCloseEditMode}
+              className="px-2.5 py-1 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-[11px] flex items-center gap-1 shadow-xs transition cursor-pointer"
+              title="Lưu các thay đổi và thoát chế độ chỉnh sửa"
+            >
+              <Check className="w-3 h-3" />
+              <span>Hoàn tất</span>
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* 2. INLINE TEXT INPUT MODAL/POPOVER KHI DOUBLE CLICK TEXT */}
+      {/* 2. INLINE TEXT INPUT POPOVER KHI DOUBLE CLICK TEXT */}
       {editingText && (
         <div
-          className="fixed pointer-events-auto z-50 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 shadow-2xl flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100"
+          className="editor-text-input-popover fixed pointer-events-auto z-50 bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 rounded-xl p-2 shadow-2xl flex items-center gap-1.5 animate-in fade-in zoom-in-95 duration-100"
           style={{
             left: `${editingText.screenX}px`,
             top: `${editingText.screenY}px`,
@@ -684,255 +989,6 @@ export const InteractiveSvgEditor: React.FC<InteractiveSvgEditorProps> = ({
           >
             <X className="w-3.5 h-3.5" />
           </button>
-        </div>
-      )}
-
-      {/* 3. CONTEXTUAL POPUP CHO ĐOẠN THẲNG HOẶC ĐA GIÁC (Line & Style Toolbar) */}
-      {contextMenu && (
-        <div
-          className="editor-context-menu fixed pointer-events-auto z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 rounded-2xl p-2.5 shadow-2xl text-xs text-slate-800 dark:text-slate-200 animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-2 min-w-[200px]"
-          style={{
-            left: `${Math.min(window.innerWidth - 220, Math.max(10, contextMenu.x - 100))}px`,
-            top: `${Math.min(window.innerHeight - 200, Math.max(70, contextMenu.y - 120))}px`,
-          }}
-        >
-          {/* Header mini */}
-          <div className="flex items-center justify-between pb-1.5 border-b border-slate-100 dark:border-slate-800 text-[11px] font-semibold text-slate-600 dark:text-slate-400">
-            <span>
-              {contextMenu.type === 'line'
-                ? '📐 Tinh chỉnh đường nét'
-                : contextMenu.type === 'angle'
-                ? '📐 Ký hiệu góc vuông'
-                : '🎨 Tô màu diện tích'}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                setContextMenu(null);
-                setSelectedElementId(null);
-              }}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-            >
-              ✕
-            </button>
-          </div>
-
-          {contextMenu.type === 'line' && (
-            <>
-              {/* Kiểu nét: Liền / Đứt */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 w-14">
-                  Kiểu nét:
-                </span>
-                <div className="flex items-center gap-1 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => updateElementStyle('stroke-dasharray', '')}
-                    className="flex-1 py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer"
-                  >
-                    Nét liền
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => updateElementStyle('stroke-dasharray', '5 5')}
-                    className="flex-1 py-1 px-1.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer"
-                  >
-                    Nét đứt
-                  </button>
-                </div>
-              </div>
-
-              {/* Độ dày nét: 1px, 1.5px, 2px, 3px */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 w-14">
-                  Độ dày:
-                </span>
-                <div className="flex items-center gap-1 flex-1">
-                  {['1', '1.5', '2', '3'].map((w) => (
-                    <button
-                      key={w}
-                      type="button"
-                      onClick={() => updateElementStyle('stroke-width', w)}
-                      className="flex-1 py-0.5 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-mono text-[10px] cursor-pointer"
-                    >
-                      {w}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Màu nét vẽ */}
-              <div className="flex items-center gap-1.5">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 w-14">
-                  Màu sắc:
-                </span>
-                <div className="flex items-center gap-1.5 flex-1">
-                  {[
-                    { color: '#0f172a', title: 'Đen' },
-                    { color: '#2563eb', title: 'Xanh dương' },
-                    { color: '#dc2626', title: 'Đỏ' },
-                    { color: '#ea580c', title: 'Cam' },
-                    { color: '#16a34a', title: 'Xanh lá' },
-                  ].map((c) => (
-                    <button
-                      key={c.color}
-                      type="button"
-                      onClick={() => updateElementStyle('stroke', c.color)}
-                      className="w-4 h-4 rounded-full border border-white/60 dark:border-slate-800 shadow-xs hover:scale-115 transition-transform cursor-pointer"
-                      style={{ backgroundColor: c.color }}
-                      title={c.title}
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {/* Đánh dấu: Vạch bằng nhau & Ký hiệu góc vuông */}
-              <div className="flex items-center gap-1.5 pt-0.5">
-                <span className="text-[10px] text-slate-500 dark:text-slate-400 w-14 shrink-0">
-                  Đánh dấu:
-                </span>
-                <div className="flex items-center gap-1 flex-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const editId = selectedElementId || contextMenu?.elementId;
-                      if (!editId) return;
-                      const mount = document.getElementById(mountContainerId);
-                      if (!mount) return;
-                      const svg = mount.querySelector('svg');
-                      if (!svg) return;
-                      const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
-                      if (target) {
-                        toggleEqualTicksOnLine(svg, target);
-                      }
-                    }}
-                    className="flex-1 py-1 px-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1 text-slate-700 dark:text-slate-300 transition"
-                    title="Đánh dấu vạch bằng nhau (1 vạch / 2 vạch / Xóa)"
-                  >
-                    <Equal className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                    <span>Vạch //</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const editId = selectedElementId || contextMenu?.elementId;
-                      if (!editId) return;
-                      const mount = document.getElementById(mountContainerId);
-                      if (!mount) return;
-                      const svg = mount.querySelector('svg');
-                      if (!svg) return;
-                      const target = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
-                      if (!target) return;
-
-                      let x1 = parseFloat(target.getAttribute('x1') || '0');
-                      let y1 = parseFloat(target.getAttribute('y1') || '0');
-                      let x2 = parseFloat(target.getAttribute('x2') || '0');
-                      let y2 = parseFloat(target.getAttribute('y2') || '0');
-
-                      if (x1 === x2 && y1 === y2 && (target as SVGGraphicsElement).getBBox) {
-                        const bbox = (target as SVGGraphicsElement).getBBox();
-                        x1 = bbox.x;
-                        y1 = bbox.y;
-                        x2 = bbox.x + bbox.width;
-                        y2 = bbox.y + bbox.height;
-                      }
-
-                      const clickCoords = getSvgCoordinates(svg, contextMenu.x, contextMenu.y);
-                      const d1 = Math.hypot(clickCoords.x - x1, clickCoords.y - y1);
-                      const d2 = Math.hypot(clickCoords.x - x2, clickCoords.y - y2);
-                      const anchorX = d1 <= d2 ? x1 : x2;
-                      const anchorY = d1 <= d2 ? y1 : y2;
-
-                      addRightAngleMarker(svg, anchorX, anchorY);
-                    }}
-                    className="flex-1 py-1 px-1 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1 text-slate-700 dark:text-slate-300 transition"
-                    title="Chèn ký hiệu góc vuông tại đỉnh gần nhất của đường này"
-                  >
-                    <SquareCode className="w-3 h-3 text-cyan-600 dark:text-cyan-400" />
-                    <span>Góc vuông</span>
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
-
-          {/* Tùy chỉnh góc vuông: Xoay góc 90 độ */}
-          {contextMenu.type === 'angle' && (
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                Thao tác góc vuông:
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  const editId = selectedElementId || contextMenu?.elementId;
-                  if (!editId) return;
-                  const mount = document.getElementById(mountContainerId);
-                  if (!mount) return;
-                  const svg = mount.querySelector('svg');
-                  if (!svg) return;
-                  const el = mount.querySelector(`[data-edit-id="${editId}"]`) as SVGElement | null;
-                  if (!el) return;
-                  const currentTransform = el.getAttribute('transform') || '';
-                  const match = currentTransform.match(/rotate\((\d+)/);
-                  const currentAngle = match ? parseInt(match[1], 10) : 0;
-                  const nextAngle = (currentAngle + 90) % 360;
-                  const bbox = (el as SVGGraphicsElement).getBBox();
-                  const cx = bbox.x + bbox.width / 2;
-                  const cy = bbox.y + bbox.height / 2;
-                  el.setAttribute('transform', `rotate(${nextAngle} ${cx} ${cy})`);
-                  const serialized = new XMLSerializer().serializeToString(svg);
-                  commitSvgChange(serialized);
-                }}
-                className="py-1 px-2 rounded bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-center font-medium text-[10px] cursor-pointer flex items-center justify-center gap-1"
-              >
-                <span>🔄 Xoay góc 90°</span>
-              </button>
-            </div>
-          )}
-
-          {/* Tô màu diện tích highlight */}
-          {contextMenu.type === 'polygon' && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[10px] text-slate-500 dark:text-slate-400">
-                Chọn màu phủ nổi bật:
-              </span>
-              <div className="flex items-center gap-2">
-                {[
-                  { color: 'none', label: 'Xóa màu' },
-                  { color: 'rgba(59, 130, 246, 0.25)', label: 'Xanh' },
-                  { color: 'rgba(234, 179, 8, 0.25)', label: 'Vàng' },
-                  { color: 'rgba(16, 185, 129, 0.25)', label: 'Lá' },
-                  { color: 'rgba(239, 68, 68, 0.25)', label: 'Đỏ' },
-                ].map((item) => (
-                  <button
-                    key={item.color}
-                    type="button"
-                    onClick={() => updateElementStyle('fill', item.color)}
-                    className="px-2 py-1 rounded-md text-[10px] border border-slate-200 dark:border-slate-700 hover:border-cyan-500 transition cursor-pointer"
-                    style={{
-                      backgroundColor: item.color === 'none' ? 'transparent' : item.color,
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Nút xóa phần tử */}
-          <div className="pt-1 border-t border-slate-100 dark:border-slate-800 flex justify-end">
-            <button
-              type="button"
-              onClick={deleteSelectedElement}
-              className="text-[10px] text-rose-500 hover:text-rose-600 hover:underline flex items-center gap-1 cursor-pointer font-medium"
-            >
-              <Trash2 className="w-3 h-3" />
-              <span>Xóa phần tử này</span>
-            </button>
-          </div>
         </div>
       )}
     </div>
