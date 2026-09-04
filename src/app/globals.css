@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@import "katex/dist/katex.min.css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light dark;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
+}
+
+/* Math LaTeX standard typography for SVG Canvas */
+.math-label {
+  font-family: 'KaTeX_Math', 'KaTeX_Main', 'Times New Roman', serif;
+  font-style: italic;
+  font-size: 15px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.math-number, .math-unit {
+  font-family: 'KaTeX_Main', 'Times New Roman', serif;
+  font-style: normal;
+  font-size: 13px;
+  text-anchor: middle;
+  dominant-baseline: central;
+}

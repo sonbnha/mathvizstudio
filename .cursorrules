@@ -1,0 +1,35 @@
+# MathViz Studio - Rules & Git Deployment Guidelines
+
+## Git Branching & Deployment Workflow
+1. Khi người dùng yêu cầu "thử nghiệm", "test", hoặc kiểm thử tính năng:
+   - Tự động chuyển/tạo nhánh staging: `git checkout -B staging`
+   - Gom code và commit: `git add . && git commit -m "feat(test): update admin layout preview"` (hoặc thông điệp tương ứng)
+   - Đẩy lên GitHub nhánh staging: `git push origin staging --force`
+   - Thông báo rõ ràng cho người dùng là đã đẩy lên nhánh `staging` để kiểm thử.
+
+2. Khi người dùng yêu cầu "đẩy lên web chính", "lên main", hoặc phát hành chính thức:
+   - Chuyển về nhánh main: `git checkout main`
+   - Gộp code từ staging: `git merge staging`
+   - Đẩy lên GitHub nhánh main: `git push origin main`
+   - Thông báo rõ ràng cho người dùng là đã hoàn tất đưa lên web chính (nhánh `main`).
+
+## Application Versioning & Release Workflow
+1. Khi có yêu cầu "Nâng phiên bản", "Release", hoặc mỗi lần cập nhật tính năng / fix lỗi:
+   - Tự động chạy helper `npm run version:patch` (hoặc `npm run version:minor`) để đồng bộ `package.json` và `src/config/version.ts`.
+   - Thêm bản ghi tóm tắt thay đổi mới nhất vào đầu mảng `CHANGELOG` trong `src/config/changelog.ts` với định dạng ngày chuẩn `dd/MM/yyyy` (ví dụ: `31/08/2026`).
+   - Cập nhật tài liệu `walkthrough.md`.
+
+2. Cấu trúc định dạng ngày tháng:
+   - Toàn bộ hiển thị ngày tháng trên giao diện và file cấu hình PHẢI tuân thủ chuẩn Việt Nam `dd/MM/yyyy` (ví dụ: `31/08/2026`).
+   - Sử dụng hàm tiện ích `formatDateVN()` trong `src/config/version.ts` khi cần format ngày động.
+
+3. Version Stage Progression:
+   - `alpha`: Early development, experimental features (`v0.1.x-alpha`).
+   - `beta`: Feature complete, testing stability (`v0.2.x-beta`).
+   - `rc`: Release candidate ready for public testing (`v0.9.x-rc`).
+   - `stable`: Production ready (`v1.0.0`).
+
+## UI & Theme Conventions
+- Always test Light Mode and Dark Mode support for all components.
+- Canvas active drawing area must remain clean white (`#ffffff` / `bg-white`) for pedagogical contrast, with dark mode border/shadow styling.
+- Authentication tokens must be validated through `src/lib/auth.ts` using `JWT_SECRET`.
