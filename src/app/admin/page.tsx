@@ -173,6 +173,18 @@ export default function UnifiedAdminPage() {
     });
   };
 
+  const getMaskedKey = (key: string): string => {
+    if (!key) return '';
+    if (key.length <= 8) return key;
+    if (key.startsWith('MV-TR-')) {
+      return `MV-TR-***-${key.slice(-4)}`;
+    }
+    if (key.startsWith('MV-')) {
+      return `MV-***-${key.slice(-4)}`;
+    }
+    return `${key.slice(0, 3)}-***-${key.slice(-4)}`;
+  };
+
   // New Key Form State
   const [isUnlimitedCredits, setIsUnlimitedCredits] = useState(false);
   const [customCreditCount, setCustomCreditCount] = useState<number>(50);
@@ -1704,7 +1716,7 @@ export default function UnifiedAdminPage() {
                                   title={revealedKeyIds.has(k.id) ? "Bấm để ẩn mã key" : `Mã Key: ${k.key} (Bấm để xem đầy đủ)`}
                                   className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold font-mono text-xs border border-slate-200/80 dark:border-slate-700/80 cursor-pointer select-all hover:bg-slate-200 dark:hover:bg-slate-700/80 transition"
                                 >
-                                  {revealedKeyIds.has(k.id) ? k.key : `...${k.key.slice(-4)}`}
+                                  {revealedKeyIds.has(k.id) ? k.key : getMaskedKey(k.key)}
                                 </span>
                                 <button
                                   type="button"
@@ -1974,14 +1986,14 @@ export default function UnifiedAdminPage() {
 
                 {/* Table Scrollable Body (Independent scroll) */}
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto w-full">
-                  <table className="w-full min-w-[720px] table-auto border-collapse text-left text-xs">
+                  <table className="w-full min-w-[700px] table-auto border-collapse text-left text-xs">
                     <thead className="sticky top-0 z-20 bg-slate-50/95 dark:bg-[#151c2c]/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] shadow-xs">
                       <tr>
-                        <th className="py-3 px-3.5">Mã Key</th>
-                        <th className="py-3 px-2.5">Người Tạo</th>
-                        <th className="py-3 px-2.5">Người Kích Hoạt</th>
-                        <th className="py-3 px-2.5 text-center">Lượt Dùng</th>
-                        <th className="py-3 px-3 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-24 min-w-[90px]">
+                        <th className="py-2.5 px-3.5 w-[230px] min-w-[210px]">Mã Key</th>
+                        <th className="py-2.5 px-3 w-[120px] min-w-[110px]">Người Tạo</th>
+                        <th className="py-2.5 px-3 min-w-[200px]">Người Kích Hoạt</th>
+                        <th className="py-2.5 px-3 text-center w-[140px] min-w-[130px]">Lượt Dùng & Hạn</th>
+                        <th className="py-2.5 px-2 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-20 min-w-[80px]">
                           Thao Tác
                         </th>
                       </tr>
@@ -1999,7 +2011,7 @@ export default function UnifiedAdminPage() {
                         filteredKeys.map((k) => (
                           <tr key={k.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
                             {/* 1. Mã Key (Masked Display & Toggle Reveal) */}
-                            <td className="px-3.5 py-3 whitespace-nowrap">
+                            <td className="px-3.5 py-2.5 whitespace-nowrap align-middle">
                               <div className="inline-flex items-center gap-1.5 font-mono text-xs whitespace-nowrap">
                                 {k.key.startsWith('MV-TR-') || k.key.includes('TRIAL') ? (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-300 font-bold">
@@ -2013,9 +2025,9 @@ export default function UnifiedAdminPage() {
                                 <span
                                   onClick={() => toggleRevealKey(k.id)}
                                   title={revealedKeyIds.has(k.id) ? "Bấm để ẩn mã key" : `Mã Key: ${k.key} (Bấm để xem đầy đủ)`}
-                                  className="px-2 py-1 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold font-mono text-xs border border-slate-200/80 dark:border-slate-700/80 cursor-pointer select-all hover:bg-slate-200 dark:hover:bg-slate-700/80 transition"
+                                  className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-semibold font-mono text-xs border border-slate-200/80 dark:border-slate-700/80 cursor-pointer select-all hover:bg-slate-200 dark:hover:bg-slate-700/80 transition"
                                 >
-                                  {revealedKeyIds.has(k.id) ? k.key : `...${k.key.slice(-4)}`}
+                                  {revealedKeyIds.has(k.id) ? k.key : getMaskedKey(k.key)}
                                 </span>
                                 <button
                                   type="button"
@@ -2045,7 +2057,7 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 2. Người Tạo */}
-                            <td className="px-2.5 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
+                            <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap align-middle">
                               {k.createdBy ? (
                                 <span
                                   className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
@@ -2054,7 +2066,7 @@ export default function UnifiedAdminPage() {
                                       : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                                   }`}
                                 >
-                                  {k.createdBy.name}
+                                  {k.createdBy.name || k.createdBy.username}
                                 </span>
                               ) : (
                                 <span className="text-[11px] text-slate-400 italic">Hệ thống</span>
@@ -2062,50 +2074,44 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 3. Người Kích Hoạt (Used By) */}
-                            <td className="px-2.5 py-3 whitespace-nowrap">
+                            <td className="px-3 py-2.5 whitespace-nowrap align-middle">
                               {k.usedBy ? (
-                                <div className="flex flex-col gap-0.5 max-w-[160px]">
-                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
-                                    <span className="truncate">{k.usedBy.name || k.usedBy.username}</span>
-                                  </span>
-                                  <span className="text-[10px] text-slate-400 font-mono truncate" title={k.usedBy.email}>
-                                    {k.usedBy.email}
-                                  </span>
-                                  {k.usedAt && (
-                                    <span className="text-[9px] text-slate-400">
-                                      {formatDateVN(k.usedAt)}
+                                <div className="flex flex-col gap-0.5 max-w-[210px]">
+                                  <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200 text-xs truncate">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="truncate" title={k.usedBy.name || k.usedBy.username}>
+                                      {k.usedBy.name || k.usedBy.username}
                                     </span>
-                                  )}
+                                  </div>
+                                  <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono truncate leading-tight">
+                                    {k.usedAt ? `${formatDateVN(k.usedAt)} • ` : ''}
+                                    <span title={k.usedBy.email || ''}>{k.usedBy.email || ''}</span>
+                                  </div>
                                 </div>
                               ) : (
-                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 italic">
-                                  Chưa kích hoạt
+                                <span className="text-xs text-slate-400 dark:text-slate-500 italic">
+                                  Chưa sử dụng
                                 </span>
                               )}
                             </td>
 
-                            {/* 4. Lượt Dùng */}
-                            <td className="px-2.5 py-3 text-center whitespace-nowrap">
-                              <div className="flex flex-col items-center justify-center gap-0.5">
-                                <div>
-                                  <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
-                                    {k.usedCredits}
-                                  </span>
-                                  <span className="text-slate-400 font-mono"> / </span>
-                                  <span className="font-mono text-slate-500">
-                                    {k.totalCredits === -1 ? '∞' : k.totalCredits}
-                                  </span>
+                            {/* 4. Lượt Dùng & Hạn */}
+                            <td className="px-3 py-2.5 text-center whitespace-nowrap align-middle">
+                              <div className="flex flex-col items-center justify-center">
+                                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono leading-tight">
+                                  <span>{k.usedCredits}</span>
+                                  <span className="text-slate-400 font-normal"> / </span>
+                                  <span className="text-slate-600 dark:text-slate-400">{k.totalCredits === -1 ? '∞' : k.totalCredits}</span>
                                 </div>
-                                <span className="text-[10px] text-slate-400 font-mono">
-                                  Hạn: {k.expiresAt ? formatDateVN(k.expiresAt) : '∞'}
+                                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono leading-tight mt-0.5">
+                                  {k.expiresAt ? formatDateVN(k.expiresAt) : 'Hạn: ∞'}
                                 </span>
                               </div>
                             </td>
 
                             {/* 5. Thao Tác (Ghim cố định bên phải - Sticky Right) */}
-                            <td className="px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-24 min-w-[90px] transition-colors">
-                              <div className="flex items-center justify-center gap-2">
+                            <td className="px-2 py-2.5 text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-20 min-w-[80px] align-middle transition-colors">
+                              <div className="flex items-center justify-center gap-1.5">
                                 {/* Copy Customer Handover Message Button */}
                                 <button
                                   type="button"
