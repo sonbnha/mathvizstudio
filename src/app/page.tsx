@@ -30,6 +30,7 @@ import {
   Shield,
   ChevronDown,
   Bookmark,
+  Crown,
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
@@ -166,6 +167,13 @@ function HomeContent() {
   const [isUserDropdownOpen, setIsUserDropdownOpen] = useState(false);
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
+
+  // VIP License Key Redemption Modal State
+  const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
+  const [redeemKeyCode, setRedeemKeyCode] = useState('');
+  const [redeemLoading, setRedeemLoading] = useState(false);
+  const [redeemError, setRedeemError] = useState<string | null>(null);
+  const [redeemSuccessMsg, setRedeemSuccessMsg] = useState<string | null>(null);
 
   // Click outside to close User Dropdown
   useEffect(() => {
@@ -680,6 +688,55 @@ function HomeContent() {
     if (!newKey.trim()) {
       setCustomerName(null);
       localStorage.removeItem('mathviz_customer_name');
+    }
+  };
+
+  // Kích hoạt License Key để nâng cấp tài khoản lên VIP
+  const handleRedeemLicenseKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!redeemKeyCode.trim()) {
+      setRedeemError('Vui lòng nhập mã License Key.');
+      return;
+    }
+
+    setRedeemLoading(true);
+    setRedeemError(null);
+    setRedeemSuccessMsg(null);
+
+    try {
+      const res = await fetch('/api/license/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyCode: redeemKeyCode.trim() }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Không thể kích hoạt License Key.');
+      }
+
+      // Cập nhật thông tin currentUser
+      if (data.user) {
+        setCurrentUser((prev) => (prev ? { ...prev, ...data.user } : data.user));
+      }
+
+      // Đồng bộ License Key vào localStorage và cập nhật trạng thái Header
+      const upperKey = redeemKeyCode.trim().toUpperCase();
+      localStorage.setItem('mathviz_license_key', upperKey);
+      setLicenseKey(upperKey);
+      checkLicenseKey(upperKey);
+
+      setRedeemSuccessMsg('🎉 Kích hoạt tài khoản VIP thành công! Toàn bộ tính năng cao cấp đã được mở khóa.');
+
+      setTimeout(() => {
+        setIsRedeemModalOpen(false);
+        setRedeemSuccessMsg(null);
+        setRedeemKeyCode('');
+      }, 2000);
+    } catch (err: any) {
+      setRedeemError(err.message || 'Đã có lỗi xảy ra khi kích hoạt.');
+    } finally {
+      setRedeemLoading(false);
     }
   };
 
@@ -1300,6 +1357,8 @@ function HomeContent() {
                         ? 'bg-gradient-to-tr from-rose-500 to-red-600'
                         : (currentUser.role || '').toLowerCase() === 'ctv'
                         ? 'bg-gradient-to-tr from-blue-500 to-cyan-600'
+                        : currentUser.isVip || currentUser.is_vip
+                        ? 'bg-gradient-to-tr from-amber-400 via-amber-500 to-yellow-500 text-slate-950 font-black shadow-amber-500/25 shadow-sm'
                         : 'bg-gradient-to-tr from-slate-600 to-slate-800'
                     } text-white font-bold text-xs flex items-center justify-center shadow-xs shrink-0`}
                   >
@@ -1313,20 +1372,34 @@ function HomeContent() {
                         {currentUser.name || currentUser.email.split('@')[0]}
                       </span>
 
-                      {/* Badge vai trò: Admin, CTV, User */}
+                      {/* Badge vai trò: Admin, CTV, VIP, User */}
                       {(() => {
                         const r = (currentUser.role || 'user').toLowerCase();
+                        const isVip = Boolean(currentUser.isVip || currentUser.is_vip);
+                        if (r === 'admin') {
+                          return (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                              Admin
+                            </span>
+                          );
+                        }
+                        if (r === 'ctv') {
+                          return (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                              CTV
+                            </span>
+                          );
+                        }
+                        if (isVip) {
+                          return (
+                            <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 border border-amber-400/50 shadow-xs flex items-center gap-0.5">
+                              ⭐ VIP
+                            </span>
+                          );
+                        }
                         return (
-                          <span
-                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                              r === 'admin'
-                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                                : r === 'ctv'
-                                ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
-                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
-                            }`}
-                          >
-                            {r === 'admin' ? 'Admin' : r === 'ctv' ? 'CTV' : 'User'}
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
+                            Free
                           </span>
                         );
                       })()}
@@ -1357,10 +1430,18 @@ function HomeContent() {
                               ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                               : (currentUser.role || '').toLowerCase() === 'ctv'
                               ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                              : currentUser.isVip || currentUser.is_vip
+                              ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-extrabold border border-amber-400/40 shadow-xs'
                               : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
                           }`}
                         >
-                          {(currentUser.role || 'user').toUpperCase()}
+                          {(currentUser.role || '').toLowerCase() === 'admin'
+                            ? 'ADMIN'
+                            : (currentUser.role || '').toLowerCase() === 'ctv'
+                            ? 'CTV'
+                            : currentUser.isVip || currentUser.is_vip
+                            ? '⭐ VIP'
+                            : 'FREE'}
                         </span>
                       </div>
                       <p className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
@@ -1393,7 +1474,34 @@ function HomeContent() {
                       </span>
                     </button>
 
-                    {/* Mục 2: ⚙️ Quản trị hệ thống (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
+                    {/* Mục 2: 🔑 Kích hoạt License Key / Nâng cấp VIP */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserDropdownOpen(false);
+                        setRedeemKeyCode('');
+                        setRedeemError(null);
+                        setRedeemSuccessMsg(null);
+                        setIsRedeemModalOpen(true);
+                      }}
+                      className="w-full px-3.5 py-2.5 text-xs text-left hover:bg-amber-50/80 dark:hover:bg-amber-950/40 flex items-center justify-between transition cursor-pointer text-amber-700 dark:text-amber-400 font-semibold border-t border-slate-100 dark:border-slate-800/60"
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Key className="w-4 h-4 text-amber-500 shrink-0" />
+                        <span>🔑 Kích hoạt License Key / VIP</span>
+                      </div>
+                      {currentUser.isVip || currentUser.is_vip ? (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300">
+                          ĐANG VIP
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-xs">
+                          NÂNG CẤP
+                        </span>
+                      )}
+                    </button>
+
+                    {/* Mục 3: ⚙️ Quản trị hệ thống (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
                     {(currentUser.role || '').toLowerCase() === 'admin' && (
                       <Link
                         href="/admin"
@@ -1407,7 +1515,7 @@ function HomeContent() {
 
                     <div className="my-1 border-t border-slate-100 dark:border-slate-800/80"></div>
 
-                    {/* Mục 3: Đăng xuất */}
+                    {/* Mục 4: Đăng xuất */}
                     <button
                       type="button"
                       onClick={() => {
@@ -2069,6 +2177,133 @@ function HomeContent() {
                 Đóng
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* VIP License Key Redemption Modal */}
+      {isRedeemModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="relative w-full max-w-md bg-white dark:bg-slate-900 border border-amber-500/30 dark:border-amber-500/30 rounded-3xl shadow-2xl p-6 flex flex-col gap-4 overflow-hidden">
+            {/* Background subtle gold glow */}
+            <div className="absolute -top-12 -right-12 w-36 h-36 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+            <div className="absolute -bottom-12 -left-12 w-36 h-36 bg-yellow-500/10 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 relative z-10">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-400 flex items-center justify-center text-slate-950 shadow-md shadow-amber-500/20 shrink-0">
+                  <Crown className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                    <span>Kích Hoạt VIP</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/30">
+                      PREMIUM
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                    Liên kết License Key để nâng cấp tài khoản
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsRedeemModalOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* VIP Privileges Banner */}
+            <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 border border-amber-500/20 text-xs text-slate-700 dark:text-slate-300 flex flex-col gap-2 relative z-10">
+              <span className="font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                Đặc quyền khi kích hoạt gói VIP:
+              </span>
+              <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1.5 pl-1">
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Mở khóa tạo hình Toán học & TikZ AI chất lượng cao</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Ưu tiên tốc độ xử lý hàng đầu trên hệ thống AI Cloud</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <Check className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>Lưu trữ và đồng bộ hóa không giới hạn bộ sưu tập lên Neon DB</span>
+                </li>
+              </ul>
+            </div>
+
+            {/* Form */}
+            <form onSubmit={handleRedeemLicenseKey} className="flex flex-col gap-3.5 relative z-10">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+                  <span>Mã License Key</span>
+                  <span className="text-[10px] text-slate-400 font-normal">Định dạng: MV-VIP-xxxx</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={redeemKeyCode}
+                    onChange={(e) => setRedeemKeyCode(e.target.value.toUpperCase())}
+                    placeholder="Ví dụ: MV-VIP-ABCD-1234"
+                    className="w-full bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 focus:border-amber-500 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 dark:text-slate-200 outline-none transition font-mono tracking-wider pr-16"
+                    autoFocus
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        const text = await navigator.clipboard.readText();
+                        if (text) setRedeemKeyCode(text.trim().toUpperCase());
+                      } catch {}
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 rounded-lg bg-slate-200/70 dark:bg-slate-800 text-[10px] font-semibold text-slate-600 dark:text-slate-400 hover:text-amber-600 transition cursor-pointer"
+                  >
+                    Dán
+                  </button>
+                </div>
+              </div>
+
+              {redeemError && (
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-700 dark:text-rose-300 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                  <span>{redeemError}</span>
+                </div>
+              )}
+
+              {redeemSuccessMsg && (
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 text-xs flex items-center gap-2 font-medium animate-in zoom-in-95">
+                  <Check className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <span>{redeemSuccessMsg}</span>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100 dark:border-slate-800 mt-1">
+                <button
+                  type="button"
+                  onClick={() => setIsRedeemModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-medium transition cursor-pointer"
+                >
+                  Hủy
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={redeemLoading || !redeemKeyCode.trim()}
+                  className="px-5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-xs transition shadow-md shadow-amber-500/20 disabled:opacity-50 flex items-center gap-1.5 cursor-pointer"
+                >
+                  {redeemLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Key className="w-3.5 h-3.5" />}
+                  <span>Kích hoạt ngay</span>
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

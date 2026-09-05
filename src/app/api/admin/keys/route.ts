@@ -41,7 +41,40 @@ export async function GET(req: NextRequest) {
       orderBy: { createdAt: 'desc' },
     });
 
-    return NextResponse.json({ keys, currentUser: user });
+    // Truy vấn thông tin người dùng đã kích hoạt key
+    const usedByIds = keys.map((k) => k.used_by).filter((id): id is string => Boolean(id));
+    const usedByMap: Record<string, { id: string; name: string; email: string; username: string }> = {};
+
+    if (usedByIds.length > 0) {
+      try {
+        const { getDb } = await import('@/lib/db');
+        const sql = getDb();
+        const userRows = await sql`
+          SELECT id, name, email, username
+          FROM users
+          WHERE id::text = ANY(${usedByIds})
+        `;
+        for (const u of userRows) {
+          usedByMap[u.id] = {
+            id: u.id,
+            name: u.name,
+            email: u.email,
+            username: u.username,
+          };
+        }
+      } catch (e) {
+        console.warn('Lỗi query used_by users:', e);
+      }
+    }
+
+    const enhancedKeys = keys.map((k) => ({
+      ...k,
+      status: k.status || (k.used_by ? 'used' : 'active'),
+      usedBy: k.used_by ? usedByMap[k.used_by] || null : null,
+      usedAt: k.used_at,
+    }));
+
+    return NextResponse.json({ keys: enhancedKeys, currentUser: user });
   } catch (error: any) {
     console.error('Error fetching keys:', error);
     return NextResponse.json(

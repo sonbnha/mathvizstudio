@@ -15,6 +15,8 @@ model User {
   name         String
   role         String       @default("STAFF") // "ADMIN" hoặc "STAFF"
   maxCredits   Int          @default(100)     // Hạn mức key CTV được phép tạo
+  isVip        Boolean      @default(false)
+  vipExpiresAt DateTime?
   isActive     Boolean      @default(true)
   createdAt    DateTime     @default(now())
   keys         LicenseKey[]
@@ -27,6 +29,9 @@ model LicenseKey {
   totalCredits Int       @default(50) // Số lượt tạo hình tối đa (-1 nếu không giới hạn)
   usedCredits  Int       @default(0)
   expiresAt    DateTime?
+  status       String    @default("active")
+  used_by      String?
+  used_at      DateTime?
   isActive     Boolean   @default(true)
   createdAt    DateTime  @default(now())
 

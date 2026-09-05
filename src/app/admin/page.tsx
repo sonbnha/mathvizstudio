@@ -84,6 +84,16 @@ interface LicenseKeyItem {
   usedCredits: number;
   expiresAt: string | null;
   isActive: boolean;
+  status?: string;
+  used_by?: string | null;
+  used_at?: string | null;
+  usedAt?: string | null;
+  usedBy?: {
+    id: string;
+    name: string;
+    email: string;
+    username: string;
+  } | null;
   createdAt: string;
   createdById?: string | null;
   createdBy?: {
@@ -104,6 +114,10 @@ interface UserAccountItem {
   key_quota?: number;
   keyQuota?: number;
   maxCredits?: number;
+  is_vip?: boolean;
+  isVip?: boolean;
+  vip_expires_at?: string | null;
+  vipExpiresAt?: string | null;
   isActive: boolean;
   is_active?: boolean;
   api_key?: string | null;
@@ -914,7 +928,14 @@ export default function UnifiedAdminPage() {
   // ----------------------------------------------------
   // SCREEN 3: Unified Dashboard (When currentUser !== null)
   // ----------------------------------------------------
-  const getKeyStatus = (k: { expiresAt: string | null; totalCredits: number; usedCredits: number }) => {
+  const getKeyStatus = (k: { expiresAt: string | null; totalCredits: number; usedCredits: number; status?: string; usedBy?: any; used_by?: string | null }) => {
+    if (k.usedBy || k.used_by || k.status === 'used') {
+      return {
+        label: 'Đã Sử Dụng',
+        className: 'bg-indigo-500/10 border-indigo-500/30 text-indigo-600 dark:text-indigo-400',
+        dotClass: 'bg-indigo-500',
+      };
+    }
     if (k.expiresAt && new Date(k.expiresAt).getTime() < Date.now()) {
       return {
         label: 'Hết Hạn',
@@ -930,7 +951,7 @@ export default function UnifiedAdminPage() {
       };
     }
     return {
-      label: 'Hoạt Động',
+      label: 'Khả Dụng',
       className: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-600 dark:text-emerald-400',
       dotClass: 'bg-emerald-500 animate-pulse',
     };
@@ -2049,12 +2070,13 @@ export default function UnifiedAdminPage() {
 
                 {/* Table Scrollable Body (Independent scroll) */}
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto w-full">
-                  <table className="w-full min-w-[780px] table-auto border-collapse text-left text-xs">
+                  <table className="w-full min-w-[850px] table-auto border-collapse text-left text-xs">
                     <thead className="sticky top-0 z-20 bg-slate-50/95 dark:bg-[#151c2c]/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] shadow-xs">
                       <tr>
                         <th className="py-3 px-3.5">Khách hàng</th>
                         <th className="py-3 px-2.5">Mã Key</th>
                         <th className="py-3 px-2.5">Người Tạo</th>
+                        <th className="py-3 px-2.5">Người Kích Hoạt</th>
                         <th className="py-3 px-2.5 text-center">Lượt Dùng</th>
                         <th className="py-3 px-2.5 text-center">Hạn Dùng</th>
                         <th className="py-3 px-2.5 text-center">Trạng Thái</th>
@@ -2066,7 +2088,7 @@ export default function UnifiedAdminPage() {
                     <tbody className="divide-y divide-slate-200/80 dark:divide-slate-800/60">
                       {filteredKeys.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="py-8 text-center text-slate-500">
+                          <td colSpan={8} className="py-8 text-center text-slate-500">
                             {keySearch || creatorFilter !== 'ALL'
                               ? 'Không tìm thấy kết quả phù hợp.'
                               : 'Chưa có License Key nào.'}
@@ -2142,6 +2164,30 @@ export default function UnifiedAdminPage() {
                                 </span>
                               ) : (
                                 <span className="text-[11px] text-slate-400 italic">Hệ thống</span>
+                              )}
+                            </td>
+
+                            {/* 3.1 Người Kích Hoạt (Used By) */}
+                            <td className="px-2.5 py-3 whitespace-nowrap">
+                              {k.usedBy ? (
+                                <div className="flex flex-col gap-0.5 max-w-[160px]">
+                                  <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate flex items-center gap-1">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"></span>
+                                    <span className="truncate">{k.usedBy.name || k.usedBy.username}</span>
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono truncate" title={k.usedBy.email}>
+                                    {k.usedBy.email}
+                                  </span>
+                                  {k.usedAt && (
+                                    <span className="text-[9px] text-slate-400">
+                                      {formatDateVN(k.usedAt)}
+                                    </span>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-400 italic">
+                                  Chưa kích hoạt
+                                </span>
                               )}
                             </td>
 
@@ -2283,6 +2329,7 @@ export default function UnifiedAdminPage() {
                       const uRole = (u.role || 'user').toLowerCase();
                       const isUAdmin = uRole === 'admin';
                       const isUStaff = uRole === 'staff' || uRole === 'ctv';
+                      const isUVip = Boolean(u.is_vip || u.isVip);
                       const isUActive = u.isActive ?? u.is_active ?? (u.status === 'active');
                       const createdCount = u._count?.keys || 0;
                       const quotaLimit = u.key_quota !== undefined ? u.key_quota : (u.maxCredits !== undefined ? u.maxCredits : 50);
@@ -2302,6 +2349,8 @@ export default function UnifiedAdminPage() {
                                     ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                                     : isUStaff
                                     ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
+                                    : isUVip
+                                    ? 'bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 font-extrabold'
                                     : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
                                 }`}
                               >
@@ -2327,19 +2376,32 @@ export default function UnifiedAdminPage() {
                             </div>
                           </td>
 
-                          {/* 3. Vai Trò */}
+                          {/* 3. Vai Trò / Gói */}
                           <td className="py-3 px-3 align-middle">
-                            <span
-                              className={`inline-flex items-center px-2.5 py-1 rounded-full font-bold text-[11px] border whitespace-nowrap ${
-                                isUAdmin
-                                  ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30'
-                                  : isUStaff
-                                  ? 'bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border border-cyan-500/30'
-                                  : 'bg-slate-500/15 text-slate-600 dark:text-slate-400 border border-slate-500/30'
-                              }`}
-                            >
-                              {isUAdmin ? 'Quản trị viên (ADMIN)' : isUStaff ? 'Cộng tác viên (CTV)' : 'Người dùng (USER)'}
-                            </span>
+                            {isUAdmin ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full font-bold text-[11px] border whitespace-nowrap bg-rose-500/15 text-rose-600 dark:text-rose-400 border-rose-500/30">
+                                Quản trị viên (ADMIN)
+                              </span>
+                            ) : isUStaff ? (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full font-bold text-[11px] border whitespace-nowrap bg-cyan-500/15 text-cyan-600 dark:text-cyan-400 border-cyan-500/30">
+                                Cộng tác viên (CTV)
+                              </span>
+                            ) : isUVip ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full font-extrabold text-[11px] border whitespace-nowrap bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30">
+                                  👑 VIP Account
+                                </span>
+                                {(u.vip_expires_at || u.vipExpiresAt) && (
+                                  <span className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-mono">
+                                    Hạn: {formatDateVN(u.vip_expires_at || u.vipExpiresAt)}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-full font-bold text-[11px] border whitespace-nowrap bg-slate-500/15 text-slate-600 dark:text-slate-400 border-slate-500/30">
+                                Người dùng (Free)
+                              </span>
+                            )}
                           </td>
 
                           {/* 4. Hạn Mức Key / Bộ Sưu Tập */}

@@ -8,6 +8,13 @@ export interface AuthUser {
   email: string;
   name: string;
   role: string;
+  username?: string;
+  isVip?: boolean;
+  is_vip?: boolean;
+  vipExpiresAt?: string | null;
+  vip_expires_at?: string | null;
+  apiKey?: string | null;
+  api_key?: string | null;
 }
 
 interface AuthModalProps {

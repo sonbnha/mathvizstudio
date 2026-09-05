@@ -50,12 +50,12 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(payload.userId);
     const rows = isUuid
       ? await sql`
-          SELECT id, email, username, name, role, status, is_active, api_key, cuid, created_at
+          SELECT id, email, username, name, role, status, is_active, api_key, cuid, key_quota, is_vip, vip_expires_at, created_at
           FROM users
           WHERE id = ${payload.userId}::uuid
         `
       : await sql`
-          SELECT id, email, username, name, role, status, is_active, api_key, cuid, created_at
+          SELECT id, email, username, name, role, status, is_active, api_key, cuid, key_quota, is_vip, vip_expires_at, created_at
           FROM users
           WHERE cuid = ${payload.userId} OR username = ${payload.userId}
         `;
@@ -74,6 +74,9 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
         status: u.status || 'active',
         apiKey: u.api_key,
         cuid: u.cuid,
+        keyQuota: u.key_quota,
+        isVip: Boolean(u.is_vip),
+        vipExpiresAt: u.vip_expires_at,
         createdAt: u.created_at,
       };
     }
@@ -91,6 +94,8 @@ export async function getCurrentUserFromRequest(req: NextRequest) {
         name: true,
         role: true,
         maxCredits: true,
+        isVip: true,
+        vipExpiresAt: true,
         isActive: true,
         createdAt: true,
       },

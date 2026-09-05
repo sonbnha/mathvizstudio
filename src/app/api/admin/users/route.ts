@@ -77,13 +77,15 @@ export async function GET(req: NextRequest) {
           u.cuid,
           u.created_at,
           COALESCE(u.key_quota, 50) AS key_quota,
+          COALESCE(u.is_vip, false) AS is_vip,
+          u.vip_expires_at,
           COUNT(DISTINCT d.id)::int AS saved_diagrams_count,
           COUNT(DISTINCT lk.id)::int AS created_keys_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
         LEFT JOIN "LicenseKey" lk ON (lk."createdById" = u.id::text OR (u.cuid IS NOT NULL AND lk."createdById" = u.cuid))
         WHERE u.name ILIKE ${pattern} OR u.email ILIKE ${pattern} OR (u.username IS NOT NULL AND u.username ILIKE ${pattern})
-        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at, u.key_quota
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at, u.key_quota, u.is_vip, u.vip_expires_at
         ORDER BY u.created_at DESC
       `;
     } else {
@@ -100,12 +102,14 @@ export async function GET(req: NextRequest) {
           u.cuid,
           u.created_at,
           COALESCE(u.key_quota, 50) AS key_quota,
+          COALESCE(u.is_vip, false) AS is_vip,
+          u.vip_expires_at,
           COUNT(DISTINCT d.id)::int AS saved_diagrams_count,
           COUNT(DISTINCT lk.id)::int AS created_keys_count
         FROM users u
         LEFT JOIN saved_diagrams d ON d.user_id = u.id
         LEFT JOIN "LicenseKey" lk ON (lk."createdById" = u.id::text OR (u.cuid IS NOT NULL AND lk."createdById" = u.cuid))
-        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at, u.key_quota
+        GROUP BY u.id, u.name, u.email, u.username, u.role, u.status, u.is_active, u.api_key, u.cuid, u.created_at, u.key_quota, u.is_vip, u.vip_expires_at
         ORDER BY u.created_at DESC
       `;
     }
@@ -119,6 +123,10 @@ export async function GET(req: NextRequest) {
       status: r.status || 'active',
       is_active: r.status === 'active',
       isActive: r.status === 'active',
+      is_vip: Boolean(r.is_vip),
+      isVip: Boolean(r.is_vip),
+      vip_expires_at: r.vip_expires_at,
+      vipExpiresAt: r.vip_expires_at,
       api_key: r.api_key,
       apiKey: r.api_key,
       cuid: r.cuid,
