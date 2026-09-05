@@ -49,7 +49,7 @@ import {
   ChevronRight,
   ChevronDown,
 } from 'lucide-react';
-import { APP_VERSION, formatDateVN } from '@/config/version';
+import { APP_VERSION, formatDateVN, formatDateTimeVN } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
 
 export interface ChangelogItem {
@@ -2082,19 +2082,21 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 3. Người Kích Hoạt (Used By) */}
-                            <td className="px-4 py-3 align-middle whitespace-nowrap">
+                            <td className="px-4 py-3 align-middle">
                               {k.usedBy ? (
-                                <div className="flex flex-col gap-0.5 max-w-full overflow-hidden">
-                                  <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200 text-xs truncate">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
-                                    <span className="truncate" title={k.usedBy.name || k.usedBy.username}>
-                                      {k.usedBy.name || k.usedBy.username}
+                                <div 
+                                  className="cursor-help flex flex-col group relative"
+                                  title={`Thời gian kích hoạt: ${k.usedAt ? formatDateTimeVN(k.usedAt) : 'Không rõ'}`}
+                                >
+                                  <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200 text-xs">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
+                                    <span className="truncate">{k.usedBy.name || k.usedBy.username}</span>
+                                  </div>
+                                  {k.usedBy.email && (
+                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate pl-3.5">
+                                      {k.usedBy.email}
                                     </span>
-                                  </div>
-                                  <div className="text-[11px] text-slate-400 dark:text-slate-500 font-mono truncate leading-tight">
-                                    {k.usedAt ? `${formatDateVN(k.usedAt)} • ` : ''}
-                                    <span title={k.usedBy.email || ''}>{k.usedBy.email || ''}</span>
-                                  </div>
+                                  )}
                                 </div>
                               ) : (
                                 <span className="text-xs text-slate-400 dark:text-slate-500 italic">
