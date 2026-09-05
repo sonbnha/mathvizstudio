@@ -31,7 +31,6 @@ import {
   ChevronDown,
   Bookmark,
   Crown,
-  Zap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { APP_VERSION } from '@/config/version';
@@ -1478,18 +1477,6 @@ function HomeContent() {
             </div>
           ) : (
             <div className="flex items-center gap-2 shrink-0">
-              {/* Nút ⚡ Gia hạn key khi sắp hết hạn / sắp hết lượt hoặc đã hết */}
-              {(licenseInfo.isNearExpiry || licenseInfo.isFullyExpired) && (
-                <button
-                  type="button"
-                  onClick={() => openRenewModal()}
-                  className="px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:brightness-110 flex items-center gap-1 animate-pulse cursor-pointer shrink-0"
-                  title="Gói bản quyền của bạn sắp hết hạn hoặc đã hết lượt tạo hình. Bấm để gia hạn ngay!"
-                >
-                  <span>⚡ Gia hạn key</span>
-                </button>
-              )}
-
               {/* TRƯỜNG HỢP 2: ĐÃ ĐĂNG NHẬP (currentUser) */}
               {/* User Avatar + Name + VIP Badge + Dropdown Menu */}
               <div ref={userDropdownRef} className="relative">
@@ -1777,35 +1764,34 @@ function HomeContent() {
                         </span>
                       </button>
 
-                      {/* Nút Nhập / Gia hạn License Key trong Dropdown:
-                          - ĐANG VIP NHƯNG SẮP HẾT HẠN HOẶC SẮP HẾT LƯỢT (isNearExpiry): Hiện nút "⚡ Gia hạn key"
-                          - HẾT HẠN HOẶC HẾT LƯỢT (isFullyExpired) HOẶC FREE: Hiện nút "🔑 Gia hạn / Nâng cấp VIP"
-                          - ĐANG VIP còn hạn dài: Ẩn hoàn toàn */}
-                      {(licenseInfo.isNearExpiry || licenseInfo.isFullyExpired || !licenseInfo.isVipActive) && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setIsUserDropdownOpen(false);
-                            openRenewModal();
-                          }}
-                          className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors border-t border-slate-100 dark:border-slate-800/60 cursor-pointer font-bold"
-                        >
-                          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
-                            <span>🔑</span>
-                            <span>{licenseInfo.isNearExpiry ? 'Gia hạn key (Sắp hết)' : 'Gia hạn / Nâng cấp VIP'}</span>
-                          </div>
-                          {licenseInfo.isNearExpiry ? (
-                            <span className="ml-2 px-2 py-0.5 text-[10px] font-bold text-slate-950 bg-amber-500 rounded-md whitespace-nowrap shadow-xs">
-                              {licenseInfo.daysRemaining !== null && licenseInfo.daysRemaining <= 3 ? `CÒN ${licenseInfo.daysRemaining} NGÀY` : `CÒN ${licenseInfo.remainingCredits} LƯỢT`}
-                            </span>
-                          ) : (
-                            <span className="ml-2 px-2 py-0.5 text-[10px] font-bold text-white bg-rose-600 rounded-md whitespace-nowrap shadow-xs">
-                              GIA HẠN NGAY
-                            </span>
-                          )}
-                        </button>
-                      )}
+                      {/* Mục kích hoạt / Gia hạn License Key duy nhất trong Menu */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsUserDropdownOpen(false);
+                          openRenewModal();
+                        }}
+                        className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors border-t border-slate-100 dark:border-slate-800/60 cursor-pointer font-bold"
+                      >
+                        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
+                          <span>🔑</span>
+                          <span>Gia hạn / Nâng cấp VIP</span>
+                        </div>
+                        {licenseInfo.isNearExpiry ? (
+                          <span className="ml-2 px-2 py-0.5 text-[10px] font-bold text-slate-950 bg-amber-500 rounded-md whitespace-nowrap shadow-xs">
+                            {licenseInfo.daysRemaining !== null && licenseInfo.daysRemaining <= 3 ? `CÒN ${licenseInfo.daysRemaining} NGÀY` : `CÒN ${licenseInfo.remainingCredits} LƯỢT`}
+                          </span>
+                        ) : licenseInfo.isFullyExpired || !licenseInfo.isVipActive ? (
+                          <span className="ml-2 px-2 py-0.5 text-[10px] font-bold text-white bg-rose-600 rounded-md whitespace-nowrap shadow-xs">
+                            GIA HẠN NGAY
+                          </span>
+                        ) : (
+                          <span className="ml-2 px-2 py-0.5 text-[10px] font-semibold text-amber-600 dark:text-amber-400 bg-amber-500/10 rounded-md whitespace-nowrap">
+                            CỘNG DỒN
+                          </span>
+                        )}
+                      </button>
 
                       {/* Mục 3: ⚙️ Quản trị hệ thống (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
                       {isAdmin && (

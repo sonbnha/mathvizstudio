@@ -20,7 +20,6 @@ import {
   AlertCircle,
   CheckCircle2,
   Lightbulb,
-  Zap,
 } from 'lucide-react';
 import {
   LESSON_PLAN_PRESETS,
@@ -405,17 +404,6 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </p>
             </div>
           </div>
-          {licenseInfo.isNearExpiry && (
-            <button
-              type="button"
-              onClick={() => openRenewModal({ isNearExpiry: true })}
-              className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 shadow-xs flex items-center gap-1.5 transition cursor-pointer animate-pulse hover:animate-none shrink-0"
-              title="Gói bản quyền sắp hết hạn hoặc hết lượt. Bấm để gia hạn ngay!"
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-              <span>⚡ Gia hạn key</span>
-            </button>
-          )}
         </div>
 
         {/* Scrollable Form Content */}

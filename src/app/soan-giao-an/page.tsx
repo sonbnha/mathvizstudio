@@ -11,10 +11,8 @@ import {
 } from 'lucide-react';
 import { APP_VERSION } from '@/config/version';
 import LessonPlanView from '@/components/LessonPlanView';
-import { useRenewModal } from '@/context/RenewModalContext';
 
 export default function LessonPlanPage() {
-  const { openRenewModal, licenseInfo } = useRenewModal();
   const [theme, setTheme] = useState<'dark' | 'light'>('light');
 
   useEffect(() => {
@@ -84,18 +82,6 @@ export default function LessonPlanPage() {
 
         {/* Right Nav Utilities */}
         <div className="flex items-center gap-2">
-          {/* Nút ⚡ Gia hạn key khi sắp hết hạn / sắp hết lượt hoặc đã hết */}
-          {(licenseInfo.isNearExpiry || licenseInfo.isFullyExpired) && (
-            <button
-              type="button"
-              onClick={() => openRenewModal()}
-              className="px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:brightness-110 flex items-center gap-1 animate-pulse cursor-pointer shrink-0"
-              title="Gói bản quyền của bạn sắp hết hạn hoặc đã hết lượt tạo. Bấm để gia hạn ngay!"
-            >
-              <span>⚡ Gia hạn key</span>
-            </button>
-          )}
-
           <Link
             href="/admin"
             className="p-2 rounded-xl text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors text-xs flex items-center gap-1.5"
