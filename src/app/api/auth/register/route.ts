@@ -42,9 +42,33 @@ export async function POST(req: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     const result = await sql`
-      INSERT INTO users (email, username, password_hash, name, role, status, is_active)
-      VALUES (${email.trim().toLowerCase()}, ${email.trim().toLowerCase()}, ${passwordHash}, ${displayName}, 'user', 'active', true)
-      RETURNING id, email, username, name, role, status, created_at
+      INSERT INTO users (
+        email, 
+        username, 
+        password_hash, 
+        name, 
+        role, 
+        status, 
+        is_active,
+        remaining_quota,
+        max_quota,
+        is_vip,
+        vip_expires_at
+      )
+      VALUES (
+        ${email.trim().toLowerCase()}, 
+        ${email.trim().toLowerCase()}, 
+        ${passwordHash}, 
+        ${displayName}, 
+        'user', 
+        'active', 
+        true,
+        10,
+        10,
+        false,
+        NULL
+      )
+      RETURNING id, email, username, name, role, status, is_vip, vip_expires_at, remaining_quota, max_quota, created_at
     `;
 
     const user = result[0] as any;
@@ -59,13 +83,21 @@ export async function POST(req: NextRequest) {
 
     const response = NextResponse.json({
       success: true,
-      message: 'Đăng ký tài khoản thành công!',
+      message: 'Đăng ký tài khoản thành công! Bạn nhận được 10 lượt dùng thử miễn phí.',
       user: {
         id: user.id,
         email: user.email,
         name: user.name,
         role: user.role || 'user',
         status: user.status || 'active',
+        is_vip: false,
+        isVip: false,
+        vip_expires_at: null,
+        vipExpiresAt: null,
+        remaining_quota: 10,
+        remainingQuota: 10,
+        max_quota: 10,
+        maxQuota: 10,
       },
     });
 

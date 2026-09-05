@@ -989,8 +989,8 @@ function HomeContent() {
     }
 
     try {
-      // 1. Kiểm tra License Key nhanh qua endpoint nội bộ nếu không phải tài khoản VIP
-      if (!isAccountVip) {
+      // 1. Kiểm tra License Key nhanh qua endpoint nội bộ nếu là khách vãng lai (!currentUser)
+      if (!isAccountVip && !currentUser) {
         const checkRes = await fetch('/api/license/check', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1016,13 +1016,16 @@ function HomeContent() {
 
       // 3. Trừ credit License trong nền và cập nhật real-time vào state
       const activeKey = (currentUser ? (currentUser.apiKey || (currentUser as any).api_key || licenseKey) : licenseKey)?.trim();
-      if (activeKey) {
+      if (currentUser || activeKey) {
         fetch('/api/license/consume', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-License-Key': activeKey,
+            ...(activeKey ? { 'X-License-Key': activeKey } : {}),
           },
+          body: JSON.stringify({
+            userId: currentUser?.id,
+          }),
         })
           .then(async (res) => {
             if (!res.ok) return;
@@ -1033,6 +1036,8 @@ function HomeContent() {
                   if (!prev) return prev;
                   return {
                     ...prev,
+                    remaining_quota: data.remainingCredits,
+                    remainingQuota: data.remainingCredits,
                     remainingCredits: data.remainingCredits,
                     remaining_credits: data.remainingCredits,
                     usageCount: data.usedCredits ?? (typeof prev.usageCount === 'number' ? prev.usageCount + 1 : prev.usageCount),
@@ -1053,7 +1058,7 @@ function HomeContent() {
         setRefineInput('');
       }
       // Cập nhật lại số lượt sử dụng cho khách vãng lai
-      if (!isAccountVip) {
+      if (!isAccountVip && !currentUser) {
         checkLicenseKey();
       }
     } catch (err: any) {
@@ -1173,8 +1178,8 @@ function HomeContent() {
 
   // Export TikZ handler
   const handleExportTikz = async () => {
-    if (!isAccountVip && !licenseKey.trim() && !licenseStatus?.valid) {
-      setErrorMsg('Vui lòng nhập License Key hoặc đăng nhập tài khoản VIP để xuất mã TikZ.');
+    if (!currentUser && !isAccountVip && !licenseKey.trim() && !licenseStatus?.valid) {
+      setErrorMsg('Vui lòng nhập License Key hoặc đăng nhập tài khoản để xuất mã TikZ.');
       return;
     }
     setIsTikzModalOpen(true);
@@ -1516,11 +1521,13 @@ function HomeContent() {
                         const isVipExpired = Boolean(vipExp && new Date(vipExp) <= new Date());
                         const isVipActive = (isAdmin || isVipFlag) && !isVipExpired;
 
-                        const usageLimit = typeof (currentUser as any).usage_limit === 'number'
+                        const usageLimit = typeof (currentUser as any).remaining_quota === 'number' && typeof (currentUser as any).max_quota === 'number'
+                          ? ((currentUser as any).max_quota || 10)
+                          : typeof (currentUser as any).usage_limit === 'number'
                           ? (currentUser as any).usage_limit
                           : typeof currentUser.usageLimit === 'number'
                           ? currentUser.usageLimit
-                          : isAdmin ? -1 : 0;
+                          : isAdmin ? -1 : 10;
 
                         const usageCount = typeof (currentUser as any).usage_count === 'number'
                           ? (currentUser as any).usage_count
@@ -1528,7 +1535,13 @@ function HomeContent() {
                           ? currentUser.usageCount
                           : 0;
 
-                        const remainingCredits = usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
+                        const remainingCredits = typeof (currentUser as any).remaining_quota === 'number'
+                          ? (currentUser as any).remaining_quota
+                          : typeof (currentUser as any).remainingQuota === 'number'
+                          ? (currentUser as any).remainingQuota
+                          : typeof currentUser.remainingCredits === 'number'
+                          ? (currentUser.remainingCredits === -1 ? -1 : currentUser.remainingCredits)
+                          : usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
 
                         if (isAdmin) {
                           return (
@@ -1577,9 +1590,17 @@ function HomeContent() {
                           );
                         }
 
+                        if (remainingCredits > 0) {
+                          return (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30 flex items-center gap-1 shrink-0">
+                              <span>Còn {remainingCredits} lượt (Dùng thử)</span>
+                            </span>
+                          );
+                        }
+
                         return (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
-                            Free
+                            Free • Hết lượt
                           </span>
                         );
                       })()}
@@ -1612,11 +1633,13 @@ function HomeContent() {
                   }
                   const isExpiringSoon = isVipActive && daysRemaining !== null && daysRemaining <= 3;
 
-                  const usageLimit = typeof (currentUser as any).usage_limit === 'number'
+                  const usageLimit = typeof (currentUser as any).remaining_quota === 'number' && typeof (currentUser as any).max_quota === 'number'
+                    ? ((currentUser as any).max_quota || 10)
+                    : typeof (currentUser as any).usage_limit === 'number'
                     ? (currentUser as any).usage_limit
                     : typeof currentUser.usageLimit === 'number'
                     ? currentUser.usageLimit
-                    : isAdmin ? -1 : 0;
+                    : isAdmin ? -1 : 10;
 
                   const usageCount = typeof (currentUser as any).usage_count === 'number'
                     ? (currentUser as any).usage_count
@@ -1624,8 +1647,16 @@ function HomeContent() {
                     ? currentUser.usageCount
                     : 0;
 
-                  const remainingCredits = usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
-                  const percentUsed = usageLimit > 0 ? Math.min(100, Math.max(0, Math.round((usageCount / usageLimit) * 100))) : 0;
+                  const remainingCredits = typeof (currentUser as any).remaining_quota === 'number'
+                    ? (currentUser as any).remaining_quota
+                    : typeof (currentUser as any).remainingQuota === 'number'
+                    ? (currentUser as any).remainingQuota
+                    : typeof currentUser.remainingCredits === 'number'
+                    ? (currentUser.remainingCredits === -1 ? -1 : currentUser.remainingCredits)
+                    : usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
+
+                  const isTrial = !isVipActive && !isVipExpired && remainingCredits > 0;
+                  const percentUsed = usageLimit > 0 ? Math.min(100, Math.max(0, Math.round((Math.max(0, usageLimit - remainingCredits) / usageLimit) * 100))) : 0;
 
                   return (
                     <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -1643,6 +1674,10 @@ function HomeContent() {
                                 ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
                                 : isVipActive
                                 ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-extrabold border border-amber-400/40 shadow-xs'
+                                : isTrial
+                                ? 'bg-cyan-500/20 text-cyan-700 dark:text-cyan-300 border border-cyan-500/30'
+                                : isVipExpired
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
                                 : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
                             }`}
                           >
@@ -1652,6 +1687,8 @@ function HomeContent() {
                               ? 'CTV'
                               : isVipActive
                               ? '⭐ VIP'
+                              : isTrial
+                              ? 'DÙNG THỬ'
                               : isVipExpired
                               ? 'HẾT HẠN'
                               : 'FREE'}
@@ -1675,6 +1712,10 @@ function HomeContent() {
                           ) : isVipExpired ? (
                             <span className="font-semibold text-rose-600 dark:text-rose-400 text-[11px]">
                               VIP đã hết hạn ⚠️
+                            </span>
+                          ) : isTrial ? (
+                            <span className="font-semibold text-cyan-600 dark:text-cyan-400 text-[11px]">
+                              Gói Dùng Thử ({remainingCredits} lượt)
                             </span>
                           ) : (
                             <span className="font-medium text-slate-600 dark:text-slate-300 text-[11px]">
@@ -1717,12 +1758,12 @@ function HomeContent() {
                             <span className="font-semibold text-slate-700 dark:text-slate-200">
                               {usageLimit === -1 ? (
                                 <span className="text-emerald-600 dark:text-emerald-400 font-bold">Vô hạn lượt</span>
-                              ) : usageLimit > 0 ? (
+                              ) : remainingCredits > 0 ? (
                                 <span>
-                                  <strong className="text-cyan-600 dark:text-cyan-400 font-bold">{remainingCredits}</strong> / {usageLimit} lượt
+                                  <strong className="text-cyan-600 dark:text-cyan-400 font-bold">{remainingCredits}</strong> / {usageLimit} lượt {!isVipActive ? '(Dùng thử)' : ''}
                                 </span>
                               ) : (
-                                <span className="text-slate-400 font-normal">Chưa có quota</span>
+                                <span className="text-rose-500 font-medium">Hết lượt dùng</span>
                               )}
                             </span>
                           </div>
@@ -1730,9 +1771,9 @@ function HomeContent() {
                           {usageLimit > 0 && (
                             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-0.5">
                               <div
-                                className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-300"
+                                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300"
                                 style={{ width: `${percentUsed}%` }}
-                                title={`Đã dùng ${usageCount}/${usageLimit} lượt (${percentUsed}%)`}
+                                title={`Đã dùng ${Math.max(0, usageLimit - remainingCredits)}/${usageLimit} lượt (${percentUsed}%)`}
                               />
                             </div>
                           )}

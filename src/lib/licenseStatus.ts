@@ -3,6 +3,7 @@ export interface LicenseStatusResult {
   isNearExpiry: boolean;
   isFullyExpired: boolean;
   isExpiredOrDepleted: boolean;
+  isTrial: boolean;
   daysRemaining: number | null; // null = vô hạn
   daysLeft: number;
   remainingCredits: number; // -1 = vô hạn
@@ -36,6 +37,7 @@ export function computeLicenseStatus({
       isNearExpiry: false,
       isFullyExpired: false,
       isExpiredOrDepleted: false,
+      isTrial: false,
       daysRemaining: null,
       daysLeft: 999,
       remainingCredits: -1,
@@ -93,20 +95,22 @@ export function computeLicenseStatus({
       isVip && ((daysLeft <= 3 && daysLeft > 0) || (turnsLeft <= 5 && turnsLeft > 0))
     );
 
-    // isFullyExpired = user?.is_vip && (daysLeft <= 0 || turnsLeft <= 0)
-    // Nếu chưa là VIP (!isVip), cũng được tính là isFullyExpired = true
+    // isFullyExpired: nếu là VIP thì kiểm tra daysLeft <= 0 hoặc turnsLeft <= 0.
+    // Nếu chưa là VIP (Free user): chỉ hết hạn khi số lượt dùng thử turnsLeft <= 0!
     const isFullyExpired = isVip
       ? Boolean(daysLeft <= 0 || turnsLeft <= 0)
-      : true;
+      : Boolean(turnsLeft <= 0);
 
     const isVipActive = isVip && !isFullyExpired;
     const isExpiredOrDepleted = isFullyExpired || turnsLeft <= 0;
+    const isTrial = Boolean(!isVip && turnsLeft > 0);
 
     return {
       isVipActive,
       isNearExpiry,
       isFullyExpired,
       isExpiredOrDepleted,
+      isTrial,
       daysRemaining,
       daysLeft,
       remainingCredits: turnsLeft === 999 ? -1 : turnsLeft,
@@ -149,14 +153,22 @@ export function computeLicenseStatus({
     const isNearExpiry = Boolean(
       (daysLeft <= 3 && daysLeft > 0) || (turnsLeft <= 5 && turnsLeft > 0)
     );
+    const isTrial = Boolean(
+      guestLicenseStatus?.keyType === 'trial' ||
+      guestKey?.toUpperCase().startsWith('MV-TR-') ||
+      guestKey?.toUpperCase().includes('TRIAL')
+    );
+    const isVip = !isTrial;
     const isFullyExpired = Boolean(daysLeft <= 0 || turnsLeft <= 0);
-    const isVipActive = !isFullyExpired;
+    const isVipActive = Boolean(isVip && !isFullyExpired);
+    const isExpiredOrDepleted = isFullyExpired;
 
     return {
       isVipActive,
       isNearExpiry,
       isFullyExpired,
-      isExpiredOrDepleted: isFullyExpired,
+      isExpiredOrDepleted,
+      isTrial,
       daysRemaining,
       daysLeft,
       remainingCredits: turnsLeft === 999 ? -1 : turnsLeft,
@@ -179,6 +191,7 @@ export function computeLicenseStatus({
     isNearExpiry: false,
     isFullyExpired: true,
     isExpiredOrDepleted: true,
+    isTrial: false,
     daysRemaining: 0,
     daysLeft: 0,
     remainingCredits: 0,

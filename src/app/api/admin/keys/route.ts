@@ -2,15 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUserFromRequest } from '@/lib/auth';
 import { getDb } from '@/lib/db';
 
-function generateRandomKey(type: 'VIP' | 'TRIAL' = 'VIP', prefix?: string): string {
+function generateRandomKey(prefix?: string): string {
   const p1 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'A');
   const p2 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'B');
   if (prefix && prefix.trim()) {
     const cleanPrefix = prefix.trim().toUpperCase().replace(/-+$/, '');
     return `${cleanPrefix}-${p1}-${p2}`;
-  }
-  if (type === 'TRIAL') {
-    return `MV-TR-${p1}-${p2}`;
   }
   return `MV-VIP-${p1}-${p2}`;
 }
@@ -229,16 +226,15 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 3. Chuẩn hóa tham số tạo key
-    const effectiveType: 'VIP' | 'TRIAL' = keyType === 'TRIAL' ? 'TRIAL' : 'VIP';
-    const effectivePrefix = prefix || (effectiveType === 'TRIAL' ? 'MV-TR' : 'MV-VIP');
+    // 3. Chuẩn hóa tham số tạo key (Chỉ tạo key VIP bản quyền chính thức)
+    const effectivePrefix = prefix || 'MV-VIP';
 
-    // Số ngày có hiệu lực
+    // Số ngày có hiệu lực (30, 90, 365, hoặc 0: vĩnh viễn)
     const days = durationDays !== undefined
       ? Number(durationDays)
       : duration_days !== undefined
       ? Number(duration_days)
-      : (effectiveType === 'TRIAL' ? 7 : 30);
+      : 30;
 
     // Hạn mức lượt tạo hình
     const usage = maxUsage !== undefined
@@ -249,13 +245,13 @@ export async function POST(req: NextRequest) {
       ? Number(totalCredits)
       : total_credits !== undefined
       ? Number(total_credits)
-      : (effectiveType === 'TRIAL' ? 15 : 100);
+      : 100;
 
     // Tự sinh mã key ngẫu nhiên nếu không truyền mã tùy chỉnh
     const rawCustomKey = customKey || keyCode || key_code;
     let keyString = rawCustomKey?.trim()
       ? rawCustomKey.trim().toUpperCase()
-      : generateRandomKey(effectiveType, effectivePrefix);
+      : generateRandomKey(effectivePrefix);
 
     // Kiểm tra trùng lặp mã key và tái tạo nếu cần
     let attempts = 0;
@@ -266,7 +262,7 @@ export async function POST(req: NextRequest) {
         LIMIT 1
       `;
       if (!existing || existing.length === 0) break;
-      keyString = generateRandomKey(effectiveType, effectivePrefix);
+      keyString = generateRandomKey(effectivePrefix);
       attempts++;
     }
 
@@ -277,10 +273,7 @@ export async function POST(req: NextRequest) {
       expiresAt.setDate(expiresAt.getDate() + days);
     }
 
-    const defaultName =
-      effectiveType === 'TRIAL'
-        ? `Trial_${Math.random().toString(36).substring(2, 6).toUpperCase()}`
-        : 'Khách hàng';
+    const defaultName = 'Khách hàng';
     const rawName = customerName?.trim() || customer_name?.trim() || defaultName;
     const finalCustomerName = note?.trim() ? `${rawName} (${note.trim()})` : rawName;
 

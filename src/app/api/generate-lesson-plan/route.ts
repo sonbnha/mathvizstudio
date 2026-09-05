@@ -39,13 +39,23 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    // Kiểm tra tài khoản VIP hết hạn đối với người dùng không phải admin
+    // Kiểm tra tài khoản đã đăng nhập (không phải admin)
     if (currentUser && (currentUser.role || '').toLowerCase() !== 'admin') {
       const exp = currentUser.vipExpiresAt || (currentUser as any).vip_expires_at;
-      const isExpired = Boolean(exp && new Date(exp) <= new Date());
+      const isVip = Boolean(currentUser.isVip || (currentUser as any).is_vip);
+      const isExpired = Boolean(isVip && exp && new Date(exp) <= new Date());
       if (isExpired) {
         return new Response(
           JSON.stringify({ error: 'Gói VIP của bạn đã hết hạn. Vui lòng gia hạn thêm License Key.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      const quota = typeof (currentUser as any).remainingQuota === 'number'
+        ? (currentUser as any).remainingQuota
+        : (currentUser as any).remaining_quota;
+      if (typeof quota === 'number' && quota <= 0) {
+        return new Response(
+          JSON.stringify({ error: 'Bạn đã hết lượt sử dụng. Vui lòng nạp thêm License Key để tiếp tục.' }),
           { status: 403, headers: { 'Content-Type': 'application/json' } }
         );
       }
@@ -73,7 +83,15 @@ export async function POST(req: NextRequest) {
     }
 
     let keyRecord: any = null;
-    if (!isAccountVip && licenseKey && typeof licenseKey === 'string' && licenseKey.trim() !== '') {
+    if (!currentUser) {
+      if (!licenseKey || typeof licenseKey !== 'string' || licenseKey.trim() === '') {
+        return new Response(
+          JSON.stringify({ error: 'Vui lòng đăng nhập hoặc nhập License Key để tiếp tục sử dụng.' }),
+          { status: 401, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+    if (!isAccountVip && !currentUser && licenseKey && typeof licenseKey === 'string' && licenseKey.trim() !== '') {
       try {
         keyRecord = await prisma.licenseKey.findUnique({
           where: { key: licenseKey.trim().toUpperCase() },

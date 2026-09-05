@@ -4,17 +4,6 @@ import { getDb } from '@/lib/db';
 
 export async function POST(req: NextRequest) {
   try {
-    const rawKey =
-      req.headers.get('x-license-key') ||
-      req.headers.get('X-License-Key') ||
-      (await req.json().catch(() => ({})))?.licenseKey;
-
-    if (!rawKey || !rawKey.trim()) {
-      return NextResponse.json({ success: true, remainingCredits: -1, totalCredits: -1, usedCredits: 0 });
-    }
-
-    const cleanKey = rawKey.trim().toUpperCase();
-
     // 0. Nếu người dùng đang đăng nhập, trừ trực tiếp remaining_quota trên bảng users của tài khoản
     try {
       const { getCurrentUserFromRequest } = await import('@/lib/auth');
@@ -29,7 +18,7 @@ export async function POST(req: NextRequest) {
         `;
         if (updatedUsers && updatedUsers.length > 0) {
           const userRem = updatedUsers[0].remaining_quota;
-          const userMax = updatedUsers[0].max_quota ?? 100;
+          const userMax = updatedUsers[0].max_quota ?? 10;
           return NextResponse.json({
             success: true,
             remainingCredits: userRem,
@@ -40,6 +29,17 @@ export async function POST(req: NextRequest) {
         }
       }
     } catch {}
+
+    const rawKey =
+      req.headers.get('x-license-key') ||
+      req.headers.get('X-License-Key') ||
+      (await req.json().catch(() => ({})))?.licenseKey;
+
+    if (!rawKey || !rawKey.trim()) {
+      return NextResponse.json({ success: true, remainingCredits: -1, totalCredits: -1, usedCredits: 0 });
+    }
+
+    const cleanKey = rawKey.trim().toUpperCase();
 
     // 1. Thử cập nhật qua Prisma
     try {
