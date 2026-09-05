@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { Mail, Lock, User as UserIcon, X, Loader2, ArrowRight, CheckCircle2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Mail, Lock, User as UserIcon, X, Loader2, ArrowRight, CheckCircle2, Crown } from 'lucide-react';
 
 export interface AuthUser {
   id: string;
@@ -32,6 +32,22 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [guestKey, setGuestKey] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('mathviz_license_key')?.trim().toUpperCase();
+        if (saved && saved !== 'MV-TRIAL-1234') {
+          setGuestKey(saved);
+        } else {
+          setGuestKey(null);
+        }
+      } catch {
+        setGuestKey(null);
+      }
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -149,6 +165,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess
               Đăng ký
             </button>
           </div>
+
+          {/* Gợi ý đồng bộ key từ trình duyệt vào tài khoản */}
+          {guestKey && (
+            <div className="mt-3.5 p-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-yellow-500/10 to-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5">
+              <Crown className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+              <div className="leading-tight">
+                <span className="font-bold text-amber-800 dark:text-amber-300">Phát hiện License Key trên máy: </span>
+                <span className="font-mono font-semibold">{guestKey}</span>
+                <p className="text-[11px] text-slate-600 dark:text-slate-400 mt-1">
+                  {tab === 'login' ? 'Đăng nhập' : 'Đăng ký'} tài khoản ngay để hệ thống tự động liên kết key này, nhận <strong>Badge ⭐ VIP vĩnh viễn</strong> trên mọi thiết bị!
+                </p>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal Form */}
