@@ -173,12 +173,18 @@ export async function POST(req: NextRequest) {
       ? Math.max(0, dbUser.max_quota)
       : (typeof userObj.max_quota === 'number' ? Math.max(0, userObj.max_quota) : 0);
 
-    const newRemainingQuota = keyQuotaGranted === -1
-      ? 999
+    const isAlreadyUnlimited =
+      (currentUser.role || '').toLowerCase() === 'admin' ||
+      dbUser?.remaining_quota === null ||
+      dbUser?.max_quota === -1 ||
+      (dbUser as any)?.is_unlimited === true;
+
+    const newRemainingQuota = (keyQuotaGranted === -1 || isAlreadyUnlimited)
+      ? null
       : (currentRemaining + keyQuotaGranted);
 
-    const newMaxQuota = keyQuotaGranted === -1
-      ? 999
+    const newMaxQuota = (keyQuotaGranted === -1 || isAlreadyUnlimited)
+      ? null
       : (Math.max(currentMax, currentRemaining) + keyQuotaGranted);
 
     // 3. Đảm bảo tính toàn vẹn dữ liệu (Atomic Transaction):
@@ -232,7 +238,7 @@ export async function POST(req: NextRequest) {
           data: {
             isVip: true,
             vipExpiresAt: newVipExpiresAt,
-            maxCredits: newRemainingQuota,
+            maxCredits: newRemainingQuota ?? -1,
           },
         });
       }

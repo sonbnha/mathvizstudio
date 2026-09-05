@@ -7,12 +7,12 @@ export interface LicenseStatusResult {
   daysRemaining: number | null; // null = vô hạn
   daysLeft: number;
   remainingCredits: number; // -1 = vô hạn
-  remaining_quota: number;
-  remainingQuota: number;
+  remaining_quota: number | null;
+  remainingQuota: number | null;
   turnsLeft: number;
   totalCredits: number; // -1 = vô hạn
-  max_quota: number;
-  maxQuota: number;
+  max_quota: number | null;
+  maxQuota: number | null;
   usedCredits: number;
   vipExpiresAt: string | null;
   vip_expires_at: string | null;
@@ -31,7 +31,19 @@ export function computeLicenseStatus({
   const role = (user?.role || '').toLowerCase();
   const isAdmin = role === 'admin';
 
-  if (isAdmin) {
+  const isUnlimited =
+    isAdmin ||
+    Boolean(user?.is_unlimited) ||
+    Boolean(user?.isUnlimited) ||
+    user?.remaining_quota === null ||
+    user?.remaining_quota === -1 ||
+    user?.remainingCredits === -1 ||
+    user?.remaining_credits === -1 ||
+    user?.max_quota === -1 ||
+    user?.usageLimit === -1 ||
+    user?.usage_limit === -1;
+
+  if (isUnlimited) {
     return {
       isVipActive: true,
       isNearExpiry: false,
@@ -41,16 +53,16 @@ export function computeLicenseStatus({
       daysRemaining: null,
       daysLeft: 999,
       remainingCredits: -1,
-      remaining_quota: 999,
-      remainingQuota: 999,
+      remaining_quota: null,
+      remainingQuota: null,
       turnsLeft: 999,
       totalCredits: -1,
-      max_quota: 999,
-      maxQuota: 999,
+      max_quota: null,
+      maxQuota: null,
       usedCredits: 0,
       vipExpiresAt: null,
       vip_expires_at: null,
-      isAdmin: true,
+      isAdmin: Boolean(isAdmin),
     };
   }
 

@@ -1517,40 +1517,49 @@ function HomeContent() {
                       {/* Badge vai trò & Badge ⭐ VIP nổi bật cạnh tên */}
                       {(() => {
                         const r = (currentUser.role || 'user').toLowerCase();
-                        const isAdmin = r === 'admin';
+                        const isAdmin = r === 'admin' || r === 'superadmin' || Boolean((currentUser as any)?.is_admin);
                         const isVipFlag = Boolean(currentUser.isVip || (currentUser as any).is_vip);
                         const vipExp = currentUser.vipExpiresAt || (currentUser as any).vip_expires_at;
                         const isVipExpired = Boolean(vipExp && new Date(vipExp) <= new Date());
                         const isVipActive = (isAdmin || isVipFlag) && !isVipExpired;
 
-                        const usageLimit = typeof (currentUser as any).remaining_quota === 'number' && typeof (currentUser as any).max_quota === 'number'
-                          ? ((currentUser as any).max_quota || 10)
-                          : typeof (currentUser as any).usage_limit === 'number'
-                          ? (currentUser as any).usage_limit
-                          : typeof currentUser.usageLimit === 'number'
-                          ? currentUser.usageLimit
-                          : isAdmin ? -1 : 10;
+                        const isUnlimited =
+                          isAdmin ||
+                          Boolean((currentUser as any).is_unlimited) ||
+                          Boolean((currentUser as any).isUnlimited) ||
+                          (currentUser as any).remaining_quota === null ||
+                          (currentUser as any).remaining_quota === undefined ||
+                          (currentUser as any).remaining_quota === -1 ||
+                          (currentUser as any).remainingQuota === null ||
+                          (currentUser as any).remainingQuota === undefined ||
+                          (currentUser as any).remainingQuota === -1 ||
+                          (currentUser as any).remainingCredits === -1 ||
+                          (currentUser as any).remaining_credits === -1 ||
+                          (currentUser as any).max_quota === -1 ||
+                          (currentUser as any).usage_limit === -1 ||
+                          (currentUser as any).usageLimit === -1 ||
+                          Number((currentUser as any).remaining_quota) >= 999 ||
+                          Number((currentUser as any).remainingQuota) >= 999 ||
+                          Number((currentUser as any).remainingCredits) >= 999;
 
-                        const usageCount = typeof (currentUser as any).usage_count === 'number'
-                          ? (currentUser as any).usage_count
-                          : typeof currentUser.usageCount === 'number'
-                          ? currentUser.usageCount
-                          : 0;
-
-                        const remainingCredits = typeof (currentUser as any).remaining_quota === 'number'
+                        const rawRem = typeof (currentUser as any).remaining_quota === 'number'
                           ? (currentUser as any).remaining_quota
                           : typeof (currentUser as any).remainingQuota === 'number'
                           ? (currentUser as any).remainingQuota
                           : typeof currentUser.remainingCredits === 'number'
-                          ? (currentUser.remainingCredits === -1 ? -1 : currentUser.remainingCredits)
-                          : usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
+                          ? currentUser.remainingCredits
+                          : 10;
 
-                        if (isAdmin) {
+                        const remainingCredits = isUnlimited ? -1 : rawRem;
+
+                        if (isAdmin || isUnlimited) {
                           return (
                             <div className="flex items-center gap-1 shrink-0">
-                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                                Admin
-                              </span>
+                              {isAdmin && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                  Admin
+                                </span>
+                              )}
                               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
                                 <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
                                 <span>⭐ VIP • ∞</span>
@@ -1568,7 +1577,7 @@ function HomeContent() {
                               {isVipActive && (
                                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
                                   <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
-                                  <span>⭐ VIP • {usageLimit === -1 ? '∞' : `Còn ${remainingCredits} lượt`}</span>
+                                  <span>⭐ VIP • {isUnlimited ? '∞' : `Còn ${remainingCredits} lượt`}</span>
                                 </span>
                               )}
                             </div>
@@ -1579,7 +1588,7 @@ function HomeContent() {
                           return (
                             <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1 shrink-0">
                               <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
-                              <span>⭐ VIP • {usageLimit === -1 ? '∞' : `Còn ${remainingCredits} lượt`}</span>
+                              <span>⭐ VIP • {isUnlimited ? '∞' : `Còn ${remainingCredits} lượt`}</span>
                             </span>
                           );
                         }
@@ -1613,7 +1622,7 @@ function HomeContent() {
                   </div>
 
                   <ChevronDown
-                    className={`w-3.5 h-3.5 text-slate-400 transition-transform ${
+                    className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 ${
                       isUserDropdownOpen ? 'rotate-180' : ''
                     }`}
                   />
@@ -1622,7 +1631,7 @@ function HomeContent() {
                 {/* Dropdown Menu */}
                 {isUserDropdownOpen && (() => {
                   const r = (currentUser.role || 'user').toLowerCase();
-                  const isAdmin = r === 'admin';
+                  const isAdmin = r === 'admin' || r === 'superadmin' || Boolean((currentUser as any)?.is_admin);
                   const isVipFlag = Boolean(currentUser.isVip || (currentUser as any).is_vip);
                   const vipExp = currentUser.vipExpiresAt || (currentUser as any).vip_expires_at;
                   const isVipExpired = Boolean(vipExp && new Date(vipExp) <= new Date());
@@ -1635,30 +1644,53 @@ function HomeContent() {
                   }
                   const isExpiringSoon = isVipActive && daysRemaining !== null && daysRemaining <= 3;
 
-                  const usageLimit = typeof (currentUser as any).remaining_quota === 'number' && typeof (currentUser as any).max_quota === 'number'
+                  // 1. Kiểm tra điều kiện tài khoản vô hạn lượt:
+                  // - Là Admin (user.role === 'admin')
+                  // - HOẶC user.remaining_quota === null / user.remaining_quota === undefined
+                  // - HOẶC user.is_unlimited === true
+                  // - HOẶC quota === -1 / >= 999
+                  const isUnlimited =
+                    isAdmin ||
+                    Boolean((currentUser as any).is_unlimited) ||
+                    Boolean((currentUser as any).isUnlimited) ||
+                    (currentUser as any).remaining_quota === null ||
+                    (currentUser as any).remaining_quota === undefined ||
+                    (currentUser as any).remaining_quota === -1 ||
+                    (currentUser as any).remainingQuota === null ||
+                    (currentUser as any).remainingQuota === undefined ||
+                    (currentUser as any).remainingQuota === -1 ||
+                    (currentUser as any).remainingCredits === -1 ||
+                    (currentUser as any).remaining_credits === -1 ||
+                    (currentUser as any).max_quota === -1 ||
+                    (currentUser as any).usage_limit === -1 ||
+                    (currentUser as any).usageLimit === -1 ||
+                    Number((currentUser as any).remaining_quota) >= 999 ||
+                    Number((currentUser as any).remainingQuota) >= 999 ||
+                    Number((currentUser as any).remainingCredits) >= 999;
+
+                  const rawUsageLimit = typeof (currentUser as any).remaining_quota === 'number' && typeof (currentUser as any).max_quota === 'number'
                     ? ((currentUser as any).max_quota || 10)
                     : typeof (currentUser as any).usage_limit === 'number'
                     ? (currentUser as any).usage_limit
                     : typeof currentUser.usageLimit === 'number'
                     ? currentUser.usageLimit
-                    : isAdmin ? -1 : 10;
+                    : 10;
 
-                  const usageCount = typeof (currentUser as any).usage_count === 'number'
-                    ? (currentUser as any).usage_count
-                    : typeof currentUser.usageCount === 'number'
-                    ? currentUser.usageCount
-                    : 0;
-
-                  const remainingCredits = typeof (currentUser as any).remaining_quota === 'number'
+                  const rawRem = typeof (currentUser as any).remaining_quota === 'number'
                     ? (currentUser as any).remaining_quota
                     : typeof (currentUser as any).remainingQuota === 'number'
                     ? (currentUser as any).remainingQuota
                     : typeof currentUser.remainingCredits === 'number'
-                    ? (currentUser.remainingCredits === -1 ? -1 : currentUser.remainingCredits)
-                    : usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
+                    ? currentUser.remainingCredits
+                    : 10;
 
-                  const isTrial = !isVipActive && !isVipExpired && remainingCredits > 0;
-                  const percentUsed = usageLimit > 0 ? Math.min(100, Math.max(0, Math.round((Math.max(0, usageLimit - remainingCredits) / usageLimit) * 100))) : 0;
+                  const remainingCredits = isUnlimited ? -1 : rawRem;
+                  const usageLimit = isUnlimited ? -1 : rawUsageLimit;
+
+                  const isTrial = !isVipActive && !isVipExpired && !isUnlimited && remainingCredits > 0;
+                  const percentUsed = !isUnlimited && usageLimit > 0
+                    ? Math.min(100, Math.max(0, Math.round((Math.max(0, usageLimit - remainingCredits) / usageLimit) * 100)))
+                    : 0;
 
                   return (
                     <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
@@ -1701,12 +1733,17 @@ function HomeContent() {
                         </p>
                       </div>
 
-                      {/* Khối thông tin chi tiết VIP & Hạn mức quota (Yêu cầu 2) */}
+                      {/* Khối thông tin chi tiết VIP & Hạn mức quota */}
                       <div className="mx-2.5 my-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col gap-2 text-xs">
                         {/* Dòng 1: Gói dịch vụ */}
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 dark:text-slate-400 text-[11px]">Gói dịch vụ:</span>
-                          {isVipActive ? (
+                          {isAdmin ? (
+                            <span className="font-extrabold text-rose-600 dark:text-rose-400 flex items-center gap-1 text-[11px]">
+                              <Crown className="w-3 h-3 text-rose-500 fill-rose-500" />
+                              Quản trị viên (Admin ⭐)
+                            </span>
+                          ) : isVipActive ? (
                             <span className="font-extrabold text-amber-700 dark:text-amber-400 flex items-center gap-1 text-[11px]">
                               <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
                               Thành viên VIP ⭐
@@ -1730,7 +1767,9 @@ function HomeContent() {
                         <div className="flex items-center justify-between">
                           <span className="text-slate-500 dark:text-slate-400 text-[11px]">Hạn dùng:</span>
                           <span className="text-[11px] text-right">
-                            {isVipActive ? (
+                            {isAdmin || (!vipExp && isVipActive) ? (
+                              <strong className="text-amber-600 dark:text-amber-400 font-bold text-base leading-none">∞</strong>
+                            ) : isVipActive ? (
                               vipExp ? (
                                 <span>
                                   <strong className={isExpiringSoon ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
@@ -1741,7 +1780,7 @@ function HomeContent() {
                                   </span>
                                 </span>
                               ) : (
-                                <strong className="text-amber-600 dark:text-amber-400 font-bold">∞</strong>
+                                <strong className="text-amber-600 dark:text-amber-400 font-bold text-base leading-none">∞</strong>
                               )
                             ) : isVipExpired ? (
                               <span className="text-rose-500 text-[10px]">
@@ -1753,24 +1792,22 @@ function HomeContent() {
                           </span>
                         </div>
 
-                        {/* Dòng 3: Lượt tạo hình + Progress bar */}
+                        {/* Dòng 3: Lượt dùng + Progress bar */}
                         <div className="flex flex-col gap-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/50">
                           <div className="flex items-center justify-between text-[11px]">
                             <span className="text-slate-500 dark:text-slate-400">Lượt dùng:</span>
-                            <span className="font-semibold text-slate-700 dark:text-slate-200">
-                              {usageLimit === -1 ? (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">∞</span>
-                              ) : remainingCredits > 0 ? (
-                                <span>
-                                  <strong className="text-cyan-600 dark:text-cyan-400 font-bold">{remainingCredits}</strong> / {usageLimit} lượt {!isVipActive ? '(Dùng thử)' : ''}
-                                </span>
-                              ) : (
-                                <span className="text-rose-500 font-medium">Hết lượt dùng</span>
-                              )}
-                            </span>
+                            {isUnlimited ? (
+                              <span className="text-lg font-bold text-sky-400 leading-none">∞</span>
+                            ) : remainingCredits > 0 ? (
+                              <span className="font-semibold text-slate-700 dark:text-slate-200">
+                                <strong className="text-cyan-600 dark:text-cyan-400 font-bold">{remainingCredits}</strong> / {usageLimit} lượt {!isVipActive ? '(Dùng thử)' : ''}
+                              </span>
+                            ) : (
+                              <span className="text-rose-500 font-medium">Hết lượt dùng</span>
+                            )}
                           </div>
 
-                          {usageLimit > 0 && (
+                          {!isUnlimited && usageLimit > 0 && (
                             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-0.5">
                               <div
                                 className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300"

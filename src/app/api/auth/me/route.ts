@@ -85,17 +85,27 @@ export async function GET(req: NextRequest) {
       ? (user as any).max_quota
       : (typeof (user as any).maxQuota === 'number' ? (user as any).maxQuota : null);
 
-    const maxQuota = isAdmin
-      ? 999
-      : (userDbMaxQuota !== null && userDbMaxQuota > 0 ? userDbMaxQuota : (usageLimit === -1 ? 999 : usageLimit));
+    const isUnlimited =
+      isAdmin ||
+      Boolean((user as any).is_unlimited) ||
+      Boolean((user as any).isUnlimited) ||
+      userDbRemainingQuota === null ||
+      userDbRemainingQuota === -1 ||
+      userDbMaxQuota === -1 ||
+      usageLimit === -1 ||
+      userDbRemainingQuota >= 999;
 
-    const remainingQuota = isAdmin
-      ? 999
+    const maxQuota = isUnlimited
+      ? null
+      : (userDbMaxQuota !== null && userDbMaxQuota > 0 ? userDbMaxQuota : (usageLimit === -1 ? null : usageLimit));
+
+    const remainingQuota = isUnlimited
+      ? null
       : (userDbRemainingQuota !== null && userDbRemainingQuota >= 0
           ? userDbRemainingQuota
           : (typeof remainingCredits === 'number' && remainingCredits >= 0
               ? remainingCredits
-              : (usageLimit === -1 ? 999 : 0)));
+              : (usageLimit === -1 ? null : 0)));
 
     return NextResponse.json({
       user: {
@@ -104,6 +114,8 @@ export async function GET(req: NextRequest) {
         api_key: userApiKey,
         is_vip: Boolean(isVip),
         isVip: Boolean(isVip),
+        is_unlimited: isUnlimited,
+        isUnlimited: isUnlimited,
         vip_expires_at: vipExpiresAtIso,
         vipExpiresAt: vipExpiresAtIso,
         remaining_quota: remainingQuota,
