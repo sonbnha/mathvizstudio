@@ -50,17 +50,24 @@ export async function POST(req: NextRequest) {
         );
       }
       // Trừ lượt trong nền
-      const userKey = (currentUser as any).apiKey || (currentUser as any).api_key;
-      if (!isContinue && userKey) {
+      if (!isContinue) {
         try {
           const { getDb } = await import('@/lib/db');
           const sql = getDb();
           await sql`
-            UPDATE license_keys
-            SET used_credits = used_credits + 1
-            WHERE (UPPER(key) = ${userKey.toUpperCase()} OR UPPER(key_code) = ${userKey.toUpperCase()})
-              AND (total_credits = -1 OR used_credits < total_credits);
+            UPDATE users
+            SET remaining_quota = GREATEST(0, remaining_quota - 1)
+            WHERE id = ${currentUser.id}::uuid;
           `;
+          const userKey = (currentUser as any).apiKey || (currentUser as any).api_key;
+          if (userKey) {
+            await sql`
+              UPDATE license_keys
+              SET used_credits = used_credits + 1
+              WHERE (UPPER(key) = ${userKey.toUpperCase()} OR UPPER(key_code) = ${userKey.toUpperCase()})
+                AND (total_credits = -1 OR used_credits < total_credits);
+            `;
+          }
         } catch {}
       }
     }

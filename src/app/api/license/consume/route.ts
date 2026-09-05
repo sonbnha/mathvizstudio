@@ -15,6 +15,32 @@ export async function POST(req: NextRequest) {
 
     const cleanKey = rawKey.trim().toUpperCase();
 
+    // 0. Nếu người dùng đang đăng nhập, trừ trực tiếp remaining_quota trên bảng users của tài khoản
+    try {
+      const { getCurrentUserFromRequest } = await import('@/lib/auth');
+      const currentUser = await getCurrentUserFromRequest(req);
+      if (currentUser) {
+        const sql = getDb();
+        const updatedUsers = await sql`
+          UPDATE users
+          SET remaining_quota = GREATEST(0, remaining_quota - 1)
+          WHERE id = ${currentUser.id}::uuid
+          RETURNING remaining_quota, max_quota;
+        `;
+        if (updatedUsers && updatedUsers.length > 0) {
+          const userRem = updatedUsers[0].remaining_quota;
+          const userMax = updatedUsers[0].max_quota ?? 100;
+          return NextResponse.json({
+            success: true,
+            remainingCredits: userRem,
+            remaining_quota: userRem,
+            totalCredits: userMax,
+            usedCredits: Math.max(0, userMax - userRem),
+          });
+        }
+      }
+    } catch {}
+
     // 1. Thử cập nhật qua Prisma
     try {
       const keyRecord = await prisma.licenseKey.findFirst({
@@ -54,15 +80,23 @@ export async function POST(req: NextRequest) {
         UPDATE license_keys
         SET used_credits = used_credits + 1
         WHERE UPPER(key) = ${cleanKey} AND is_active = TRUE AND (total_credits = -1 OR used_credits < total_credits)
-        RETURNING total_credits AS "totalCredits", used_credits AS "usedCredits";
+        RETURNING total_credits AS "totalCredits", used_credits AS "usedCredits", used_by;
       `;
 
       if (updatedRows && updatedRows.length > 0) {
         const u = updatedRows[0];
+        if (u.used_by) {
+          await sql`
+            UPDATE users
+            SET remaining_quota = GREATEST(0, remaining_quota - 1)
+            WHERE id = ${u.used_by}::uuid;
+          `;
+        }
         const rem = u.totalCredits === -1 ? -1 : Math.max(0, u.totalCredits - u.usedCredits);
         return NextResponse.json({
           success: true,
           remainingCredits: rem,
+          remaining_quota: rem,
           usedCredits: u.usedCredits,
           totalCredits: u.totalCredits,
         });

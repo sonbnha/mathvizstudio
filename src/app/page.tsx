@@ -2601,6 +2601,9 @@ function HomeContent() {
                     Dán
                   </button>
                 </div>
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1 font-medium">
+                  <span>⚡ Hệ thống sẽ tự động cộng dồn thời hạn sử dụng và số lượt tạo hình vào tài khoản hiện tại của bạn.</span>
+                </p>
               </div>
 
               {redeemError && (

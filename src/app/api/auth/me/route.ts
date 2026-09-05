@@ -78,12 +78,24 @@ export async function GET(req: NextRequest) {
     }
 
     const vipExpiresAtIso = vipExpiresAt ? new Date(vipExpiresAt).toISOString() : null;
-    const maxQuota = isAdmin ? 999 : (usageLimit === -1 ? 999 : usageLimit);
+    const userDbRemainingQuota = typeof (user as any).remaining_quota === 'number'
+      ? (user as any).remaining_quota
+      : (typeof (user as any).remainingQuota === 'number' ? (user as any).remainingQuota : null);
+    const userDbMaxQuota = typeof (user as any).max_quota === 'number'
+      ? (user as any).max_quota
+      : (typeof (user as any).maxQuota === 'number' ? (user as any).maxQuota : null);
+
+    const maxQuota = isAdmin
+      ? 999
+      : (userDbMaxQuota !== null && userDbMaxQuota > 0 ? userDbMaxQuota : (usageLimit === -1 ? 999 : usageLimit));
+
     const remainingQuota = isAdmin
       ? 999
-      : (typeof remainingCredits === 'number' && remainingCredits >= 0
-          ? remainingCredits
-          : (usageLimit === -1 ? 999 : 0));
+      : (userDbRemainingQuota !== null && userDbRemainingQuota >= 0
+          ? userDbRemainingQuota
+          : (typeof remainingCredits === 'number' && remainingCredits >= 0
+              ? remainingCredits
+              : (usageLimit === -1 ? 999 : 0)));
 
     return NextResponse.json({
       user: {
@@ -98,12 +110,12 @@ export async function GET(req: NextRequest) {
         remainingQuota: remainingQuota,
         max_quota: maxQuota,
         maxQuota: maxQuota,
-        usage_limit: usageLimit,
-        usageLimit: usageLimit,
+        usage_limit: maxQuota,
+        usageLimit: maxQuota,
         usage_count: usageCount,
         usageCount: usageCount,
-        remaining_credits: remainingCredits,
-        remainingCredits: remainingCredits,
+        remaining_credits: remainingQuota,
+        remainingCredits: remainingQuota,
         createdKeysCount,
       },
     });

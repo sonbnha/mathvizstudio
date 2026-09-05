@@ -185,9 +185,8 @@ export default function RenewLicenseModal({
               />
               <Sparkles className="w-4 h-4 text-amber-500/60 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
-            <p className="text-[11px] text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-0.5">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-              <span>Hệ thống tự động cộng dồn số ngày vào hạn hiện tại của tài khoản</span>
+            <p className="text-[11px] text-amber-600 dark:text-amber-400 flex items-center gap-1 mt-1 font-medium">
+              <span>⚡ Hệ thống sẽ tự động cộng dồn thời hạn sử dụng và số lượt tạo hình vào tài khoản hiện tại của bạn.</span>
             </p>
           </div>
 

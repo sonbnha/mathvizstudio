@@ -30,20 +30,23 @@ export async function POST(req: NextRequest) {
     await initDb();
     const sql = getDb();
 
-    // 3. Tìm mã key trong database Neon (Kiểm tra cả bảng LicenseKey và license_keys)
+    // 3. Tìm mã key trong database Neon (Kiểm tra cả bảng license_keys và LicenseKey)
     let keyRows = await sql`
       SELECT 
         id, 
         key, 
-        "customerName", 
-        "totalCredits", 
-        "usedCredits", 
-        "expiresAt", 
-        "isActive", 
+        customer_name AS "customerName", 
+        total_credits AS "totalCredits", 
+        used_credits AS "usedCredits", 
+        duration_days AS "durationDays",
+        max_usage AS "maxUsage",
+        expires_at AS "expiresAt", 
+        is_active AS "isActive", 
         status, 
         used_by, 
-        used_at
-      FROM "LicenseKey"
+        used_at,
+        created_at
+      FROM license_keys
       WHERE UPPER(key) = ${cleanKey}
       LIMIT 1
     `;
@@ -53,15 +56,16 @@ export async function POST(req: NextRequest) {
         SELECT 
           id, 
           key, 
-          customer_name AS "customerName", 
-          total_credits AS "totalCredits", 
-          used_credits AS "usedCredits", 
-          expires_at AS "expiresAt", 
-          is_active AS "isActive", 
+          "customerName", 
+          "totalCredits", 
+          "usedCredits", 
+          "expiresAt", 
+          "isActive", 
           status, 
           used_by, 
-          used_at
-        FROM license_keys
+          used_at,
+          "createdAt" AS created_at
+        FROM "LicenseKey"
         WHERE UPPER(key) = ${cleanKey}
         LIMIT 1
       `;
@@ -85,45 +89,8 @@ export async function POST(req: NextRequest) {
     }
 
     if (keyRecord.status === 'used' || keyRecord.used_by !== null) {
-      if (keyRecord.used_by && String(keyRecord.used_by).toLowerCase() === String(currentUser.id).toLowerCase()) {
-        const uLimit = typeof keyRecord.totalCredits === 'number' ? keyRecord.totalCredits : -1;
-        const uCount = typeof keyRecord.usedCredits === 'number' ? keyRecord.usedCredits : 0;
-        const remCredits = uLimit === -1 ? -1 : Math.max(0, uLimit - uCount);
-        const expIso = (currentUser.vipExpiresAt || keyRecord.expiresAt)
-          ? new Date(currentUser.vipExpiresAt || keyRecord.expiresAt).toISOString()
-          : null;
-
-        return NextResponse.json({
-          success: true,
-          message: 'Mã key này đã được liên kết với tài khoản của bạn.',
-          user: {
-            id: currentUser.id,
-            name: currentUser.name,
-            email: (currentUser as any).email || '',
-            username: currentUser.username,
-            role: currentUser.role,
-            isVip: true,
-            is_vip: true,
-            vipExpiresAt: expIso,
-            vip_expires_at: expIso,
-            usageLimit: uLimit,
-            usage_limit: uLimit,
-            usageCount: uCount,
-            usage_count: uCount,
-            remainingCredits: remCredits,
-            remaining_credits: remCredits,
-            remaining_quota: remCredits === -1 ? 999 : remCredits,
-            remainingQuota: remCredits === -1 ? 999 : remCredits,
-            max_quota: uLimit === -1 ? 999 : uLimit,
-            maxQuota: uLimit === -1 ? 999 : uLimit,
-            apiKey: cleanKey,
-            api_key: cleanKey,
-          },
-        });
-      }
-
       return NextResponse.json(
-        { error: 'Mã key không hợp lệ hoặc đã được sử dụng.' },
+        { error: 'Mã key không hợp lệ hoặc đã được kích hoạt trước đó.' },
         { status: 400 }
       );
     }
@@ -142,27 +109,89 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Tính toán thời hạn VIP thông minh (Cộng dồn số ngày nếu đang còn hạn)
-    let newVipExpiresAt: Date | null = null;
-    if (keyRecord.expiresAt) {
-      const now = new Date();
-      const keyExp = new Date(keyRecord.expiresAt);
-      const curExp = currentUser.vipExpiresAt ? new Date(currentUser.vipExpiresAt) : null;
-
-      if (curExp && curExp > now) {
-        // Tài khoản đang còn hạn VIP: CỘNG DỒN THÊM số ngày của key mới vào hạn hiện tại
-        const keyDurationMs = Math.max(0, keyExp.getTime() - now.getTime());
-        const keyDurationDays = Math.max(1, Math.round(keyDurationMs / (1000 * 60 * 60 * 24)));
-        const accumulatedDate = new Date(curExp);
-        accumulatedDate.setDate(accumulatedDate.getDate() + keyDurationDays);
-        newVipExpiresAt = accumulatedDate;
-      } else {
-        // Tài khoản chưa có VIP hoặc đã hết hạn: Bắt đầu tính hạn mới từ key
-        newVipExpiresAt = keyExp > now ? keyExp : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-      }
+    // 5. Xác định giá trị thời hạn (duration_days) và số lượt (max_usage) của Key mới
+    let durationDays = 30;
+    if (typeof keyRecord.durationDays === 'number' && keyRecord.durationDays > 0) {
+      durationDays = keyRecord.durationDays;
+    } else if (typeof (keyRecord as any).duration_days === 'number' && (keyRecord as any).duration_days > 0) {
+      durationDays = (keyRecord as any).duration_days;
+    } else if (keyRecord.expiresAt) {
+      const createdTime = new Date(keyRecord.created_at || Date.now()).getTime();
+      const expTime = new Date(keyRecord.expiresAt).getTime();
+      const diffDays = Math.round((expTime - createdTime) / (1000 * 60 * 60 * 24));
+      if (diffDays > 0) durationDays = diffDays;
     }
 
-    // 6. Cập nhật trạng thái Key: status = 'used', used_by = user.id, used_at = NOW()
+    let keyQuotaGranted = 100;
+    if (typeof keyRecord.maxUsage === 'number') {
+      keyQuotaGranted = keyRecord.maxUsage;
+    } else if (typeof (keyRecord as any).max_usage === 'number') {
+      keyQuotaGranted = (keyRecord as any).max_usage;
+    } else if (typeof keyRecord.totalCredits === 'number') {
+      keyQuotaGranted = keyRecord.totalCredits;
+    } else if (typeof (keyRecord as any).total_credits === 'number') {
+      keyQuotaGranted = (keyRecord as any).total_credits;
+    }
+
+    // 6. Lấy dữ liệu mới nhất của tài khoản từ bảng users trên Neon DB
+    const userRows = await sql`
+      SELECT id, email, username, name, role, is_vip, vip_expires_at, remaining_quota, max_quota, api_key
+      FROM users
+      WHERE id = ${currentUser.id}::uuid
+      LIMIT 1
+    `;
+    const userObj = currentUser as any;
+    const dbUser = (userRows && userRows.length > 0 ? userRows[0] : userObj) as any;
+
+    const now = new Date();
+    const currentExp = dbUser?.vip_expires_at || userObj.vip_expires_at || userObj.vipExpiresAt;
+    const currentExpDate = currentExp ? new Date(currentExp) : null;
+
+    // 1. Logic cộng dồn thời hạn (vip_expires_at):
+    // - Nếu tài khoản hiện tại ĐANG CÒN HẠN (vip_expires_at > NOW()):
+    //   Thời hạn mới = vip_expires_at hiện tại + duration_days của key mới.
+    // - Nếu tài khoản ĐÃ HẾT HẠN hoặc chưa từng có hạn (vip_expires_at <= NOW() hoặc null):
+    //   Thời hạn mới = Thời điểm hiện tại (NOW()) + duration_days của key mới.
+    let newVipExpiresAt: Date;
+    if (currentExpDate && currentExpDate > now) {
+      newVipExpiresAt = new Date(currentExpDate.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    } else {
+      newVipExpiresAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
+    }
+
+    // 2. Logic cộng dồn lượt sử dụng (remaining_quota):
+    // - Lượt sử dụng mới = (Số lượt còn lại hiện tại của user) + (Số lượt được cấp từ key mới max_usage).
+    let currentRemaining = typeof dbUser?.remaining_quota === 'number'
+      ? Math.max(0, dbUser.remaining_quota)
+      : (typeof userObj.remaining_quota === 'number' ? Math.max(0, userObj.remaining_quota) : 0);
+
+    if (currentRemaining <= 0 && typeof userObj.remaining_credits === 'number' && userObj.remaining_credits > 0) {
+      currentRemaining = userObj.remaining_credits;
+    }
+
+    let currentMax = typeof dbUser?.max_quota === 'number'
+      ? Math.max(0, dbUser.max_quota)
+      : (typeof userObj.max_quota === 'number' ? Math.max(0, userObj.max_quota) : 0);
+
+    const newRemainingQuota = keyQuotaGranted === -1
+      ? 999
+      : (currentRemaining + keyQuotaGranted);
+
+    const newMaxQuota = keyQuotaGranted === -1
+      ? 999
+      : (Math.max(currentMax, currentRemaining) + keyQuotaGranted);
+
+    // 3. Đảm bảo tính toàn vẹn dữ liệu (Atomic Transaction):
+    // 3.1 Đánh dấu key đó trong bảng license_keys: status = 'used', used_by = user.id, used_at = NOW()
+    await sql`
+      UPDATE license_keys
+      SET 
+        status = 'used',
+        used_by = ${currentUser.id}::uuid,
+        used_at = CURRENT_TIMESTAMP
+      WHERE UPPER(key) = ${cleanKey}
+    `;
+
     try {
       await sql`
         UPDATE "LicenseKey"
@@ -174,31 +203,22 @@ export async function POST(req: NextRequest) {
       `;
     } catch {}
 
-    try {
-      await sql`
-        UPDATE license_keys
-        SET 
-          status = 'used',
-          used_by = ${currentUser.id}::uuid,
-          used_at = CURRENT_TIMESTAMP
-        WHERE UPPER(key) = ${cleanKey}
-      `;
-    } catch {}
-
-    // 7. Cập nhật người dùng sang VIP trong bảng users (Neon)
+    // 3.2 Cập nhật tài khoản người dùng trong bảng users (Neon DB)
     const updatedUsers = await sql`
       UPDATE users
       SET 
         is_vip = TRUE,
         vip_expires_at = ${newVipExpiresAt},
+        remaining_quota = ${newRemainingQuota},
+        max_quota = ${newMaxQuota},
         api_key = ${cleanKey}
       WHERE id = ${currentUser.id}::uuid
-      RETURNING id, name, email, username, role, is_vip, vip_expires_at, api_key
+      RETURNING id, name, email, username, role, is_vip, vip_expires_at, remaining_quota, max_quota, api_key
     `;
 
     const updatedUser = updatedUsers && updatedUsers.length > 0 ? updatedUsers[0] : null;
 
-    // 8. Đồng bộ sang bảng User Prisma (nếu có tài khoản tương ứng)
+    // 3.3 Đồng bộ sang Prisma User nếu tồn tại
     try {
       const cuid = (currentUser as any).cuid;
       if (cuid || currentUser.id) {
@@ -212,6 +232,7 @@ export async function POST(req: NextRequest) {
           data: {
             isVip: true,
             vipExpiresAt: newVipExpiresAt,
+            maxCredits: newRemainingQuota,
           },
         });
       }
@@ -219,15 +240,14 @@ export async function POST(req: NextRequest) {
       console.warn('Prisma User VIP sync warning:', prismaSyncErr);
     }
 
-    const uLimit = typeof keyRecord.totalCredits === 'number' ? keyRecord.totalCredits : -1;
-    const uCount = typeof keyRecord.usedCredits === 'number' ? keyRecord.usedCredits : 0;
-    const remCredits = uLimit === -1 ? -1 : Math.max(0, uLimit - uCount);
-    const expIso = newVipExpiresAt ? newVipExpiresAt.toISOString() : null;
-
+    // 4. Trả về thông tin cập nhật cho frontend: { success: true, newExpiresAt, newRemainingQuota, user }
     return NextResponse.json({
       success: true,
-      message: 'Kích hoạt tài khoản VIP thành công!',
+      message: 'Gia hạn và cộng dồn thời hạn VIP & lượt sử dụng thành công!',
+      newExpiresAt: newVipExpiresAt.toISOString(),
+      newRemainingQuota,
       user: {
+        ...currentUser,
         id: updatedUser?.id || currentUser.id,
         name: updatedUser?.name || currentUser.name,
         email: updatedUser?.email || (currentUser as any).email || '',
@@ -235,18 +255,16 @@ export async function POST(req: NextRequest) {
         role: updatedUser?.role || currentUser.role,
         isVip: true,
         is_vip: true,
-        vipExpiresAt: expIso,
-        vip_expires_at: expIso,
-        usageLimit: uLimit,
-        usage_limit: uLimit,
-        usageCount: uCount,
-        usage_count: uCount,
-        remainingCredits: remCredits,
-        remaining_credits: remCredits,
-        remaining_quota: remCredits === -1 ? 999 : remCredits,
-        remainingQuota: remCredits === -1 ? 999 : remCredits,
-        max_quota: uLimit === -1 ? 999 : uLimit,
-        maxQuota: uLimit === -1 ? 999 : uLimit,
+        vipExpiresAt: newVipExpiresAt.toISOString(),
+        vip_expires_at: newVipExpiresAt.toISOString(),
+        remaining_quota: newRemainingQuota,
+        remainingQuota: newRemainingQuota,
+        max_quota: newMaxQuota,
+        maxQuota: newMaxQuota,
+        remaining_credits: newRemainingQuota,
+        remainingCredits: newRemainingQuota,
+        usage_limit: newMaxQuota,
+        usageLimit: newMaxQuota,
         apiKey: cleanKey,
         api_key: cleanKey,
       },

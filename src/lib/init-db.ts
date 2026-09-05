@@ -38,9 +38,13 @@ export async function initDb(): Promise<void> {
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS key_quota INT DEFAULT 50;`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_vip BOOLEAN DEFAULT FALSE;`;
       await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS vip_expires_at TIMESTAMP WITH TIME ZONE;`;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS remaining_quota INT DEFAULT 0;`;
+      await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS max_quota INT DEFAULT 0;`;
       await sql`UPDATE users SET status = 'active' WHERE status IS NULL;`;
       await sql`UPDATE users SET is_active = true WHERE is_active IS NULL;`;
       await sql`UPDATE users SET is_vip = false WHERE is_vip IS NULL;`;
+      await sql`UPDATE users SET remaining_quota = 0 WHERE remaining_quota IS NULL;`;
+      await sql`UPDATE users SET max_quota = 0 WHERE max_quota IS NULL;`;
       await sql`UPDATE users SET username = SPLIT_PART(email, '@', 1) WHERE username IS NULL OR username = '';`;
       await sql`UPDATE users SET key_quota = 50 WHERE key_quota IS NULL;`;
       await sql`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users (LOWER(username)) WHERE username IS NOT NULL;`;
