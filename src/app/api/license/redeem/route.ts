@@ -86,6 +86,13 @@ export async function POST(req: NextRequest) {
 
     if (keyRecord.status === 'used' || keyRecord.used_by !== null) {
       if (keyRecord.used_by && String(keyRecord.used_by).toLowerCase() === String(currentUser.id).toLowerCase()) {
+        const uLimit = typeof keyRecord.totalCredits === 'number' ? keyRecord.totalCredits : -1;
+        const uCount = typeof keyRecord.usedCredits === 'number' ? keyRecord.usedCredits : 0;
+        const remCredits = uLimit === -1 ? -1 : Math.max(0, uLimit - uCount);
+        const expIso = (currentUser.vipExpiresAt || keyRecord.expiresAt)
+          ? new Date(currentUser.vipExpiresAt || keyRecord.expiresAt).toISOString()
+          : null;
+
         return NextResponse.json({
           success: true,
           message: 'Mã key này đã được liên kết với tài khoản của bạn.',
@@ -96,8 +103,17 @@ export async function POST(req: NextRequest) {
             username: currentUser.username,
             role: currentUser.role,
             isVip: true,
-            vipExpiresAt: currentUser.vipExpiresAt || keyRecord.expiresAt,
+            is_vip: true,
+            vipExpiresAt: expIso,
+            vip_expires_at: expIso,
+            usageLimit: uLimit,
+            usage_limit: uLimit,
+            usageCount: uCount,
+            usage_count: uCount,
+            remainingCredits: remCredits,
+            remaining_credits: remCredits,
             apiKey: cleanKey,
+            api_key: cleanKey,
           },
         });
       }
@@ -193,6 +209,11 @@ export async function POST(req: NextRequest) {
       console.warn('Prisma User VIP sync warning:', prismaSyncErr);
     }
 
+    const uLimit = typeof keyRecord.totalCredits === 'number' ? keyRecord.totalCredits : -1;
+    const uCount = typeof keyRecord.usedCredits === 'number' ? keyRecord.usedCredits : 0;
+    const remCredits = uLimit === -1 ? -1 : Math.max(0, uLimit - uCount);
+    const expIso = newVipExpiresAt ? newVipExpiresAt.toISOString() : null;
+
     return NextResponse.json({
       success: true,
       message: 'Kích hoạt tài khoản VIP thành công!',
@@ -203,8 +224,17 @@ export async function POST(req: NextRequest) {
         username: updatedUser?.username || currentUser.username,
         role: updatedUser?.role || currentUser.role,
         isVip: true,
-        vipExpiresAt: newVipExpiresAt,
+        is_vip: true,
+        vipExpiresAt: expIso,
+        vip_expires_at: expIso,
+        usageLimit: uLimit,
+        usage_limit: uLimit,
+        usageCount: uCount,
+        usage_count: uCount,
+        remainingCredits: remCredits,
+        remaining_credits: remCredits,
         apiKey: cleanKey,
+        api_key: cleanKey,
       },
     });
   } catch (err: any) {

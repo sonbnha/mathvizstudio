@@ -950,6 +950,20 @@ function HomeContent() {
       return;
     }
 
+    // Kiểm tra hết lượt tạo hình đối với tài khoản VIP có giới hạn
+    if (currentUser && (currentUser.role || '').toLowerCase() !== 'admin') {
+      const rem = typeof (currentUser as any).remaining_credits === 'number'
+        ? (currentUser as any).remaining_credits
+        : currentUser.remainingCredits;
+      const lim = typeof (currentUser as any).usage_limit === 'number'
+        ? (currentUser as any).usage_limit
+        : currentUser.usageLimit;
+      if (typeof lim === 'number' && lim !== -1 && typeof rem === 'number' && rem <= 0) {
+        setErrorMsg('Tài khoản của bạn đã sử dụng hết số lượt tạo hình. Vui lòng gia hạn thêm License Key.');
+        return;
+      }
+    }
+
     setErrorMsg(null);
     if (isRefinement) {
       setRefineLoading(true);
@@ -983,15 +997,35 @@ function HomeContent() {
       setSvgOutput(generatedSvg);
       saveToHistory(generatedSvg, activePrompt);
 
-      // 3. Trừ credit License trong nền nếu là khách dùng key có giới hạn credit
-      if (!isAccountVip && licenseKey.trim()) {
+      // 3. Trừ credit License trong nền và cập nhật real-time vào state
+      const activeKey = (currentUser ? (currentUser.apiKey || (currentUser as any).api_key || licenseKey) : licenseKey)?.trim();
+      if (activeKey) {
         fetch('/api/license/consume', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'X-License-Key': licenseKey.trim(),
+            'X-License-Key': activeKey,
           },
-        }).catch((e) => console.warn('Lỗi cập nhật credit:', e));
+        })
+          .then(async (res) => {
+            if (!res.ok) return;
+            const data = await res.json();
+            if (data.success && typeof data.remainingCredits === 'number') {
+              if (currentUser) {
+                setCurrentUser((prev: any) => {
+                  if (!prev) return prev;
+                  return {
+                    ...prev,
+                    remainingCredits: data.remainingCredits,
+                    remaining_credits: data.remainingCredits,
+                    usageCount: data.usedCredits ?? (typeof prev.usageCount === 'number' ? prev.usageCount + 1 : prev.usageCount),
+                    usage_count: data.usedCredits ?? (typeof prev.usage_count === 'number' ? prev.usage_count + 1 : prev.usage_count),
+                  };
+                });
+              }
+            }
+          })
+          .catch((e) => console.warn('Lỗi cập nhật credit:', e));
       }
 
       // Hoàn tất thanh tiến trình
@@ -1001,7 +1035,7 @@ function HomeContent() {
       if (isRefinement) {
         setRefineInput('');
       }
-      // Cập nhật lại số lượt sử dụng
+      // Cập nhật lại số lượt sử dụng cho khách vãng lai
       if (!isAccountVip) {
         checkLicenseKey();
       }
@@ -1459,35 +1493,73 @@ function HomeContent() {
                       {/* Badge vai trò & Badge ⭐ VIP nổi bật cạnh tên */}
                       {(() => {
                         const r = (currentUser.role || 'user').toLowerCase();
-                        const isVip = Boolean(
-                          currentUser.isVip ||
-                          (currentUser as any).is_vip ||
-                          ((currentUser as any).vip_expires_at && new Date((currentUser as any).vip_expires_at) > new Date()) ||
-                          ((currentUser as any).vipExpiresAt && new Date((currentUser as any).vipExpiresAt) > new Date())
-                        );
+                        const isAdmin = r === 'admin';
+                        const isVipFlag = Boolean(currentUser.isVip || (currentUser as any).is_vip);
+                        const vipExp = currentUser.vipExpiresAt || (currentUser as any).vip_expires_at;
+                        const isVipExpired = Boolean(vipExp && new Date(vipExp) <= new Date());
+                        const isVipActive = (isAdmin || isVipFlag) && !isVipExpired;
 
-                        if (r === 'admin') {
+                        const usageLimit = typeof (currentUser as any).usage_limit === 'number'
+                          ? (currentUser as any).usage_limit
+                          : typeof currentUser.usageLimit === 'number'
+                          ? currentUser.usageLimit
+                          : isAdmin ? -1 : 0;
+
+                        const usageCount = typeof (currentUser as any).usage_count === 'number'
+                          ? (currentUser as any).usage_count
+                          : typeof currentUser.usageCount === 'number'
+                          ? currentUser.usageCount
+                          : 0;
+
+                        const remainingCredits = usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
+
+                        if (isAdmin) {
                           return (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
-                              Admin
-                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                                Admin
+                              </span>
+                              <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
+                                <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
+                                <span>⭐ VIP • Vô hạn</span>
+                              </span>
+                            </div>
                           );
                         }
+
                         if (r === 'ctv') {
                           return (
-                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
-                              CTV
-                            </span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30">
+                                CTV
+                              </span>
+                              {isVipActive && (
+                                <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
+                                  <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
+                                  <span>⭐ VIP • {usageLimit === -1 ? 'Vô hạn' : `Còn ${remainingCredits} lượt`}</span>
+                                </span>
+                              )}
+                            </div>
                           );
                         }
-                        if (isVip) {
+
+                        if (isVipActive) {
                           return (
-                            <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
-                              <Crown className="w-3 h-3 text-slate-950 fill-slate-950" />
-                              <span>⭐ VIP</span>
+                            <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1 shrink-0">
+                              <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
+                              <span>⭐ VIP • {usageLimit === -1 ? 'Vô hạn' : `Còn ${remainingCredits} lượt`}</span>
                             </span>
                           );
                         }
+
+                        if (isVipExpired) {
+                          return (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30">
+                              Hết hạn VIP
+                            </span>
+                          );
+                        }
+
                         return (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600">
                             Free
@@ -1508,118 +1580,250 @@ function HomeContent() {
                 </button>
 
                 {/* Dropdown Menu */}
-                {isUserDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-60 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <div className="px-3.5 py-2.5 border-b border-slate-100 dark:border-slate-800/80">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
-                          {currentUser.name || currentUser.email.split('@')[0]}
+                {isUserDropdownOpen && (() => {
+                  const r = (currentUser.role || 'user').toLowerCase();
+                  const isAdmin = r === 'admin';
+                  const isVipFlag = Boolean(currentUser.isVip || (currentUser as any).is_vip);
+                  const vipExp = currentUser.vipExpiresAt || (currentUser as any).vip_expires_at;
+                  const isVipExpired = Boolean(vipExp && new Date(vipExp) <= new Date());
+                  const isVipActive = (isAdmin || isVipFlag) && !isVipExpired;
+
+                  let daysRemaining: number | null = null;
+                  if (vipExp) {
+                    const diffTime = new Date(vipExp).getTime() - new Date().getTime();
+                    daysRemaining = Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+                  }
+                  const isExpiringSoon = isVipActive && daysRemaining !== null && daysRemaining <= 3;
+
+                  const usageLimit = typeof (currentUser as any).usage_limit === 'number'
+                    ? (currentUser as any).usage_limit
+                    : typeof currentUser.usageLimit === 'number'
+                    ? currentUser.usageLimit
+                    : isAdmin ? -1 : 0;
+
+                  const usageCount = typeof (currentUser as any).usage_count === 'number'
+                    ? (currentUser as any).usage_count
+                    : typeof currentUser.usageCount === 'number'
+                    ? currentUser.usageCount
+                    : 0;
+
+                  const remainingCredits = usageLimit === -1 ? -1 : Math.max(0, usageLimit - usageCount);
+                  const percentUsed = usageLimit > 0 ? Math.min(100, Math.max(0, Math.round((usageCount / usageLimit) * 100))) : 0;
+
+                  return (
+                    <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                      {/* User Header */}
+                      <div className="px-3.5 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
+                            {currentUser.name || currentUser.email.split('@')[0]}
+                          </p>
+                          <span
+                            className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
+                              isAdmin
+                                ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
+                                : r === 'ctv'
+                                ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                                : isVipActive
+                                ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-extrabold border border-amber-400/40 shadow-xs'
+                                : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
+                            }`}
+                          >
+                            {isAdmin
+                              ? 'ADMIN'
+                              : r === 'ctv'
+                              ? 'CTV'
+                              : isVipActive
+                              ? '⭐ VIP'
+                              : isVipExpired
+                              ? 'HẾT HẠN'
+                              : 'FREE'}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
+                          {currentUser.email}
                         </p>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded uppercase ${
-                            (currentUser.role || '').toLowerCase() === 'admin'
-                              ? 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30'
-                              : (currentUser.role || '').toLowerCase() === 'ctv'
-                              ? 'bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/30'
-                              : currentUser.isVip || (currentUser as any).is_vip
-                              ? 'bg-gradient-to-r from-amber-400 to-yellow-400 text-slate-950 font-extrabold border border-amber-400/40 shadow-xs'
-                              : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-slate-600'
+                      </div>
+
+                      {/* Khối thông tin chi tiết VIP & Hạn mức quota (Yêu cầu 2) */}
+                      <div className="mx-2.5 my-2 p-2.5 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 flex flex-col gap-2 text-xs">
+                        {/* Dòng 1: Gói dịch vụ */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-slate-400 text-[11px]">Gói dịch vụ:</span>
+                          {isVipActive ? (
+                            <span className="font-extrabold text-amber-700 dark:text-amber-400 flex items-center gap-1 text-[11px]">
+                              <Crown className="w-3 h-3 text-amber-500 fill-amber-500" />
+                              Thành viên VIP ⭐
+                            </span>
+                          ) : isVipExpired ? (
+                            <span className="font-semibold text-rose-600 dark:text-rose-400 text-[11px]">
+                              VIP đã hết hạn ⚠️
+                            </span>
+                          ) : (
+                            <span className="font-medium text-slate-600 dark:text-slate-300 text-[11px]">
+                              Thành viên Tiêu chuẩn (Free)
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Dòng 2: Hạn sử dụng */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-500 dark:text-slate-400 text-[11px]">Hạn sử dụng:</span>
+                          <span className="text-[11px] text-right">
+                            {isVipActive ? (
+                              vipExp ? (
+                                <span>
+                                  <strong className={isExpiringSoon ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'}>
+                                    Còn {daysRemaining} ngày
+                                  </strong>{' '}
+                                  <span className="text-[10px] text-slate-400">
+                                    ({new Date(vipExp).toLocaleDateString('vi-VN')})
+                                  </span>
+                                </span>
+                              ) : (
+                                <strong className="text-amber-600 dark:text-amber-400 font-bold">Vô hạn (Vĩnh viễn ⭐)</strong>
+                              )
+                            ) : isVipExpired ? (
+                              <span className="text-rose-500 text-[10px]">
+                                Đã hết hạn ({vipExp ? new Date(vipExp).toLocaleDateString('vi-VN') : ''})
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">Không áp dụng</span>
+                            )}
+                          </span>
+                        </div>
+
+                        {/* Dòng 3: Lượt tạo hình + Progress bar */}
+                        <div className="flex flex-col gap-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/50">
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-slate-500 dark:text-slate-400">Lượt tạo hình:</span>
+                            <span className="font-semibold text-slate-700 dark:text-slate-200">
+                              {usageLimit === -1 ? (
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Vô hạn lượt</span>
+                              ) : usageLimit > 0 ? (
+                                <span>
+                                  <strong className="text-cyan-600 dark:text-cyan-400 font-bold">{remainingCredits}</strong> / {usageLimit} lượt
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 font-normal">Chưa có quota</span>
+                              )}
+                            </span>
+                          </div>
+
+                          {usageLimit > 0 && (
+                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-0.5">
+                              <div
+                                className="h-full bg-gradient-to-r from-amber-500 to-yellow-400 rounded-full transition-all duration-300"
+                                style={{ width: `${percentUsed}%` }}
+                                title={`Đã dùng ${usageCount}/${usageLimit} lượt (${percentUsed}%)`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Mục 1: Bộ sưu tập của tôi */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserDropdownOpen(false);
+                          try {
+                            localStorage.setItem('saved_collection_collapsed', 'false');
+                            window.dispatchEvent(new Event('expand-saved-collection'));
+                          } catch {}
+                          const collectionEl = document.getElementById('saved-collection-section');
+                          if (collectionEl) {
+                            collectionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                          }
+                        }}
+                        className="w-full px-3.5 py-2 text-xs text-left text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between transition cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Bookmark className="w-4 h-4 text-cyan-500" />
+                          <span>Bộ sưu tập của tôi</span>
+                        </div>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
+                          {historyItems.length} hình
+                        </span>
+                      </button>
+
+                      {/* Nút Nhập / Gia hạn License Key: XỬ LÝ THEO LOGIC YÊU CẦU 1:
+                          - ĐANG VIP (còn hạn > 3 ngày hoặc vĩnh viễn): ẨN HOÀN TOÀN
+                          - ĐANG VIP NHƯNG SẮP HẾT HẠN (<= 3 ngày): Hiện nút "Gia hạn key"
+                          - HẾT HẠN HOẶC FREE: Hiện nút "Kích hoạt License Key / Nâng cấp VIP" */}
+                      {(!isVipActive || isExpiringSoon) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsUserDropdownOpen(false);
+                            setRedeemKeyCode('');
+                            setRedeemError(null);
+                            setRedeemSuccessMsg(null);
+                            setIsRedeemModalOpen(true);
+                          }}
+                          className={`w-full px-3.5 py-2.5 text-xs text-left flex items-center justify-between transition cursor-pointer font-semibold border-t border-slate-100 dark:border-slate-800/60 ${
+                            isExpiringSoon
+                              ? 'text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40'
+                              : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50/80 dark:hover:bg-amber-950/40'
                           }`}
                         >
-                          {(currentUser.role || '').toLowerCase() === 'admin'
-                            ? 'ADMIN'
-                            : (currentUser.role || '').toLowerCase() === 'ctv'
-                            ? 'CTV'
-                            : currentUser.isVip || (currentUser as any).is_vip
-                            ? '⭐ VIP'
-                            : 'FREE'}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-slate-400 font-mono truncate mt-0.5">
-                        {currentUser.email}
-                      </p>
-                    </div>
-
-                    {/* Mục 1: Bộ sưu tập của tôi */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsUserDropdownOpen(false);
-                        try {
-                          localStorage.setItem('saved_collection_collapsed', 'false');
-                          window.dispatchEvent(new Event('expand-saved-collection'));
-                        } catch {}
-                        const collectionEl = document.getElementById('saved-collection-section');
-                        if (collectionEl) {
-                          collectionEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-                        }
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-left text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center justify-between transition cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Bookmark className="w-4 h-4 text-cyan-500" />
-                        <span>Bộ sưu tập của tôi</span>
-                      </div>
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400">
-                        {historyItems.length} hình
-                      </span>
-                    </button>
-
-                    {/* Mục 2: 🔑 Nhập key kích hoạt / Gia hạn VIP */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsUserDropdownOpen(false);
-                        setRedeemKeyCode('');
-                        setRedeemError(null);
-                        setRedeemSuccessMsg(null);
-                        setIsRedeemModalOpen(true);
-                      }}
-                      className="w-full px-3.5 py-2.5 text-xs text-left hover:bg-amber-50/80 dark:hover:bg-amber-950/40 flex items-center justify-between transition cursor-pointer text-amber-700 dark:text-amber-400 font-semibold border-t border-slate-100 dark:border-slate-800/60"
-                    >
-                      <div className="flex items-center gap-2.5">
-                        <Key className="w-4 h-4 text-amber-500 shrink-0" />
-                        <span>🔑 Nhập key kích hoạt / Gia hạn VIP</span>
-                      </div>
-                      {currentUser.isVip || (currentUser as any).is_vip ? (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
-                          GIA HẠN
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-xs">
-                          NÂNG CẤP
-                        </span>
+                          <div className="flex items-center gap-2.5">
+                            {isExpiringSoon ? (
+                              <RefreshCw className="w-4 h-4 text-rose-500 animate-spin-slow shrink-0" />
+                            ) : (
+                              <Key className="w-4 h-4 text-amber-500 shrink-0" />
+                            )}
+                            <span>
+                              {isExpiringSoon
+                                ? '🔄 Gia hạn License Key'
+                                : '🔑 Kích hoạt License Key / Nâng cấp VIP'}
+                            </span>
+                          </div>
+                          {isExpiringSoon ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-500/30">
+                              CÒN {daysRemaining} NGÀY
+                            </span>
+                          ) : isVipExpired ? (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-xs">
+                              KÍCH HOẠT LẠI
+                            </span>
+                          ) : (
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-xs">
+                              NÂNG CẤP
+                            </span>
+                          )}
+                        </button>
                       )}
-                    </button>
 
-                    {/* Mục 3: ⚙️ Quản trị hệ thống (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
-                    {(currentUser.role || '').toLowerCase() === 'admin' && (
-                      <Link
-                        href="/admin"
-                        onClick={() => setIsUserDropdownOpen(false)}
-                        className="w-full px-3.5 py-2 text-xs text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2.5 transition font-semibold cursor-pointer border-t border-slate-100 dark:border-slate-800/60"
+                      {/* Mục 3: ⚙️ Quản trị hệ thống (Admin Panel) - Chỉ hiện nếu role === 'admin' */}
+                      {isAdmin && (
+                        <Link
+                          href="/admin"
+                          onClick={() => setIsUserDropdownOpen(false)}
+                          className="w-full px-3.5 py-2 text-xs text-left text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2.5 transition font-semibold cursor-pointer border-t border-slate-100 dark:border-slate-800/60"
+                        >
+                          <Shield className="w-4 h-4 text-rose-500" />
+                          <span>⚙️ Quản trị hệ thống (Admin Panel)</span>
+                        </Link>
+                      )}
+
+                      <div className="my-1 border-t border-slate-100 dark:border-slate-800/80"></div>
+
+                      {/* Mục 4: Đăng xuất */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserDropdownOpen(false);
+                          handleLogout();
+                        }}
+                        className="w-full px-3.5 py-2 text-xs text-left text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 transition cursor-pointer"
                       >
-                        <Shield className="w-4 h-4 text-rose-500" />
-                        <span>⚙️ Quản trị hệ thống (Admin Panel)</span>
-                      </Link>
-                    )}
-
-                    <div className="my-1 border-t border-slate-100 dark:border-slate-800/80"></div>
-
-                    {/* Mục 4: Đăng xuất */}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsUserDropdownOpen(false);
-                        handleLogout();
-                      }}
-                      className="w-full px-3.5 py-2 text-xs text-left text-slate-600 dark:text-slate-400 hover:text-rose-600 hover:bg-slate-100 dark:hover:bg-slate-800 flex items-center gap-2.5 transition cursor-pointer"
-                    >
-                      <LogOut className="w-4 h-4 text-slate-400" />
-                      <span>Đăng xuất</span>
-                    </button>
-                  </div>
-                )}
+                        <LogOut className="w-4 h-4 text-slate-400" />
+                        <span>Đăng xuất</span>
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

@@ -15,6 +15,12 @@ export interface AuthUser {
   vip_expires_at?: string | null;
   apiKey?: string | null;
   api_key?: string | null;
+  usage_limit?: number;
+  usageLimit?: number;
+  usage_count?: number;
+  usageCount?: number;
+  remainingCredits?: number | string;
+  remaining_credits?: number | string;
 }
 
 interface AuthModalProps {
