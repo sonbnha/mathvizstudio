@@ -27,6 +27,8 @@ export async function GET(req: NextRequest) {
     const sql = getDb();
     const isStaff = role === 'staff' || role === 'ctv';
 
+    const search = (req.nextUrl.searchParams.get('q') || req.nextUrl.searchParams.get('search') || '').trim().toLowerCase();
+
     let rows;
     if (isStaff) {
       const cuid = (user as any).cuid;
@@ -35,7 +37,6 @@ export async function GET(req: NextRequest) {
           lk.id,
           lk.key,
           lk.key_code,
-          lk.customer_name,
           lk.total_credits,
           lk.max_usage,
           lk.used_credits,
@@ -68,7 +69,6 @@ export async function GET(req: NextRequest) {
           lk.id,
           lk.key,
           lk.key_code,
-          lk.customer_name,
           lk.total_credits,
           lk.max_usage,
           lk.used_credits,
@@ -95,13 +95,13 @@ export async function GET(req: NextRequest) {
       `;
     }
 
-    const enhancedKeys = rows.map((k: any) => ({
+    let enhancedKeys = rows.map((k: any) => ({
       id: k.id,
       key: k.key || k.key_code,
       keyCode: k.key_code || k.key,
       key_code: k.key_code || k.key,
-      customerName: k.customer_name || 'Khách hàng',
-      customer_name: k.customer_name || 'Khách hàng',
+      customerName: null,
+      customer_name: null,
       totalCredits: typeof k.total_credits === 'number' ? k.total_credits : (typeof k.max_usage === 'number' ? k.max_usage : 50),
       total_credits: typeof k.total_credits === 'number' ? k.total_credits : (typeof k.max_usage === 'number' ? k.max_usage : 50),
       maxUsage: typeof k.max_usage === 'number' ? k.max_usage : (typeof k.total_credits === 'number' ? k.total_credits : 100),
@@ -136,6 +136,18 @@ export async function GET(req: NextRequest) {
       used_at: k.used_at,
     }));
 
+    if (search) {
+      enhancedKeys = enhancedKeys.filter((k: any) =>
+        k.key.toLowerCase().includes(search) ||
+        k.keyCode.toLowerCase().includes(search) ||
+        (k.createdBy?.username && k.createdBy.username.toLowerCase().includes(search)) ||
+        (k.createdBy?.name && k.createdBy.name.toLowerCase().includes(search)) ||
+        (k.usedBy?.username && k.usedBy.username.toLowerCase().includes(search)) ||
+        (k.usedBy?.name && k.usedBy.name.toLowerCase().includes(search)) ||
+        (k.usedBy?.email && k.usedBy.email.toLowerCase().includes(search))
+      );
+    }
+
     return NextResponse.json({ keys: enhancedKeys, currentUser: user });
   } catch (error: any) {
     console.error('Lỗi khi tải danh sách License Keys:', error);
@@ -168,8 +180,6 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));
     const {
-      customerName,
-      customer_name,
       totalCredits,
       total_credits,
       maxUsage,
@@ -273,9 +283,6 @@ export async function POST(req: NextRequest) {
       expiresAt.setDate(expiresAt.getDate() + days);
     }
 
-    const finalCustomerName =
-      customerName?.trim() || customer_name?.trim() || (note?.trim() ? note.trim() : null);
-
     // 4. INSERT an toàn vào Neon Postgres bảng license_keys
     const insertedRows = await sql`
       INSERT INTO license_keys (
@@ -287,7 +294,6 @@ export async function POST(req: NextRequest) {
         total_credits,
         used_credits,
         status,
-        customer_name,
         expires_at,
         is_active,
         created_at
@@ -301,7 +307,6 @@ export async function POST(req: NextRequest) {
         ${usage},
         0,
         'active',
-        ${finalCustomerName},
         ${expiresAt},
         true,
         CURRENT_TIMESTAMP
@@ -320,12 +325,11 @@ export async function POST(req: NextRequest) {
       const cuid = dbUser.cuid || (currentUser as any).cuid;
       await sql`
         INSERT INTO "LicenseKey" (
-          id, key, "customerName", "totalCredits", "usedCredits", "expiresAt", "isActive", "createdAt", "createdById", status
+          id, key, "totalCredits", "usedCredits", "expiresAt", "isActive", "createdAt", "createdById", status
         )
         VALUES (
           ${newKeyRow.id}::text,
           ${keyString},
-          ${finalCustomerName},
           ${usage},
           0,
           ${expiresAt},
@@ -335,7 +339,6 @@ export async function POST(req: NextRequest) {
           'active'
         )
         ON CONFLICT (key) DO UPDATE SET
-          "customerName" = EXCLUDED."customerName",
           "totalCredits" = EXCLUDED."totalCredits",
           "expiresAt" = EXCLUDED."expiresAt",
           status = EXCLUDED.status;
@@ -350,8 +353,8 @@ export async function POST(req: NextRequest) {
       key: newKeyRow.key || newKeyRow.key_code,
       keyCode: newKeyRow.key_code || newKeyRow.key,
       key_code: newKeyRow.key_code || newKeyRow.key,
-      customerName: newKeyRow.customer_name,
-      customer_name: newKeyRow.customer_name,
+      customerName: null,
+      customer_name: null,
       totalCredits: newKeyRow.total_credits,
       total_credits: newKeyRow.total_credits,
       maxUsage: newKeyRow.max_usage,

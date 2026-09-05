@@ -58,7 +58,6 @@ export async function initDb(): Promise<void> {
         CREATE TABLE IF NOT EXISTS license_keys (
           id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
           key VARCHAR(100) UNIQUE NOT NULL,
-          customer_name VARCHAR(255),
           total_credits INT DEFAULT 50,
           used_credits INT DEFAULT 0,
           status VARCHAR(50) DEFAULT 'active',

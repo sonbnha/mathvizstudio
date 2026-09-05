@@ -174,7 +174,6 @@ export default function UnifiedAdminPage() {
   };
 
   // New Key Form State
-  const [customerName, setCustomerName] = useState('');
   const [isUnlimitedCredits, setIsUnlimitedCredits] = useState(false);
   const [customCreditCount, setCustomCreditCount] = useState<number>(50);
   const [durationDays, setDurationDays] = useState<number>(30); // 30, 90, 365, 0 (Vĩnh viễn)
@@ -461,7 +460,6 @@ export default function UnifiedAdminPage() {
       showToast('Tạo License Key thành công!');
 
       // 4. Reset form
-      setCustomerName('');
       setKeyNote('');
       setIsUnlimitedCredits(false);
       setCustomCreditCount(50);
@@ -504,10 +502,8 @@ export default function UnifiedAdminPage() {
       ? new Date(newlyCreatedKey.expiresAt).toLocaleDateString('vi-VN')
       : '∞';
 
-    const customerLine = newlyCreatedKey.customerName ? `\n- Khách hàng: ${newlyCreatedKey.customerName}` : '';
-
     const message = `🎉 KÍCH HOẠT BẢN QUYỀN MATHVIZ
-- Mã License Key: ${newlyCreatedKey.key}${customerLine}
+- Mã License Key: ${newlyCreatedKey.key}
 - Số lượt sử dụng: ${creditsStr}
 - Hạn sử dụng: ${expireStr}
 👉 Truy cập và sử dụng tại: ${appUrl}`;
@@ -534,10 +530,8 @@ export default function UnifiedAdminPage() {
       ? new Date(keyItem.expiresAt).toLocaleDateString('vi-VN')
       : '∞';
 
-    const customerLine = keyItem.customerName ? `\n- Khách hàng: ${keyItem.customerName}` : '';
-
     const message = `🎉 KÍCH HOẠT BẢN QUYỀN MATHVIZ
-- Mã License Key: ${keyItem.key}${customerLine}
+- Mã License Key: ${keyItem.key}
 - Số lượt sử dụng: ${creditsStr}
 - Hạn sử dụng: ${expireStr}
 👉 Truy cập và sử dụng tại: ${appUrl}`;
@@ -983,9 +977,11 @@ export default function UnifiedAdminPage() {
     const q = keySearch.toLowerCase();
     return (
       k.key.toLowerCase().includes(q) ||
-      (k.customerName && k.customerName.toLowerCase().includes(q)) ||
       (k.createdBy?.name && k.createdBy.name.toLowerCase().includes(q)) ||
-      (k.createdBy?.username && k.createdBy.username.toLowerCase().includes(q))
+      (k.createdBy?.username && k.createdBy.username.toLowerCase().includes(q)) ||
+      (k.usedBy?.name && k.usedBy.name.toLowerCase().includes(q)) ||
+      (k.usedBy?.username && k.usedBy.username.toLowerCase().includes(q)) ||
+      (k.usedBy?.email && k.usedBy.email.toLowerCase().includes(q))
     );
   });
 
@@ -1677,7 +1673,6 @@ export default function UnifiedAdminPage() {
                     <thead>
                       <tr className="bg-slate-50 dark:bg-slate-950/70 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-semibold">
                         <th className="py-2.5 px-4">License Key</th>
-                        <th className="py-2.5 px-4">Khách Hàng</th>
                         <th className="py-2.5 px-4">Lượt Tạo</th>
                         <th className="py-2.5 px-4">Hạn Dùng</th>
                         <th className="py-2.5 px-4">Trạng Thái</th>
@@ -1686,7 +1681,7 @@ export default function UnifiedAdminPage() {
                     <tbody className="divide-y divide-slate-200/80 dark:divide-slate-800/80">
                       {keys.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                          <td colSpan={4} className="py-8 text-center text-slate-400">
                             Chưa có License Key nào.
                           </td>
                         </tr>
@@ -1736,9 +1731,6 @@ export default function UnifiedAdminPage() {
                                   )}
                                 </button>
                               </div>
-                            </td>
-                            <td className="py-2.5 px-4 font-medium text-slate-700 dark:text-slate-300">
-                              {k.customerName || '—'}
                             </td>
                             <td className="py-2.5 px-4 font-mono">
                               <span className="font-semibold text-cyan-600 dark:text-cyan-400">{k.usedCredits}</span>
@@ -1973,7 +1965,7 @@ export default function UnifiedAdminPage() {
                         type="text"
                         value={keySearch}
                         onChange={(e) => setKeySearch(e.target.value)}
-                        placeholder="Tìm theo mã key / tên..."
+                        placeholder="Tìm theo mã key..."
                         className="pl-8 pr-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-900 dark:text-slate-200 outline-none focus:border-cyan-500 transition w-36 sm:w-48"
                       />
                     </div>
@@ -1982,16 +1974,13 @@ export default function UnifiedAdminPage() {
 
                 {/* Table Scrollable Body (Independent scroll) */}
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto w-full">
-                  <table className="w-full min-w-[850px] table-auto border-collapse text-left text-xs">
+                  <table className="w-full min-w-[720px] table-auto border-collapse text-left text-xs">
                     <thead className="sticky top-0 z-20 bg-slate-50/95 dark:bg-[#151c2c]/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] shadow-xs">
                       <tr>
-                        <th className="py-3 px-3.5">Khách hàng</th>
-                        <th className="py-3 px-2.5">Mã Key</th>
+                        <th className="py-3 px-3.5">Mã Key</th>
                         <th className="py-3 px-2.5">Người Tạo</th>
                         <th className="py-3 px-2.5">Người Kích Hoạt</th>
                         <th className="py-3 px-2.5 text-center">Lượt Dùng</th>
-                        <th className="py-3 px-2.5 text-center">Hạn Dùng</th>
-                        <th className="py-3 px-2.5 text-center">Trạng Thái</th>
                         <th className="py-3 px-3 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-24 min-w-[90px]">
                           Thao Tác
                         </th>
@@ -2000,7 +1989,7 @@ export default function UnifiedAdminPage() {
                     <tbody className="divide-y divide-slate-200/80 dark:divide-slate-800/60">
                       {filteredKeys.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-8 text-center text-slate-500">
+                          <td colSpan={5} className="py-8 text-center text-slate-500">
                             {keySearch || creatorFilter !== 'ALL'
                               ? 'Không tìm thấy kết quả phù hợp.'
                               : 'Chưa có License Key nào.'}
@@ -2009,15 +1998,8 @@ export default function UnifiedAdminPage() {
                       ) : (
                         filteredKeys.map((k) => (
                           <tr key={k.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
-                            {/* 1. Khách hàng */}
-                            <td className="px-3.5 py-3 font-medium text-slate-900 dark:text-slate-200">
-                              <span className="block max-w-[110px] sm:max-w-[140px] truncate" title={k.customerName || '—'}>
-                                {k.customerName || '—'}
-                              </span>
-                            </td>
-
-                            {/* 2. Mã Key (Masked Display & Toggle Reveal) */}
-                            <td className="px-2.5 py-3 whitespace-nowrap">
+                            {/* 1. Mã Key (Masked Display & Toggle Reveal) */}
+                            <td className="px-3.5 py-3 whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5 font-mono text-xs whitespace-nowrap">
                                 {k.key.startsWith('MV-TR-') || k.key.includes('TRIAL') ? (
                                   <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-300 font-bold">
@@ -2062,7 +2044,7 @@ export default function UnifiedAdminPage() {
                               </div>
                             </td>
 
-                            {/* 3. Người Tạo */}
+                            {/* 2. Người Tạo */}
                             <td className="px-2.5 py-3 text-slate-600 dark:text-slate-400 whitespace-nowrap">
                               {k.createdBy ? (
                                 <span
@@ -2079,7 +2061,7 @@ export default function UnifiedAdminPage() {
                               )}
                             </td>
 
-                            {/* 3.1 Người Kích Hoạt (Used By) */}
+                            {/* 3. Người Kích Hoạt (Used By) */}
                             <td className="px-2.5 py-3 whitespace-nowrap">
                               {k.usedBy ? (
                                 <div className="flex flex-col gap-0.5 max-w-[160px]">
@@ -2105,36 +2087,23 @@ export default function UnifiedAdminPage() {
 
                             {/* 4. Lượt Dùng */}
                             <td className="px-2.5 py-3 text-center whitespace-nowrap">
-                              <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
-                                {k.usedCredits}
-                              </span>
-                              <span className="text-slate-400 font-mono"> / </span>
-                              <span className="font-mono text-slate-500">
-                                {k.totalCredits === -1 ? '∞' : k.totalCredits}
-                              </span>
-                            </td>
-
-                            {/* 5. Hạn Dùng */}
-                            <td className="px-2.5 py-3 text-center whitespace-nowrap text-slate-600 dark:text-slate-400 font-mono">
-                              {k.expiresAt ? formatDateVN(k.expiresAt) : '∞'}
-                            </td>
-
-                            {/* 6. Trạng Thái */}
-                            <td className="px-2.5 py-3 text-center whitespace-nowrap">
-                              {(() => {
-                                const status = getKeyStatus(k);
-                                return (
-                                  <span
-                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-semibold border ${status.className}`}
-                                  >
-                                    <span className={`w-1.5 h-1.5 rounded-full ${status.dotClass}`} />
-                                    <span>{status.label}</span>
+                              <div className="flex flex-col items-center justify-center gap-0.5">
+                                <div>
+                                  <span className="font-mono font-semibold text-slate-900 dark:text-slate-100">
+                                    {k.usedCredits}
                                   </span>
-                                );
-                              })()}
+                                  <span className="text-slate-400 font-mono"> / </span>
+                                  <span className="font-mono text-slate-500">
+                                    {k.totalCredits === -1 ? '∞' : k.totalCredits}
+                                  </span>
+                                </div>
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  Hạn: {k.expiresAt ? formatDateVN(k.expiresAt) : '∞'}
+                                </span>
+                              </div>
                             </td>
 
-                            {/* 7. Thao Tác (Ghim cố định bên phải - Sticky Right) */}
+                            {/* 5. Thao Tác (Ghim cố định bên phải - Sticky Right) */}
                             <td className="px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-24 min-w-[90px] transition-colors">
                               <div className="flex items-center justify-center gap-2">
                                 {/* Copy Customer Handover Message Button */}
@@ -2163,14 +2132,14 @@ export default function UnifiedAdminPage() {
                               </div>
                             </td>
                           </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {/* TAB 2: Accounts Management (Admin, CTV & User) - STRICTLY ADMIN ONLY */}
         {isAdmin && activeTab === 'users' && (
@@ -2627,17 +2596,6 @@ export default function UnifiedAdminPage() {
 
             {/* Danh Sách Thông Tin Chi Tiết (List Info) */}
             <div className="flex flex-col gap-2.5 text-xs bg-slate-50/90 dark:bg-slate-950/60 border border-slate-200/80 dark:border-slate-800 rounded-2xl p-4 transition-colors">
-              {/* 👤 Khách hàng (nếu có) */}
-              {newlyCreatedKey.customerName && (
-                <div className="flex items-center justify-between py-1 border-b border-slate-200/60 dark:border-slate-800/60">
-                  <span className="text-slate-500 dark:text-slate-400 flex items-center gap-2">
-                    <User className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" /> Khách hàng:
-                  </span>
-                  <span className="font-semibold text-slate-800 dark:text-slate-200 truncate max-w-[220px]">
-                    {newlyCreatedKey.customerName}
-                  </span>
-                </div>
-              )}
 
               {/* ⚡ Số lượt dùng */}
               <div className="flex items-center justify-between py-1 border-b border-slate-200/60 dark:border-slate-800/60">

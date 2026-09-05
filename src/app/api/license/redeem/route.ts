@@ -35,7 +35,6 @@ export async function POST(req: NextRequest) {
       SELECT 
         id, 
         key, 
-        customer_name AS "customerName", 
         total_credits AS "totalCredits", 
         used_credits AS "usedCredits", 
         duration_days AS "durationDays",
@@ -56,7 +55,6 @@ export async function POST(req: NextRequest) {
         SELECT 
           id, 
           key, 
-          "customerName", 
           "totalCredits", 
           "usedCredits", 
           "expiresAt", 
