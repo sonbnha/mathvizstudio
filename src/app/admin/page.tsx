@@ -407,6 +407,11 @@ export default function UnifiedAdminPage() {
     } catch (e) {
       console.error('Logout error:', e);
     }
+    try {
+      localStorage.removeItem('user_collection');
+      localStorage.removeItem('saved_math_models');
+      localStorage.removeItem('mathviz_history_items');
+    } catch {}
     setCurrentUser(null);
     setKeys([]);
     setUserAccounts([]);

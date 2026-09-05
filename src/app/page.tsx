@@ -402,7 +402,10 @@ function HomeContent() {
   // Load History from localStorage on Mount
   useEffect(() => {
     try {
-      const savedHistory = localStorage.getItem('mathviz_history_items');
+      const savedHistory =
+        localStorage.getItem('user_collection') ||
+        localStorage.getItem('saved_math_models') ||
+        localStorage.getItem('mathviz_history_items');
       if (savedHistory) {
         setHistoryItems(JSON.parse(savedHistory));
       }
@@ -491,102 +494,83 @@ function HomeContent() {
       .trim();
   };
 
-  // Đồng bộ 2 chiều bộ sưu tập hình vẽ với Neon Cloud Database
-  const syncWithNeon = useCallback(async (user: AuthUser) => {
-    if (!user) return;
+  // Nạp bộ sưu tập riêng của user đó từ Neon DB (/api/user/collection)
+  const fetchUserCollection = useCallback(async (user: AuthUser) => {
+    if (!user || !user.id) {
+      setHistoryItems([]);
+      return;
+    }
     setIsSyncingCollection(true);
     try {
-      // 1. Lấy danh sách từ server Neon
-      const res = await fetch('/api/diagrams');
-      let cloudDiagrams: any[] = [];
+      // 1. Gọi API lấy bộ sưu tập riêng của user đó (lọc theo user_id hiện tại từ DB Neon)
+      const res = await fetch('/api/user/collection');
       if (res.ok) {
         const data = await res.json();
-        cloudDiagrams = data.diagrams || [];
+        const serverItems = data.collection || data.diagrams || data.items || [];
+        const formatted: HistoryItem[] = serverItems.map((item: any) => ({
+          id: item.id,
+          title: item.title || 'Mô hình hình học',
+          promptText: item.promptText || item.prompt || '',
+          svgCode: item.svgCode || item.svgContent || '',
+          timestamp: item.timestamp || (item.createdAt ? new Date(item.createdAt).getTime() : Date.now()),
+          topic: item.topic || classifyTopic(item.promptText || item.prompt || item.title || ''),
+        }));
+
+        // Nạp dữ liệu mới vào state bộ sưu tập để hiển thị đúng các hình đã lưu của tài khoản đó
+        setHistoryItems(formatted);
+        try {
+          localStorage.setItem('user_collection', JSON.stringify(formatted));
+          localStorage.setItem('saved_math_models', JSON.stringify(formatted));
+          localStorage.setItem('mathviz_history_items', JSON.stringify(formatted));
+        } catch {}
+      } else {
+        setHistoryItems([]);
       }
-
-      // 2. Lấy dữ liệu local hiện tại
-      let localItems: HistoryItem[] = [];
-      try {
-        const saved = localStorage.getItem('mathviz_history_items');
-        if (saved) localItems = JSON.parse(saved);
-      } catch {}
-
-      // 3. Đẩy các hình từ local chưa có trên Neon lên server
-      const cloudSvgSet = new Set(cloudDiagrams.map((d: any) => cleanSvgPayload(d.svgContent)));
-      const toSync = localItems.filter(
-        (local) => local.svgCode && !cloudSvgSet.has(cleanSvgPayload(local.svgCode))
-      );
-
-      if (toSync.length > 0) {
-        await fetch('/api/diagrams', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            diagrams: toSync.map((item) => ({
-              title: item.title,
-              promptText: item.promptText,
-              svgContent: cleanSvgPayload(item.svgCode),
-            })),
-          }),
-        });
-
-        // Lấy lại danh sách mới nhất sau khi đẩy
-        const freshRes = await fetch('/api/diagrams');
-        if (freshRes.ok) {
-          const freshData = await freshRes.json();
-          cloudDiagrams = freshData.diagrams || [];
-        }
-      }
-
-      // 4. Hợp nhất vào local và state
-      const mergedMap = new Map<string, HistoryItem>();
-      for (const item of localItems) {
-        const key = cleanSvgPayload(item.svgCode);
-        if (key) mergedMap.set(key, item);
-      }
-      for (const c of cloudDiagrams) {
-        const key = cleanSvgPayload(c.svgContent);
-        if (key) {
-          mergedMap.set(key, {
-            id: c.id,
-            title: c.title || 'Mô hình hình học',
-            promptText: c.prompt || '',
-            svgCode: c.svgContent,
-            timestamp: new Date(c.createdAt).getTime() || Date.now(),
-            topic: classifyTopic(c.prompt || c.title || ''),
-          });
-        }
-      }
-
-      const finalList = Array.from(mergedMap.values())
-        .sort((a, b) => b.timestamp - a.timestamp)
-        .slice(0, MAX_GALLERY_ITEMS);
-
-      setHistoryItems(finalList);
-      try {
-        localStorage.setItem('mathviz_history_items', JSON.stringify(finalList));
-      } catch {}
     } catch (err) {
-      console.warn('Lỗi đồng bộ bộ sưu tập với Neon DB:', err);
+      console.warn('Lỗi nạp bộ sưu tập của user (/api/user/collection):', err);
+      setHistoryItems([]);
     } finally {
       setIsSyncingCollection(false);
     }
   }, []);
 
-  // Tự động đồng bộ mỗi khi người dùng đăng nhập thành công
+  // Khi tài khoản đăng nhập thành công hoặc khi user thay đổi trong useEffect:
   useEffect(() => {
     if (currentUser) {
-      syncWithNeon(currentUser);
+      fetchUserCollection(currentUser);
+    } else {
+      setHistoryItems([]);
     }
-  }, [currentUser, syncWithNeon]);
+  }, [currentUser, fetchUserCollection]);
 
+  // Xử lý hàm Đăng xuất (Logout Handler):
+  // Xóa sạch state collection, dọn cache localStorage, reset màn hình SVG về mặc định, xóa session
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' });
     } catch (e) {
       console.warn('Lỗi đăng xuất:', e);
     } finally {
+      // 1. Xóa session/cookie xác thực và điều hướng về trạng thái khách
       setCurrentUser(null);
+      setIsUserDropdownOpen(false);
+
+      // 2. Xóa sạch state danh sách bộ sưu tập
+      setHistoryItems([]);
+
+      // 3. Dọn dẹp cache lưu trữ trình duyệt liên quan đến bộ sưu tập
+      try {
+        localStorage.removeItem('user_collection');
+        localStorage.removeItem('saved_math_models');
+        localStorage.removeItem('mathviz_history_items');
+      } catch {}
+
+      // 4. Reset màn hình Canvas SVG về trạng thái mặc định (trống)
+      setSvgOutput('');
+      setPrompt('');
+      setErrorMsg(null);
+      setImagePreview(null);
+      setIsEditMode(false);
     }
   };
 
@@ -641,12 +625,16 @@ function HomeContent() {
         const updated = [newItem, ...filtered].slice(0, MAX_GALLERY_ITEMS);
 
         try {
+          localStorage.setItem('user_collection', JSON.stringify(updated));
+          localStorage.setItem('saved_math_models', JSON.stringify(updated));
           localStorage.setItem('mathviz_history_items', JSON.stringify(updated));
         } catch (storageErr) {
           console.warn('localStorage full or quota exceeded, auto-trimming history:', storageErr);
           // Fallback: gracefully trim to 20 items if quota is constrained
           try {
             const trimmed = updated.slice(0, 20);
+            localStorage.setItem('user_collection', JSON.stringify(trimmed));
+            localStorage.setItem('saved_math_models', JSON.stringify(trimmed));
             localStorage.setItem('mathviz_history_items', JSON.stringify(trimmed));
           } catch (e2) {
             console.error('Không thể lưu vào localStorage:', e2);
@@ -655,9 +643,9 @@ function HomeContent() {
         return updated;
       });
 
-      // Lưu đồng thời lên Neon Database nếu người dùng đã đăng nhập
+      // Lưu đồng thời lên Neon Database nếu người dùng đã đăng nhập (/api/user/collection)
       if (currentUser) {
-        fetch('/api/diagrams', {
+        fetch('/api/user/collection', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -677,14 +665,16 @@ function HomeContent() {
     setHistoryItems((prev) => {
       const updated = prev.filter((item) => item.id !== id);
       try {
+        localStorage.setItem('user_collection', JSON.stringify(updated));
+        localStorage.setItem('saved_math_models', JSON.stringify(updated));
         localStorage.setItem('mathviz_history_items', JSON.stringify(updated));
       } catch {}
       return updated;
     });
 
-    // Xóa khỏi Neon Database nếu người dùng đã đăng nhập
+    // Xóa khỏi Neon Database nếu người dùng đã đăng nhập (/api/user/collection)
     if (currentUser) {
-      fetch(`/api/diagrams?id=${encodeURIComponent(id)}`, {
+      fetch(`/api/user/collection?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       }).catch((err) => console.warn('Lỗi xóa hình trên Neon:', err));
     }
@@ -692,8 +682,20 @@ function HomeContent() {
 
   const handleClearAllHistory = () => {
     if (confirm('Bạn có chắc chắn muốn xóa toàn bộ lịch sử hình vẽ?')) {
+      const itemsToDelete = [...historyItems];
       setHistoryItems([]);
-      localStorage.removeItem('mathviz_history_items');
+      try {
+        localStorage.removeItem('user_collection');
+        localStorage.removeItem('saved_math_models');
+        localStorage.removeItem('mathviz_history_items');
+      } catch {}
+      if (currentUser) {
+        for (const item of itemsToDelete) {
+          fetch(`/api/user/collection?id=${encodeURIComponent(item.id)}`, {
+            method: 'DELETE',
+          }).catch(() => {});
+        }
+      }
     }
   };
 
@@ -2676,7 +2678,7 @@ function HomeContent() {
         onSuccess={async (user) => {
           setCurrentUser(user);
           await checkAndMigrateGuestKey(user);
-          syncWithNeon(user);
+          fetchUserCollection(user);
         }}
       />
       {/* Toast thông báo tự động chuyển đổi Key */}
