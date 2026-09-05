@@ -177,12 +177,12 @@ export default function UnifiedAdminPage() {
     if (!key) return '';
     if (key.length <= 8) return key;
     if (key.startsWith('MV-TR-')) {
-      return `MV-TR-***-${key.slice(-4)}`;
+      return `MV-TR-••••-${key.slice(-4)}`;
     }
     if (key.startsWith('MV-')) {
-      return `MV-***-${key.slice(-4)}`;
+      return `MV-••••-${key.slice(-4)}`;
     }
-    return `${key.slice(0, 3)}-***-${key.slice(-4)}`;
+    return `${key.slice(0, 3)}-••••-${key.slice(-4)}`;
   };
 
   // New Key Form State
@@ -1986,14 +1986,21 @@ export default function UnifiedAdminPage() {
 
                 {/* Table Scrollable Body (Independent scroll) */}
                 <div className="flex-1 min-h-0 overflow-y-auto overflow-x-auto w-full">
-                  <table className="w-full min-w-[700px] table-auto border-collapse text-left text-xs">
-                    <thead className="sticky top-0 z-20 bg-slate-50/95 dark:bg-[#151c2c]/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-[11px] shadow-xs">
+                  <table className="w-full min-w-[750px] table-fixed border-collapse text-left text-xs">
+                    <colgroup>
+                      <col className="w-[26%]" />
+                      <col className="w-[16%]" />
+                      <col className="w-[24%]" />
+                      <col className="w-[22%]" />
+                      <col className="w-[12%]" />
+                    </colgroup>
+                    <thead className="sticky top-0 z-20 bg-slate-50/95 dark:bg-[#151c2c]/95 backdrop-blur-xs border-b border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-xs font-bold shadow-xs">
                       <tr>
-                        <th className="py-2.5 px-3.5 w-[230px] min-w-[210px]">Mã Key</th>
-                        <th className="py-2.5 px-3 w-[120px] min-w-[110px]">Người Tạo</th>
-                        <th className="py-2.5 px-3 min-w-[200px]">Người Kích Hoạt</th>
-                        <th className="py-2.5 px-3 text-center w-[140px] min-w-[130px]">Lượt Dùng & Hạn</th>
-                        <th className="py-2.5 px-2 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-20 min-w-[80px]">
+                        <th className="py-3 px-4 w-[26%]">Mã Key</th>
+                        <th className="py-3 px-4 w-[16%]">Người Tạo</th>
+                        <th className="py-3 px-4 w-[24%]">Người Kích Hoạt</th>
+                        <th className="py-3 px-4 w-[22%]">Lượt Dùng & Hạn</th>
+                        <th className="py-3 px-4 text-center sticky right-0 z-30 bg-slate-100 dark:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-[12%]">
                           Thao Tác
                         </th>
                       </tr>
@@ -2011,14 +2018,14 @@ export default function UnifiedAdminPage() {
                         filteredKeys.map((k) => (
                           <tr key={k.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/30 transition">
                             {/* 1. Mã Key (Masked Display & Toggle Reveal) */}
-                            <td className="px-3.5 py-2.5 whitespace-nowrap align-middle">
+                            <td className="px-4 py-3 align-middle whitespace-nowrap">
                               <div className="inline-flex items-center gap-1.5 font-mono text-xs whitespace-nowrap">
                                 {k.key.startsWith('MV-TR-') || k.key.includes('TRIAL') ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-300 font-bold">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-sky-500/15 border border-sky-500/30 text-sky-700 dark:text-sky-300 font-bold shrink-0">
                                     Trial
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold">
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-md bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 font-bold shrink-0">
                                     VIP
                                   </span>
                                 )}
@@ -2057,14 +2064,15 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 2. Người Tạo */}
-                            <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400 whitespace-nowrap align-middle">
+                            <td className="px-4 py-3 text-slate-600 dark:text-slate-400 align-middle whitespace-nowrap">
                               {k.createdBy ? (
                                 <span
-                                  className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
+                                  className={`text-[11px] px-2 py-0.5 rounded-full font-medium inline-block max-w-full truncate ${
                                     (k.createdBy.role || '').toLowerCase() === 'admin'
                                       ? 'bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20'
                                       : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                                   }`}
+                                  title={k.createdBy.name || k.createdBy.username}
                                 >
                                   {k.createdBy.name || k.createdBy.username}
                                 </span>
@@ -2074,9 +2082,9 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 3. Người Kích Hoạt (Used By) */}
-                            <td className="px-3 py-2.5 whitespace-nowrap align-middle">
+                            <td className="px-4 py-3 align-middle whitespace-nowrap">
                               {k.usedBy ? (
-                                <div className="flex flex-col gap-0.5 max-w-[210px]">
+                                <div className="flex flex-col gap-0.5 max-w-full overflow-hidden">
                                   <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200 text-xs truncate">
                                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                                     <span className="truncate" title={k.usedBy.name || k.usedBy.username}>
@@ -2096,21 +2104,17 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 4. Lượt Dùng & Hạn */}
-                            <td className="px-3 py-2.5 text-center whitespace-nowrap align-middle">
-                              <div className="flex flex-col items-center justify-center">
-                                <div className="text-xs font-semibold text-slate-800 dark:text-slate-200 font-mono leading-tight">
-                                  <span>{k.usedCredits}</span>
-                                  <span className="text-slate-400 font-normal"> / </span>
-                                  <span className="text-slate-600 dark:text-slate-400">{k.totalCredits === -1 ? '∞' : k.totalCredits}</span>
-                                </div>
-                                <span className="text-[11px] text-slate-400 dark:text-slate-500 font-mono leading-tight mt-0.5">
-                                  {k.expiresAt ? formatDateVN(k.expiresAt) : 'Hạn: ∞'}
-                                </span>
+                            <td className="px-4 py-3 align-middle whitespace-nowrap">
+                              <div className="text-xs font-semibold text-slate-800 dark:text-slate-200">
+                                {k.totalCredits === -1 ? '∞ Lượt' : `${k.usedCredits || 0} / ${k.totalCredits} lượt`}
+                              </div>
+                              <div className="text-[11px] text-slate-500 dark:text-slate-400 font-normal mt-0.5">
+                                Hạn: {k.expiresAt ? formatDateVN(k.expiresAt) : 'Vĩnh viễn (∞)'}
                               </div>
                             </td>
 
                             {/* 5. Thao Tác (Ghim cố định bên phải - Sticky Right) */}
-                            <td className="px-2 py-2.5 text-center whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-20 min-w-[80px] align-middle transition-colors">
+                            <td className="px-4 py-3 text-center align-middle whitespace-nowrap sticky right-0 z-10 bg-white group-hover:bg-slate-50 dark:bg-[#111622] dark:group-hover:bg-[#182030] shadow-[-4px_0_8px_-2px_rgba(0,0,0,0.08)] w-[12%] transition-colors">
                               <div className="flex items-center justify-center gap-1.5">
                                 {/* Copy Customer Handover Message Button */}
                                 <button
