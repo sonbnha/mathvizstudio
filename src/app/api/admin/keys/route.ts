@@ -55,7 +55,12 @@ export async function GET(req: NextRequest) {
           used_user.id AS used_user_id,
           used_user.name AS used_user_name,
           used_user.username AS used_user_username,
-          used_user.email AS used_user_email
+          used_user.email AS used_user_email,
+          used_user.role AS used_user_role,
+          used_user.is_vip AS used_user_is_vip,
+          used_user.vip_expires_at AS used_user_vip_expires_at,
+          used_user.remaining_quota AS used_user_remaining_quota,
+          used_user.max_quota AS used_user_max_quota
         FROM license_keys lk
         LEFT JOIN users creator ON creator.id = lk.created_by
         LEFT JOIN users used_user ON used_user.id = lk.used_by
@@ -87,7 +92,12 @@ export async function GET(req: NextRequest) {
           used_user.id AS used_user_id,
           used_user.name AS used_user_name,
           used_user.username AS used_user_username,
-          used_user.email AS used_user_email
+          used_user.email AS used_user_email,
+          used_user.role AS used_user_role,
+          used_user.is_vip AS used_user_is_vip,
+          used_user.vip_expires_at AS used_user_vip_expires_at,
+          used_user.remaining_quota AS used_user_remaining_quota,
+          used_user.max_quota AS used_user_max_quota
         FROM license_keys lk
         LEFT JOIN users creator ON creator.id = lk.created_by
         LEFT JOIN users used_user ON used_user.id = lk.used_by
@@ -130,6 +140,15 @@ export async function GET(req: NextRequest) {
         name: k.used_user_name,
         username: k.used_user_username,
         email: k.used_user_email,
+        role: k.used_user_role,
+        is_vip: Boolean(k.used_user_is_vip),
+        isVip: Boolean(k.used_user_is_vip),
+        vip_expires_at: k.used_user_vip_expires_at,
+        vipExpiresAt: k.used_user_vip_expires_at,
+        remaining_quota: k.used_user_remaining_quota,
+        remainingQuota: k.used_user_remaining_quota,
+        max_quota: k.used_user_max_quota,
+        maxQuota: k.used_user_max_quota,
       } : null,
       used_by: k.used_by,
       usedAt: k.used_at,

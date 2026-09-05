@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { APP_VERSION, formatDateVN, formatDateTimeVN } from '@/config/version';
 import { CHANGELOG } from '@/config/changelog';
+import UserKeyDetailModal, { UserKeyDetailData } from '@/components/UserKeyDetailModal';
 
 export interface ChangelogItem {
   id: string;
@@ -81,9 +82,17 @@ interface LicenseKeyItem {
   key: string;
   customerName: string | null;
   totalCredits: number;
+  total_credits?: number;
   usedCredits: number;
+  used_credits?: number;
+  durationDays?: number;
+  duration_days?: number;
+  maxUsage?: number;
+  max_usage?: number;
   expiresAt: string | null;
+  expires_at?: string | null;
   isActive: boolean;
+  is_active?: boolean;
   status?: string;
   used_by?: string | null;
   used_at?: string | null;
@@ -93,6 +102,15 @@ interface LicenseKeyItem {
     name: string;
     email: string;
     username: string;
+    role?: string;
+    is_vip?: boolean;
+    isVip?: boolean;
+    vip_expires_at?: string | null;
+    vipExpiresAt?: string | null;
+    remaining_quota?: number | null;
+    remainingQuota?: number | null;
+    max_quota?: number | null;
+    maxQuota?: number | null;
   } | null;
   createdAt: string;
   createdById?: string | null;
@@ -195,6 +213,9 @@ export default function UnifiedAdminPage() {
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<LicenseKeyItem | null>(null);
   const [copiedSuccessKey, setCopiedSuccessKey] = useState(false);
   const [copiedCustomerMessage, setCopiedCustomerMessage] = useState(false);
+
+  // User Key Detail Modal State
+  const [selectedUserKey, setSelectedUserKey] = useState<UserKeyDetailData | null>(null);
 
   // User Accounts Management State (Admin Only)
   const [userAccounts, setUserAccounts] = useState<UserAccountItem[]>([]);
@@ -2082,22 +2103,26 @@ export default function UnifiedAdminPage() {
                             </td>
 
                             {/* 3. Người Kích Hoạt (Used By) */}
-                            <td className="px-4 py-3 align-middle">
+                            <td className="px-4 py-3 align-middle whitespace-nowrap">
                               {k.usedBy ? (
-                                <div 
-                                  className="cursor-help flex flex-col group relative"
-                                  title={`Thời gian kích hoạt: ${k.usedAt ? formatDateTimeVN(k.usedAt) : 'Không rõ'}`}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const fullUser = userAccounts.find((u) => u.id === k.usedBy?.id);
+                                    setSelectedUserKey({
+                                      user: {
+                                        ...k.usedBy,
+                                        ...(fullUser || {}),
+                                      },
+                                      key: k,
+                                    });
+                                  }}
+                                  className="inline-flex items-center gap-1.5 font-medium text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 hover:underline transition-colors cursor-pointer text-left"
+                                  title="Xem chi tiết tài khoản"
                                 >
-                                  <div className="flex items-center gap-1.5 font-medium text-slate-800 dark:text-slate-200 text-xs">
-                                    <span className="h-2 w-2 rounded-full bg-emerald-500 shrink-0" />
-                                    <span className="truncate">{k.usedBy.name || k.usedBy.username}</span>
-                                  </div>
-                                  {k.usedBy.email && (
-                                    <span className="text-[11px] text-slate-400 dark:text-slate-500 truncate pl-3.5">
-                                      {k.usedBy.email}
-                                    </span>
-                                  )}
-                                </div>
+                                  <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" />
+                                  <span className="truncate max-w-[170px]">{k.usedBy.name || k.usedBy.username}</span>
+                                </button>
                               ) : (
                                 <span className="text-xs text-slate-400 dark:text-slate-500 italic">
                                   Chưa sử dụng
@@ -3530,6 +3555,13 @@ export default function UnifiedAdminPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL CHI TIẾT TÀI KHOẢN KÍCH HOẠT KEY */}
+      <UserKeyDetailModal
+        isOpen={selectedUserKey !== null}
+        onClose={() => setSelectedUserKey(null)}
+        data={selectedUserKey}
+      />
     </div>
   );
 }
