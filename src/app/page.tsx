@@ -48,7 +48,6 @@ import SavedCollection from '@/components/SavedCollection';
 import ExportDropdown from '@/components/ExportDropdown';
 import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
 import AuthModal, { AuthUser } from '@/components/AuthModal';
-import RenewLicenseModal from '@/components/RenewLicenseModal';
 import { useRenewModal } from '@/context/RenewModalContext';
 import { computeLicenseStatus } from '@/lib/licenseStatus';
 import { REAL_WORLD_MATH_SAMPLES } from '@/data/samplePrompts';
@@ -172,15 +171,30 @@ function HomeContent() {
   const userDropdownRef = useRef<HTMLDivElement>(null);
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
 
-  // VIP License Key Redemption / Renewal Modal State
+  // VIP License Key Redemption / Renewal Modal State (Managed Globally by RenewModalContext)
   const { openRenewModal } = useRenewModal();
-  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
   const [redeemKeyCode, setRedeemKeyCode] = useState('');
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeemSuccessMsg, setRedeemSuccessMsg] = useState<string | null>(null);
   const [migrateToastMsg, setMigrateToastMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleAuthUpdated = (e: any) => {
+      const data = e.detail;
+      if (data?.user) {
+        setCurrentUser((prev: any) => (prev ? { ...prev, ...data.user } : data.user));
+      } else if (data?.key) {
+        setLicenseKey(data.key);
+        checkLicenseKey(data.key);
+      }
+      setMigrateToastMsg('🎉 Gia hạn bản quyền License Key thành công!');
+      setTimeout(() => setMigrateToastMsg(null), 6000);
+    };
+    window.addEventListener('auth-updated', handleAuthUpdated);
+    return () => window.removeEventListener('auth-updated', handleAuthUpdated);
+  }, []);
 
   // Tính toán trạng thái bản quyền & cảnh báo gia hạn thống nhất
   const licenseInfo = computeLicenseStatus({
@@ -965,7 +979,6 @@ function HomeContent() {
         customTitle: 'Tài khoản đã hết lượt sử dụng hoặc hết hạn VIP',
         customDescription: 'Vui lòng nhập mã License Key mới để tiếp tục tạo hình minh họa toán học không giới hạn.',
       });
-      setIsRenewModalOpen(true);
       return;
     }
 
@@ -1771,37 +1784,23 @@ function HomeContent() {
                       {(licenseInfo.isNearExpiry || licenseInfo.isFullyExpired || !licenseInfo.isVipActive) && (
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setIsUserDropdownOpen(false);
                             openRenewModal();
-                            setIsRenewModalOpen(true);
                           }}
-                          className={`w-full px-3.5 py-2.5 text-xs text-left flex items-center justify-between transition cursor-pointer font-bold border-t border-slate-100 dark:border-slate-800/60 ${
-                            licenseInfo.isNearExpiry
-                              ? 'text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20'
-                              : 'text-amber-700 dark:text-amber-400 hover:bg-amber-50/80 dark:hover:bg-amber-950/40'
-                          }`}
+                          className="w-full flex items-center justify-between px-3.5 py-2.5 text-xs rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800/60 transition-colors border-t border-slate-100 dark:border-slate-800/60 cursor-pointer font-bold"
                         >
-                          <div className="flex items-center gap-2.5">
-                            {licenseInfo.isNearExpiry ? (
-                              <Zap className="w-4 h-4 text-amber-500 fill-amber-500 shrink-0" />
-                            ) : (
-                              <Key className="w-4 h-4 text-amber-500 shrink-0" />
-                            )}
-                            <span>
-                              {licenseInfo.isNearExpiry
-                                ? '⚡ Gia hạn key (Sắp hết)'
-                                : '🔑 Gia hạn / Nâng cấp VIP'}
-                            </span>
+                          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-medium">
+                            <span>🔑</span>
+                            <span>{licenseInfo.isNearExpiry ? 'Gia hạn key (Sắp hết)' : 'Gia hạn / Nâng cấp VIP'}</span>
                           </div>
                           {licenseInfo.isNearExpiry ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-slate-950">
-                              {licenseInfo.daysRemaining !== null && licenseInfo.daysRemaining <= 3
-                                ? `CÒN ${licenseInfo.daysRemaining} NGÀY`
-                                : `CÒN ${licenseInfo.remainingCredits} LƯỢT`}
+                            <span className="ml-2 px-2 py-0.5 text-[10px] font-bold text-slate-950 bg-amber-500 rounded-md whitespace-nowrap shadow-xs">
+                              {licenseInfo.daysRemaining !== null && licenseInfo.daysRemaining <= 3 ? `CÒN ${licenseInfo.daysRemaining} NGÀY` : `CÒN ${licenseInfo.remainingCredits} LƯỢT`}
                             </span>
                           ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-xs">
+                            <span className="ml-2 px-2 py-0.5 text-[10px] font-bold text-white bg-rose-600 rounded-md whitespace-nowrap shadow-xs">
                               GIA HẠN NGAY
                             </span>
                           )}
@@ -2653,25 +2652,6 @@ function HomeContent() {
           syncWithNeon(user);
         }}
       />
-
-      {/* Popup Modal Gia Hạn License Key (RenewLicenseModal) */}
-      <RenewLicenseModal
-        isOpen={isRenewModalOpen}
-        onClose={() => setIsRenewModalOpen(false)}
-        currentUser={currentUser}
-        isNearExpiry={licenseInfo.isNearExpiry}
-        onSuccess={(data) => {
-          if (data?.user) {
-            setCurrentUser((prev: any) => (prev ? { ...prev, ...data.user } : data.user));
-          } else if (data?.key) {
-            setLicenseKey(data.key);
-            checkLicenseKey(data.key);
-          }
-          setMigrateToastMsg('🎉 Gia hạn bản quyền License Key thành công!');
-          setTimeout(() => setMigrateToastMsg(null), 6000);
-        }}
-      />
-
       {/* Toast thông báo tự động chuyển đổi Key */}
       {migrateToastMsg && (
         <div className="fixed bottom-12 right-6 z-50 p-4 rounded-2xl bg-slate-900/95 text-white border border-amber-500/40 shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300 max-w-md backdrop-blur-md">
