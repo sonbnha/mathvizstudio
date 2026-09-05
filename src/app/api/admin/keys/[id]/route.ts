@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
+import { getDb } from '@/lib/db';
 
 // DELETE /api/admin/keys/[id]
 export async function DELETE(
@@ -26,12 +26,18 @@ export async function DELETE(
       );
     }
 
+    const sql = getDb();
+
     // Check ownership if STAFF / CTV
     if (role !== 'admin') {
-      const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
       const cuid = (user as any).cuid;
-      const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
-      if (!isOwner) {
+      const keyRows = await sql`
+        SELECT id, created_by 
+        FROM license_keys 
+        WHERE id::text = ${id} OR key = ${id} OR key_code = ${id}
+        LIMIT 1
+      `;
+      if (keyRows.length > 0 && keyRows[0].created_by && keyRows[0].created_by !== user.id) {
         return NextResponse.json(
           { error: 'Page not found' },
           { status: 404 }
@@ -39,9 +45,17 @@ export async function DELETE(
       }
     }
 
-    await prisma.licenseKey.delete({
-      where: { id },
-    });
+    await sql`
+      DELETE FROM license_keys 
+      WHERE id::text = ${id} OR key = ${id} OR key_code = ${id}
+    `;
+
+    try {
+      await sql`
+        DELETE FROM "LicenseKey" 
+        WHERE id = ${id} OR key = ${id}
+      `;
+    } catch {}
 
     return NextResponse.json({ success: true, message: 'Đã xóa License Key thành công.' });
   } catch (error: any) {

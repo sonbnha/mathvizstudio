@@ -433,16 +433,20 @@ export default function UnifiedAdminPage() {
     setCreateKeyLoading(true);
 
     try {
+      const maxUsageValue = isUnlimitedCredits
+        ? -1
+        : Number(customCreditCount) || (keyPackageType === 'TRIAL' ? 15 : 50);
+
       const res = await fetch('/api/admin/keys', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           customerName: effectiveCustomerName,
           keyType: keyPackageType,
-          totalCredits: isUnlimitedCredits
-            ? -1
-            : Number(customCreditCount) || (keyPackageType === 'TRIAL' ? 15 : 50),
-          durationDays,
+          totalCredits: maxUsageValue,
+          maxUsage: maxUsageValue,
+          durationDays: Number(durationDays),
+          prefix: keyPackageType === 'TRIAL' ? 'MV-TR' : 'MV-VIP',
           note: keyNote.trim(),
         }),
       });

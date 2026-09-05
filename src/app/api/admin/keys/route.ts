@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
 import { getCurrentUserFromRequest } from '@/lib/auth';
+import { getDb } from '@/lib/db';
 
-function generateRandomKey(type: 'VIP' | 'TRIAL' = 'VIP'): string {
+function generateRandomKey(type: 'VIP' | 'TRIAL' = 'VIP', prefix?: string): string {
   const p1 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'A');
   const p2 = Math.random().toString(36).substring(2, 6).toUpperCase().padStart(4, 'B');
+  if (prefix && prefix.trim()) {
+    const cleanPrefix = prefix.trim().toUpperCase().replace(/-+$/, '');
+    return `${cleanPrefix}-${p1}-${p2}`;
+  }
   if (type === 'TRIAL') {
     return `MV-TR-${p1}-${p2}`;
   }
@@ -23,60 +27,121 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    const sql = getDb();
     const isStaff = role === 'staff' || role === 'ctv';
-    const cuid = (user as any).cuid;
-    const whereCondition = isStaff
-      ? (cuid
-        ? { OR: [{ createdById: user.id }, { createdById: cuid }] }
-        : { createdById: user.id })
-      : {};
 
-    const keys = await prisma.licenseKey.findMany({
-      where: whereCondition,
-      include: {
-        createdBy: {
-          select: { id: true, username: true, name: true, role: true },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
-
-    // Truy vấn thông tin người dùng đã kích hoạt key
-    const usedByIds = keys.map((k) => k.used_by).filter((id): id is string => Boolean(id));
-    const usedByMap: Record<string, { id: string; name: string; email: string; username: string }> = {};
-
-    if (usedByIds.length > 0) {
-      try {
-        const { getDb } = await import('@/lib/db');
-        const sql = getDb();
-        const userRows = await sql`
-          SELECT id, name, email, username
-          FROM users
-          WHERE id::text = ANY(${usedByIds})
-        `;
-        for (const u of userRows) {
-          usedByMap[u.id] = {
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            username: u.username,
-          };
-        }
-      } catch (e) {
-        console.warn('Lỗi query used_by users:', e);
-      }
+    let rows;
+    if (isStaff) {
+      const cuid = (user as any).cuid;
+      rows = await sql`
+        SELECT 
+          lk.id,
+          lk.key,
+          lk.key_code,
+          lk.customer_name,
+          lk.total_credits,
+          lk.max_usage,
+          lk.used_credits,
+          lk.duration_days,
+          lk.status,
+          lk.is_active,
+          lk.expires_at,
+          lk.created_at,
+          lk.created_by,
+          lk.used_by,
+          lk.used_at,
+          creator.id AS creator_id,
+          creator.name AS creator_name,
+          creator.username AS creator_username,
+          creator.role AS creator_role,
+          used_user.id AS used_user_id,
+          used_user.name AS used_user_name,
+          used_user.username AS used_user_username,
+          used_user.email AS used_user_email
+        FROM license_keys lk
+        LEFT JOIN users creator ON creator.id = lk.created_by
+        LEFT JOIN users used_user ON used_user.id = lk.used_by
+        WHERE lk.created_by = ${user.id}::uuid
+           OR (${cuid}::text IS NOT NULL AND creator.cuid = ${cuid})
+        ORDER BY lk.created_at DESC;
+      `;
+    } else {
+      rows = await sql`
+        SELECT 
+          lk.id,
+          lk.key,
+          lk.key_code,
+          lk.customer_name,
+          lk.total_credits,
+          lk.max_usage,
+          lk.used_credits,
+          lk.duration_days,
+          lk.status,
+          lk.is_active,
+          lk.expires_at,
+          lk.created_at,
+          lk.created_by,
+          lk.used_by,
+          lk.used_at,
+          creator.id AS creator_id,
+          creator.name AS creator_name,
+          creator.username AS creator_username,
+          creator.role AS creator_role,
+          used_user.id AS used_user_id,
+          used_user.name AS used_user_name,
+          used_user.username AS used_user_username,
+          used_user.email AS used_user_email
+        FROM license_keys lk
+        LEFT JOIN users creator ON creator.id = lk.created_by
+        LEFT JOIN users used_user ON used_user.id = lk.used_by
+        ORDER BY lk.created_at DESC;
+      `;
     }
 
-    const enhancedKeys = keys.map((k) => ({
-      ...k,
+    const enhancedKeys = rows.map((k: any) => ({
+      id: k.id,
+      key: k.key || k.key_code,
+      keyCode: k.key_code || k.key,
+      key_code: k.key_code || k.key,
+      customerName: k.customer_name || 'Khách hàng',
+      customer_name: k.customer_name || 'Khách hàng',
+      totalCredits: typeof k.total_credits === 'number' ? k.total_credits : (typeof k.max_usage === 'number' ? k.max_usage : 50),
+      total_credits: typeof k.total_credits === 'number' ? k.total_credits : (typeof k.max_usage === 'number' ? k.max_usage : 50),
+      maxUsage: typeof k.max_usage === 'number' ? k.max_usage : (typeof k.total_credits === 'number' ? k.total_credits : 100),
+      max_usage: typeof k.max_usage === 'number' ? k.max_usage : (typeof k.total_credits === 'number' ? k.total_credits : 100),
+      usedCredits: typeof k.used_credits === 'number' ? k.used_credits : 0,
+      used_credits: typeof k.used_credits === 'number' ? k.used_credits : 0,
+      durationDays: typeof k.duration_days === 'number' ? k.duration_days : 30,
+      duration_days: typeof k.duration_days === 'number' ? k.duration_days : 30,
+      expiresAt: k.expires_at,
+      expires_at: k.expires_at,
       status: k.status || (k.used_by ? 'used' : 'active'),
-      usedBy: k.used_by ? usedByMap[k.used_by] || null : null,
+      isActive: Boolean(k.is_active ?? true),
+      is_active: Boolean(k.is_active ?? true),
+      createdAt: k.created_at,
+      created_at: k.created_at,
+      createdById: k.created_by,
+      created_by: k.created_by,
+      createdBy: k.creator_id ? {
+        id: k.creator_id,
+        username: k.creator_username,
+        name: k.creator_name,
+        role: k.creator_role,
+      } : null,
+      usedBy: k.used_user_id ? {
+        id: k.used_user_id,
+        name: k.used_user_name,
+        username: k.used_user_username,
+        email: k.used_user_email,
+      } : null,
+      used_by: k.used_by,
       usedAt: k.used_at,
+      used_at: k.used_at,
     }));
 
     return NextResponse.json({ keys: enhancedKeys, currentUser: user });
   } catch (error: any) {
-    console.error('Error fetching keys:', error);
+    console.error('Lỗi khi tải danh sách License Keys:', error);
     return NextResponse.json(
       { error: 'Lỗi khi tải danh sách License Keys.' },
       { status: 500 }
@@ -90,99 +155,245 @@ export async function POST(req: NextRequest) {
   const role = (currentUser?.role || '').toLowerCase();
   if (!currentUser || (role !== 'admin' && role !== 'ctv' && role !== 'staff')) {
     return NextResponse.json(
-      { error: 'Page not found' },
-      { status: 404 }
+      { error: 'Không tìm thấy phiên đăng nhập hợp lệ' },
+      { status: 401 }
+    );
+  }
+
+  const currentUserId = currentUser.id;
+  if (!currentUserId) {
+    return NextResponse.json(
+      { error: 'Không tìm thấy phiên đăng nhập hợp lệ' },
+      { status: 401 }
     );
   }
 
   try {
-    const body = await req.json();
-    const { customerName, totalCredits = 50, durationDays = 0, customKey, note, keyType = 'VIP' } = body;
+    const body = await req.json().catch(() => ({}));
+    const {
+      customerName,
+      customer_name,
+      totalCredits,
+      total_credits,
+      maxUsage,
+      max_usage,
+      durationDays,
+      duration_days,
+      customKey,
+      keyCode,
+      key_code,
+      note,
+      keyType = 'VIP',
+      prefix,
+    } = body;
 
-    // Fetch fresh user data with key count from database
-    const cuid = (currentUser as any).cuid;
-    const user = await prisma.user.findFirst({
-      where: cuid
-        ? { OR: [{ id: currentUser.id }, { id: cuid }] }
-        : { id: currentUser.id },
-      include: { _count: { select: { keys: true } } },
-    });
+    const sql = getDb();
 
-    if (!user || !user.isActive) {
+    // 1. Kiểm tra trạng thái tài khoản người tạo từ DB Neon
+    const userRows = await sql`
+      SELECT id, username, name, role, key_quota, is_active, status, cuid
+      FROM users
+      WHERE id = ${currentUserId}::uuid
+      LIMIT 1
+    `;
+
+    const dbUser: any = userRows && userRows.length > 0 ? userRows[0] : currentUser;
+    if (dbUser.is_active === false || dbUser.status === 'banned') {
       return NextResponse.json(
         { error: 'Tài khoản không tồn tại hoặc đã bị khóa.' },
         { status: 403 }
       );
     }
 
-    // Check quota for STAFF role (Only block when role is NOT ADMIN AND maxCredits is NOT -1)
-    const isCurrentUserAdmin = (currentUser.role || '').toLowerCase() === 'admin' || (user.role || '').toLowerCase() === 'admin';
-    if (!isCurrentUserAdmin && user.maxCredits !== -1) {
-      const currentCreatedCount = user._count.keys;
-      if (currentCreatedCount >= user.maxCredits) {
+    // 2. Kiểm tra hạn mức tạo key cho vai trò CTV / STAFF
+    const isCurrentUserAdmin =
+      (currentUser.role || '').toLowerCase() === 'admin' ||
+      (dbUser.role || '').toLowerCase() === 'admin';
+
+    const userQuota = typeof dbUser.key_quota === 'number' ? dbUser.key_quota : 50;
+
+    if (!isCurrentUserAdmin && userQuota !== -1) {
+      const countRows = await sql`
+        SELECT COUNT(*)::int AS count
+        FROM license_keys
+        WHERE created_by = ${currentUserId}::uuid
+      `;
+      const currentCreatedCount = countRows[0]?.count || 0;
+      if (currentCreatedCount >= userQuota) {
         return NextResponse.json(
           {
-            error: `Bạn đã đạt giới hạn tối đa (${user.maxCredits} key) được cấp! Vui lòng liên hệ Admin để nâng hạn mức.`,
+            error: `Bạn đã đạt giới hạn tối đa (${userQuota} key) được cấp! Vui lòng liên hệ Admin để nâng hạn mức.`,
           },
           { status: 403 }
         );
       }
     }
 
+    // 3. Chuẩn hóa tham số tạo key
     const effectiveType: 'VIP' | 'TRIAL' = keyType === 'TRIAL' ? 'TRIAL' : 'VIP';
+    const effectivePrefix = prefix || (effectiveType === 'TRIAL' ? 'MV-TR' : 'MV-VIP');
 
-    // Auto generate unique key if not provided
-    let keyString = customKey?.trim() ? customKey.trim().toUpperCase() : generateRandomKey(effectiveType);
-    
-    // Check collision and regenerate if needed
+    // Số ngày có hiệu lực
+    const days = durationDays !== undefined
+      ? Number(durationDays)
+      : duration_days !== undefined
+      ? Number(duration_days)
+      : (effectiveType === 'TRIAL' ? 7 : 30);
+
+    // Hạn mức lượt tạo hình
+    const usage = maxUsage !== undefined
+      ? Number(maxUsage)
+      : max_usage !== undefined
+      ? Number(max_usage)
+      : totalCredits !== undefined
+      ? Number(totalCredits)
+      : total_credits !== undefined
+      ? Number(total_credits)
+      : (effectiveType === 'TRIAL' ? 15 : 100);
+
+    // Tự sinh mã key ngẫu nhiên nếu không truyền mã tùy chỉnh
+    const rawCustomKey = customKey || keyCode || key_code;
+    let keyString = rawCustomKey?.trim()
+      ? rawCustomKey.trim().toUpperCase()
+      : generateRandomKey(effectiveType, effectivePrefix);
+
+    // Kiểm tra trùng lặp mã key và tái tạo nếu cần
     let attempts = 0;
     while (attempts < 5) {
-      const existing = await prisma.licenseKey.findUnique({
-        where: { key: keyString },
-      });
-      if (!existing) break;
-      keyString = generateRandomKey(effectiveType);
+      const existing = await sql`
+        SELECT id FROM license_keys 
+        WHERE UPPER(key) = ${keyString} OR UPPER(key_code) = ${keyString}
+        LIMIT 1
+      `;
+      if (!existing || existing.length === 0) break;
+      keyString = generateRandomKey(effectiveType, effectivePrefix);
       attempts++;
     }
 
+    // Tính thời gian hết hạn
     let expiresAt: Date | null = null;
-    if (durationDays && Number(durationDays) > 0) {
+    if (days && days > 0) {
       expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + Number(durationDays));
+      expiresAt.setDate(expiresAt.getDate() + days);
     }
 
     const defaultName =
       effectiveType === 'TRIAL'
         ? `Trial_${Math.random().toString(36).substring(2, 6).toUpperCase()}`
         : 'Khách hàng';
-    const rawCustomerName = customerName?.trim() || defaultName;
+    const rawName = customerName?.trim() || customer_name?.trim() || defaultName;
+    const finalCustomerName = note?.trim() ? `${rawName} (${note.trim()})` : rawName;
 
-    const finalCustomerName = note?.trim()
-      ? `${rawCustomerName} (${note.trim()})`
-      : rawCustomerName;
+    // 4. INSERT an toàn vào Neon Postgres bảng license_keys
+    const insertedRows = await sql`
+      INSERT INTO license_keys (
+        key,
+        key_code,
+        created_by,
+        duration_days,
+        max_usage,
+        total_credits,
+        used_credits,
+        status,
+        customer_name,
+        expires_at,
+        is_active,
+        created_at
+      )
+      VALUES (
+        ${keyString},
+        ${keyString},
+        ${currentUserId}::uuid,
+        ${days},
+        ${usage},
+        ${usage},
+        0,
+        'active',
+        ${finalCustomerName},
+        ${expiresAt},
+        true,
+        CURRENT_TIMESTAMP
+      )
+      RETURNING *;
+    `;
 
-    const newKey = await prisma.licenseKey.create({
-      data: {
-        key: keyString,
-        customerName: finalCustomerName,
-        totalCredits: Number(totalCredits),
-        usedCredits: 0,
-        expiresAt,
-        isActive: true,
-        createdById: user.id,
+    if (!insertedRows || insertedRows.length === 0) {
+      throw new Error('Không nhận được dữ liệu phản hồi từ database sau khi tạo key.');
+    }
+
+    const newKeyRow = insertedRows[0];
+
+    // 5. Đồng bộ dự phòng sang bảng LicenseKey (Prisma) nếu có để tránh sai lệch
+    try {
+      const cuid = dbUser.cuid || (currentUser as any).cuid;
+      await sql`
+        INSERT INTO "LicenseKey" (
+          id, key, "customerName", "totalCredits", "usedCredits", "expiresAt", "isActive", "createdAt", "createdById", status
+        )
+        VALUES (
+          ${newKeyRow.id}::text,
+          ${keyString},
+          ${finalCustomerName},
+          ${usage},
+          0,
+          ${expiresAt},
+          true,
+          CURRENT_TIMESTAMP,
+          ${cuid || null},
+          'active'
+        )
+        ON CONFLICT (key) DO UPDATE SET
+          "customerName" = EXCLUDED."customerName",
+          "totalCredits" = EXCLUDED."totalCredits",
+          "expiresAt" = EXCLUDED."expiresAt",
+          status = EXCLUDED.status;
+      `;
+    } catch (syncErr) {
+      console.warn('Prisma LicenseKey sync warning:', syncErr);
+    }
+
+    // 6. Định dạng key trả về chuẩn giao diện
+    const formattedKey = {
+      id: newKeyRow.id,
+      key: newKeyRow.key || newKeyRow.key_code,
+      keyCode: newKeyRow.key_code || newKeyRow.key,
+      key_code: newKeyRow.key_code || newKeyRow.key,
+      customerName: newKeyRow.customer_name,
+      customer_name: newKeyRow.customer_name,
+      totalCredits: newKeyRow.total_credits,
+      total_credits: newKeyRow.total_credits,
+      maxUsage: newKeyRow.max_usage,
+      max_usage: newKeyRow.max_usage,
+      usedCredits: newKeyRow.used_credits,
+      used_credits: newKeyRow.used_credits,
+      durationDays: newKeyRow.duration_days,
+      duration_days: newKeyRow.duration_days,
+      expiresAt: newKeyRow.expires_at,
+      expires_at: newKeyRow.expires_at,
+      status: newKeyRow.status || 'active',
+      isActive: Boolean(newKeyRow.is_active ?? true),
+      is_active: Boolean(newKeyRow.is_active ?? true),
+      createdAt: newKeyRow.created_at,
+      created_at: newKeyRow.created_at,
+      createdById: newKeyRow.created_by,
+      created_by: newKeyRow.created_by,
+      createdBy: {
+        id: dbUser.id || currentUserId,
+        username: dbUser.username || currentUser.username,
+        name: dbUser.name || currentUser.name,
+        role: dbUser.role || currentUser.role,
       },
-      include: {
-        createdBy: {
-          select: { id: true, username: true, name: true, role: true },
-        },
-      },
-    });
+      usedBy: null,
+      used_by: null,
+      usedAt: null,
+      used_at: null,
+    };
 
-    return NextResponse.json({ success: true, key: newKey }, { status: 201 });
-  } catch (error: any) {
-    console.error('Error creating key:', error);
+    return NextResponse.json({ success: true, key: formattedKey }, { status: 201 });
+  } catch (err: any) {
+    console.error('Lỗi khi tạo License Key:', err.message, err.detail);
     return NextResponse.json(
-      { error: 'Không thể tạo License Key.' },
+      { error: err.message || 'Lỗi tạo key' },
       { status: 500 }
     );
   }
@@ -210,12 +421,17 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
+    const sql = getDb();
+
     // Check ownership if STAFF / CTV
     if (role !== 'admin') {
-      const keyRecord = await prisma.licenseKey.findUnique({ where: { id } });
-      const cuid = (user as any).cuid;
-      const isOwner = keyRecord && (keyRecord.createdById === user.id || (cuid && keyRecord.createdById === cuid));
-      if (!isOwner) {
+      const keyRows = await sql`
+        SELECT id, created_by 
+        FROM license_keys 
+        WHERE id::text = ${id} OR key = ${id} OR key_code = ${id}
+        LIMIT 1
+      `;
+      if (keyRows.length > 0 && keyRows[0].created_by && keyRows[0].created_by !== user.id) {
         return NextResponse.json(
           { error: 'Page not found' },
           { status: 404 }
@@ -223,9 +439,17 @@ export async function DELETE(req: NextRequest) {
       }
     }
 
-    await prisma.licenseKey.delete({
-      where: { id },
-    });
+    await sql`
+      DELETE FROM license_keys 
+      WHERE id::text = ${id} OR key = ${id} OR key_code = ${id}
+    `;
+
+    try {
+      await sql`
+        DELETE FROM "LicenseKey" 
+        WHERE id = ${id} OR key = ${id}
+      `;
+    } catch {}
 
     return NextResponse.json({ success: true, message: 'Đã xóa License Key thành công.' });
   } catch (error: any) {
