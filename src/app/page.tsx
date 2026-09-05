@@ -49,6 +49,7 @@ import ExportDropdown from '@/components/ExportDropdown';
 import InteractiveSvgEditor from '@/components/InteractiveSvgEditor';
 import AuthModal, { AuthUser } from '@/components/AuthModal';
 import RenewLicenseModal from '@/components/RenewLicenseModal';
+import { useRenewModal } from '@/context/RenewModalContext';
 import { computeLicenseStatus } from '@/lib/licenseStatus';
 import { REAL_WORLD_MATH_SAMPLES } from '@/data/samplePrompts';
 
@@ -172,6 +173,7 @@ function HomeContent() {
   const [isSyncingCollection, setIsSyncingCollection] = useState(false);
 
   // VIP License Key Redemption / Renewal Modal State
+  const { openRenewModal } = useRenewModal();
   const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
   const [isRedeemModalOpen, setIsRedeemModalOpen] = useState(false);
   const [redeemKeyCode, setRedeemKeyCode] = useState('');
@@ -957,7 +959,12 @@ function HomeContent() {
     }
 
     // Chặn và mở Popup Gia hạn ngay lập tức khi tài khoản hết hạn hoặc hết lượt
-    if (licenseInfo.isExpiredOrDepleted) {
+    if (licenseInfo.isFullyExpired || licenseInfo.turnsLeft <= 0 || licenseInfo.isExpiredOrDepleted) {
+      openRenewModal({
+        isNearExpiry: false,
+        customTitle: 'Tài khoản đã hết lượt sử dụng hoặc hết hạn VIP',
+        customDescription: 'Vui lòng nhập mã License Key mới để tiếp tục tạo hình minh họa toán học không giới hạn.',
+      });
       setIsRenewModalOpen(true);
       return;
     }
@@ -1458,16 +1465,15 @@ function HomeContent() {
             </div>
           ) : (
             <div className="flex items-center gap-2 shrink-0">
-              {/* Nút ⚡ Gia hạn key khi sắp hết hạn / sắp hết lượt */}
-              {licenseInfo.isNearExpiry && (
+              {/* Nút ⚡ Gia hạn key khi sắp hết hạn / sắp hết lượt hoặc đã hết */}
+              {(licenseInfo.isNearExpiry || licenseInfo.isFullyExpired) && (
                 <button
                   type="button"
-                  onClick={() => setIsRenewModalOpen(true)}
-                  className="h-10 px-2.5 sm:px-3 rounded-xl text-xs font-extrabold bg-gradient-to-r from-amber-500/20 via-orange-500/20 to-amber-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/50 shadow-xs flex items-center gap-1.5 transition-all cursor-pointer animate-pulse hover:animate-none shrink-0"
-                  title="Gói bản quyền của bạn sắp hết hạn hoặc hết lượt tạo hình. Bấm để gia hạn ngay!"
+                  onClick={() => openRenewModal()}
+                  className="px-3 py-1 text-xs font-semibold rounded-full bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md hover:brightness-110 flex items-center gap-1 animate-pulse cursor-pointer shrink-0"
+                  title="Gói bản quyền của bạn sắp hết hạn hoặc đã hết lượt tạo hình. Bấm để gia hạn ngay!"
                 >
-                  <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
-                  <span className="whitespace-nowrap">⚡ Gia hạn key</span>
+                  <span>⚡ Gia hạn key</span>
                 </button>
               )}
 
@@ -1758,15 +1764,16 @@ function HomeContent() {
                         </span>
                       </button>
 
-                      {/* Nút Nhập / Gia hạn License Key:
+                      {/* Nút Nhập / Gia hạn License Key trong Dropdown:
                           - ĐANG VIP NHƯNG SẮP HẾT HẠN HOẶC SẮP HẾT LƯỢT (isNearExpiry): Hiện nút "⚡ Gia hạn key"
-                          - HẾT HẠN HOẶC FREE: Hiện nút "🔑 Kích hoạt License Key / Nâng cấp VIP"
+                          - HẾT HẠN HOẶC HẾT LƯỢT (isFullyExpired) HOẶC FREE: Hiện nút "🔑 Gia hạn / Nâng cấp VIP"
                           - ĐANG VIP còn hạn dài: Ẩn hoàn toàn */}
-                      {(!licenseInfo.isVipActive || licenseInfo.isNearExpiry) && (
+                      {(licenseInfo.isNearExpiry || licenseInfo.isFullyExpired || !licenseInfo.isVipActive) && (
                         <button
                           type="button"
                           onClick={() => {
                             setIsUserDropdownOpen(false);
+                            openRenewModal();
                             setIsRenewModalOpen(true);
                           }}
                           className={`w-full px-3.5 py-2.5 text-xs text-left flex items-center justify-between transition cursor-pointer font-bold border-t border-slate-100 dark:border-slate-800/60 ${
@@ -1784,7 +1791,7 @@ function HomeContent() {
                             <span>
                               {licenseInfo.isNearExpiry
                                 ? '⚡ Gia hạn key (Sắp hết)'
-                                : '🔑 Kích hoạt License Key / Nâng cấp VIP'}
+                                : '🔑 Gia hạn / Nâng cấp VIP'}
                             </span>
                           </div>
                           {licenseInfo.isNearExpiry ? (
@@ -1793,13 +1800,9 @@ function HomeContent() {
                                 ? `CÒN ${licenseInfo.daysRemaining} NGÀY`
                                 : `CÒN ${licenseInfo.remainingCredits} LƯỢT`}
                             </span>
-                          ) : isVipExpired ? (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-xs">
-                              KÍCH HOẠT LẠI
-                            </span>
                           ) : (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 shadow-xs">
-                              NÂNG CẤP
+                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-rose-500 text-white shadow-xs">
+                              GIA HẠN NGAY
                             </span>
                           )}
                         </button>

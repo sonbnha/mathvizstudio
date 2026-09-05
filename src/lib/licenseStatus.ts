@@ -1,12 +1,20 @@
 export interface LicenseStatusResult {
   isVipActive: boolean;
   isNearExpiry: boolean;
+  isFullyExpired: boolean;
   isExpiredOrDepleted: boolean;
   daysRemaining: number | null; // null = vô hạn
+  daysLeft: number;
   remainingCredits: number; // -1 = vô hạn
+  remaining_quota: number;
+  remainingQuota: number;
+  turnsLeft: number;
   totalCredits: number; // -1 = vô hạn
+  max_quota: number;
+  maxQuota: number;
   usedCredits: number;
   vipExpiresAt: string | null;
+  vip_expires_at: string | null;
   isAdmin: boolean;
 }
 
@@ -19,118 +27,170 @@ export function computeLicenseStatus({
   guestKey?: string;
   guestLicenseStatus?: any | null;
 }): LicenseStatusResult {
-  const isAdmin = (user?.role || '').toLowerCase() === 'admin';
+  const role = (user?.role || '').toLowerCase();
+  const isAdmin = role === 'admin';
+
   if (isAdmin) {
     return {
       isVipActive: true,
       isNearExpiry: false,
+      isFullyExpired: false,
       isExpiredOrDepleted: false,
       daysRemaining: null,
+      daysLeft: 999,
       remainingCredits: -1,
+      remaining_quota: 999,
+      remainingQuota: 999,
+      turnsLeft: 999,
       totalCredits: -1,
+      max_quota: 999,
+      maxQuota: 999,
       usedCredits: 0,
       vipExpiresAt: null,
+      vip_expires_at: null,
       isAdmin: true,
     };
   }
 
-  const now = new Date();
+  const now = new Date().getTime();
 
   // 1. Trường hợp người dùng đã đăng nhập (currentUser)
   if (user) {
-    const isVipFlag = Boolean(user.isVip || user.is_vip);
-    const exp = user.vipExpiresAt || user.vip_expires_at;
-    const expDate = exp ? new Date(exp) : null;
+    const isVip = Boolean(user.is_vip || user.isVip);
+    const expireIso = user.vip_expires_at || user.vipExpiresAt || null;
+    const expireTime = expireIso ? new Date(expireIso).getTime() : null;
 
-    const daysRemaining = expDate
-      ? Math.max(0, Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-      : null;
+    // daysLeft: số ngày còn lại (999 nếu không có ngày hết hạn)
+    const daysLeft = expireTime ? Math.ceil((expireTime - now) / (1000 * 60 * 60 * 24)) : 999;
+    const daysRemaining = expireTime ? Math.max(0, daysLeft) : null;
 
-    const isVipActive = isVipFlag && (!expDate || expDate > now);
+    // turnsLeft: số lượt còn lại (INT)
+    const turnsLeft = typeof user.remaining_quota === 'number'
+      ? user.remaining_quota
+      : typeof user.remainingQuota === 'number'
+      ? user.remainingQuota
+      : typeof user.remaining_credits === 'number'
+      ? (user.remaining_credits === -1 ? 999 : user.remaining_credits)
+      : typeof user.remainingCredits === 'number'
+      ? (user.remainingCredits === -1 ? 999 : user.remainingCredits)
+      : (user.usage_limit === -1 || user.usageLimit === -1 ? 999 : 0);
 
-    const limit = typeof user.usage_limit === 'number'
-      ? user.usage_limit
-      : typeof user.usageLimit === 'number'
-      ? user.usageLimit
-      : -1;
+    const maxQuota = typeof user.max_quota === 'number'
+      ? user.max_quota
+      : typeof user.maxQuota === 'number'
+      ? user.maxQuota
+      : (typeof user.usage_limit === 'number' ? (user.usage_limit === -1 ? 999 : user.usage_limit) : 0);
 
-    const count = typeof user.usage_count === 'number'
+    const usedCount = typeof user.usage_count === 'number'
       ? user.usage_count
       : typeof user.usageCount === 'number'
       ? user.usageCount
-      : 0;
+      : (typeof user.used_credits === 'number' ? user.used_credits : 0);
 
-    const remainingCredits = typeof user.remaining_credits === 'number'
-      ? user.remaining_credits
-      : typeof user.remainingCredits === 'number'
-      ? user.remainingCredits
-      : (limit === -1 ? -1 : Math.max(0, limit - count));
-
-    // isNearExpiry: isVipActive && ((số ngày còn lại <= 3 && số ngày còn lại > 0) || (số lượt còn lại <= 5 && số lượt còn lại > 0))
-    const isNearExpiry = isVipActive && (
-      (daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0) ||
-      (remainingCredits !== -1 && remainingCredits <= 5 && remainingCredits > 0)
+    // Chuẩn hóa theo công thức:
+    // isNearExpiry = user?.is_vip && ((daysLeft <= 3 && daysLeft > 0) || (turnsLeft <= 5 && turnsLeft > 0))
+    const isNearExpiry = Boolean(
+      isVip && ((daysLeft <= 3 && daysLeft > 0) || (turnsLeft <= 5 && turnsLeft > 0))
     );
 
-    // isExpiredOrDepleted: (!isVipActive) || (số ngày còn lại <= 0) || (số lượt còn lại <= 0)
-    const isExpiredOrDepleted = !isVipActive ||
-      (daysRemaining !== null && daysRemaining <= 0) ||
-      (remainingCredits !== -1 && remainingCredits <= 0);
+    // isFullyExpired = user?.is_vip && (daysLeft <= 0 || turnsLeft <= 0)
+    // Nếu chưa là VIP (!isVip), cũng được tính là isFullyExpired = true
+    const isFullyExpired = isVip
+      ? Boolean(daysLeft <= 0 || turnsLeft <= 0)
+      : true;
+
+    const isVipActive = isVip && !isFullyExpired;
+    const isExpiredOrDepleted = isFullyExpired || turnsLeft <= 0;
 
     return {
       isVipActive,
       isNearExpiry,
+      isFullyExpired,
       isExpiredOrDepleted,
       daysRemaining,
-      remainingCredits,
-      totalCredits: limit,
-      usedCredits: count,
-      vipExpiresAt: exp ? new Date(exp).toISOString() : null,
+      daysLeft,
+      remainingCredits: turnsLeft === 999 ? -1 : turnsLeft,
+      remaining_quota: turnsLeft,
+      remainingQuota: turnsLeft,
+      turnsLeft,
+      totalCredits: maxQuota,
+      max_quota: maxQuota,
+      maxQuota: maxQuota,
+      usedCredits: usedCount,
+      vipExpiresAt: expireIso ? new Date(expireIso).toISOString() : null,
+      vip_expires_at: expireIso ? new Date(expireIso).toISOString() : null,
       isAdmin: false,
     };
   }
 
   // 2. Trường hợp khách vãng lai (Guest)
-  const hasValidGuestKey = Boolean(guestLicenseStatus?.valid && guestKey?.trim());
-  const exp = guestLicenseStatus?.expiresAt;
-  const expDate = exp ? new Date(exp) : null;
+  const hasGuestKey = Boolean(guestKey && guestKey.trim());
+  const isValidGuest = Boolean(guestLicenseStatus?.valid && hasGuestKey);
 
-  const daysRemaining = expDate
-    ? Math.max(0, Math.ceil((expDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
-    : null;
+  if (isValidGuest) {
+    const expireIso = guestLicenseStatus?.expiresAt || null;
+    const expireTime = expireIso ? new Date(expireIso).getTime() : null;
 
-  const limit = typeof guestLicenseStatus?.totalCredits === 'number'
-    ? guestLicenseStatus.totalCredits
-    : (hasValidGuestKey ? 50 : 0);
+    const daysLeft = expireTime ? Math.ceil((expireTime - now) / (1000 * 60 * 60 * 24)) : 999;
+    const daysRemaining = expireTime ? Math.max(0, daysLeft) : null;
 
-  const count = typeof guestLicenseStatus?.usedCredits === 'number'
-    ? guestLicenseStatus.usedCredits
-    : 0;
+    const maxCredits = typeof guestLicenseStatus?.totalCredits === 'number'
+      ? guestLicenseStatus.totalCredits
+      : 50;
 
-  const remainingCredits = typeof guestLicenseStatus?.remainingCredits === 'number'
-    ? guestLicenseStatus.remainingCredits
-    : (limit === -1 ? -1 : (hasValidGuestKey ? Math.max(0, limit - count) : 0));
+    const usedCredits = typeof guestLicenseStatus?.usedCredits === 'number'
+      ? guestLicenseStatus.usedCredits
+      : 0;
 
-  const isVipActive = hasValidGuestKey && (!expDate || expDate > now);
+    const turnsLeft = typeof guestLicenseStatus?.remainingCredits === 'number'
+      ? (guestLicenseStatus.remainingCredits === -1 ? 999 : guestLicenseStatus.remainingCredits)
+      : (maxCredits === -1 ? 999 : Math.max(0, maxCredits - usedCredits));
 
-  const isNearExpiry = isVipActive && (
-    (daysRemaining !== null && daysRemaining <= 3 && daysRemaining > 0) ||
-    (remainingCredits !== -1 && remainingCredits <= 5 && remainingCredits > 0)
-  );
+    const isNearExpiry = Boolean(
+      (daysLeft <= 3 && daysLeft > 0) || (turnsLeft <= 5 && turnsLeft > 0)
+    );
+    const isFullyExpired = Boolean(daysLeft <= 0 || turnsLeft <= 0);
+    const isVipActive = !isFullyExpired;
 
-  const isExpiredOrDepleted = !isVipActive ||
-    (daysRemaining !== null && daysRemaining <= 0) ||
-    (remainingCredits !== -1 && remainingCredits <= 0);
+    return {
+      isVipActive,
+      isNearExpiry,
+      isFullyExpired,
+      isExpiredOrDepleted: isFullyExpired,
+      daysRemaining,
+      daysLeft,
+      remainingCredits: turnsLeft === 999 ? -1 : turnsLeft,
+      remaining_quota: turnsLeft,
+      remainingQuota: turnsLeft,
+      turnsLeft,
+      totalCredits: maxCredits,
+      max_quota: maxCredits === -1 ? 999 : maxCredits,
+      maxQuota: maxCredits === -1 ? 999 : maxCredits,
+      usedCredits,
+      vipExpiresAt: expireIso ? new Date(expireIso).toISOString() : null,
+      vip_expires_at: expireIso ? new Date(expireIso).toISOString() : null,
+      isAdmin: false,
+    };
+  }
 
+  // Khách vãng lai chưa có key
   return {
-    isVipActive,
-    isNearExpiry,
-    isExpiredOrDepleted,
-    daysRemaining,
-    remainingCredits,
-    totalCredits: limit,
-    usedCredits: count,
-    vipExpiresAt: exp ? new Date(exp).toISOString() : null,
+    isVipActive: false,
+    isNearExpiry: false,
+    isFullyExpired: true,
+    isExpiredOrDepleted: true,
+    daysRemaining: 0,
+    daysLeft: 0,
+    remainingCredits: 0,
+    remaining_quota: 0,
+    remainingQuota: 0,
+    turnsLeft: 0,
+    totalCredits: 0,
+    max_quota: 0,
+    maxQuota: 0,
+    usedCredits: 0,
+    vipExpiresAt: null,
+    vip_expires_at: null,
     isAdmin: false,
   };
 }

@@ -31,6 +31,7 @@ import {
 } from '@/lib/lessonPlanUtils';
 import { LessonPlanWordPreview } from './LessonPlanWordPreview';
 import { useApiKey } from '@/context/ApiKeyContext';
+import { useRenewModal } from '@/context/RenewModalContext';
 import { computeLicenseStatus } from '@/lib/licenseStatus';
 import RenewLicenseModal from '@/components/RenewLicenseModal';
 
@@ -41,6 +42,7 @@ interface LessonPlanViewProps {
 export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPlanViewProps) {
   // Gemini API Key Context
   const { isCustomKeyActive, openApiKeyModal, getApiKeyHeaders, handleRateLimitError } = useApiKey();
+  const { openRenewModal } = useRenewModal();
 
   // Form states
   const [topic, setTopic] = useState('Định lý Pythagore (Pytago) và ứng dụng thực tế');
@@ -109,7 +111,12 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
     }
 
     // Chặn và mở modal gia hạn nếu tài khoản đã hết hạn hoặc hết lượt
-    if (licenseInfo.isExpiredOrDepleted) {
+    if (licenseInfo.isFullyExpired || licenseInfo.turnsLeft <= 0 || licenseInfo.isExpiredOrDepleted) {
+      openRenewModal({
+        isNearExpiry: false,
+        customTitle: 'Hết hạn hoặc hết lượt soạn giáo án',
+        customDescription: 'Vui lòng nhập mã License Key mới để tiếp tục soạn giáo án theo chuẩn Công văn 5512.',
+      });
       setIsRenewModalOpen(true);
       return;
     }
@@ -216,6 +223,16 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   // Continue generating action for long documents that reached token limit
   const handleContinueGenerate = async () => {
     if (!lessonPlan || isStreaming || isContinuing) return;
+
+    if (licenseInfo.isFullyExpired || licenseInfo.turnsLeft <= 0 || licenseInfo.isExpiredOrDepleted) {
+      openRenewModal({
+        isNearExpiry: false,
+        customTitle: 'Hết hạn hoặc hết lượt soạn giáo án',
+        customDescription: 'Vui lòng nhập mã License Key mới để tiếp tục soạn giáo án theo chuẩn Công văn 5512.',
+      });
+      setIsRenewModalOpen(true);
+      return;
+    }
 
     setIsContinuing(true);
     setIsStreaming(true);

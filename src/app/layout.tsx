@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { ApiKeyProvider } from "@/context/ApiKeyContext";
 import { ApiKeyModal } from "@/components/ApiKeyModal";
+import { RenewModalProvider } from "@/context/RenewModalContext";
 
 export const metadata: Metadata = {
   title: "MathViz Studio",
@@ -37,8 +38,10 @@ export default function RootLayout({
       </head>
       <body className="h-full overflow-hidden flex flex-col font-sans bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors">
         <ApiKeyProvider>
-          {children}
-          <ApiKeyModal />
+          <RenewModalProvider>
+            {children}
+            <ApiKeyModal />
+          </RenewModalProvider>
         </ApiKeyProvider>
       </body>
     </html>
