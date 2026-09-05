@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getGeminiClient } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUserFromRequest } from '@/lib/auth';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
@@ -15,31 +16,42 @@ function extractTikzOnly(rawText: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Authenticate via Header X-License-Key
-    const licenseKey = req.headers.get('x-license-key') || req.headers.get('X-License-Key');
-    if (!licenseKey) {
-      return NextResponse.json(
-        { error: 'Thiếu License Key trong Header X-License-Key.' },
-        { status: 403 }
-      );
-    }
+    // 1. Authenticate via Header X-License-Key or Account VIP
+    const currentUser = await getCurrentUserFromRequest(req);
+    const isAccountVip = Boolean(
+      currentUser && (
+        ['admin', 'ctv'].includes((currentUser.role || '').toLowerCase()) ||
+        currentUser.isVip ||
+        (currentUser as any).is_vip
+      )
+    );
 
-    const keyRecord = await prisma.licenseKey.findUnique({
-      where: { key: licenseKey.trim() },
-    });
+    if (!isAccountVip) {
+      const licenseKey = req.headers.get('x-license-key') || req.headers.get('X-License-Key');
+      if (!licenseKey) {
+        return NextResponse.json(
+          { error: 'Thiếu License Key trong Header X-License-Key.' },
+          { status: 403 }
+        );
+      }
 
-    if (!keyRecord || !keyRecord.isActive) {
-      return NextResponse.json(
-        { error: 'License key không hợp lệ hoặc đã bị khóa.' },
-        { status: 403 }
-      );
-    }
+      const keyRecord = await prisma.licenseKey.findUnique({
+        where: { key: licenseKey.trim() },
+      });
 
-    if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
-      return NextResponse.json(
-        { error: 'License key đã hết hạn sử dụng.' },
-        { status: 403 }
-      );
+      if (!keyRecord || !keyRecord.isActive) {
+        return NextResponse.json(
+          { error: 'License key không hợp lệ hoặc đã bị khóa.' },
+          { status: 403 }
+        );
+      }
+
+      if (keyRecord.expiresAt && new Date(keyRecord.expiresAt) < new Date()) {
+        return NextResponse.json(
+          { error: 'License key đã hết hạn sử dụng.' },
+          { status: 403 }
+        );
+      }
     }
 
     // 2. Parse request payload

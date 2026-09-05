@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getGeminiClient, MODEL_CASCADE } from '@/lib/gemini';
 import { prisma } from '@/lib/prisma';
+import { getCurrentUserFromRequest } from '@/lib/auth';
 
 export const maxDuration = 120;
 export const dynamic = 'force-dynamic';
@@ -28,9 +29,18 @@ export async function POST(req: NextRequest) {
 
     const isContinue = Boolean(continueFromText && typeof continueFromText === 'string' && continueFromText.trim());
 
-    // 1. License key validation & credit deduction (if provided)
+    // 1. License key validation & credit deduction (if provided and not VIP/Staff account)
+    const currentUser = await getCurrentUserFromRequest(req);
+    const isAccountVip = Boolean(
+      currentUser && (
+        ['admin', 'ctv'].includes((currentUser.role || '').toLowerCase()) ||
+        currentUser.isVip ||
+        (currentUser as any).is_vip
+      )
+    );
+
     let keyRecord: any = null;
-    if (licenseKey && typeof licenseKey === 'string' && licenseKey.trim() !== '') {
+    if (!isAccountVip && licenseKey && typeof licenseKey === 'string' && licenseKey.trim() !== '') {
       keyRecord = await prisma.licenseKey.findUnique({
         where: { key: licenseKey.trim().toUpperCase() },
       });

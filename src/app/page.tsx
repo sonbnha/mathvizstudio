@@ -174,6 +174,27 @@ function HomeContent() {
   const [redeemLoading, setRedeemLoading] = useState(false);
   const [redeemError, setRedeemError] = useState<string | null>(null);
   const [redeemSuccessMsg, setRedeemSuccessMsg] = useState<string | null>(null);
+  const [migrateToastMsg, setMigrateToastMsg] = useState<string | null>(null);
+
+  // Permission Hierarchy: Quyền VIP từ tài khoản HOẶC từ key trong localStorage
+  const isAccountVip = Boolean(
+    currentUser && (
+      ['admin', 'ctv'].includes((currentUser.role || '').toLowerCase()) ||
+      currentUser.isVip ||
+      (currentUser as any).is_vip
+    )
+  );
+
+  const isGuestVip = Boolean(
+    !currentUser &&
+    licenseStatus?.valid &&
+    (licenseStatus.keyType === 'vip' ||
+      licenseKey.toUpperCase().startsWith('MV-VIP') ||
+      licenseStatus.totalCredits === -1 ||
+      ((licenseStatus.totalCredits ?? 0) > 0 && (licenseStatus.remainingCredits === 'Vô hạn' || Number(licenseStatus.remainingCredits) > 0)))
+  );
+
+  const isEffectiveVip = isAccountVip || isGuestVip;
 
   // Click outside to close User Dropdown
   useEffect(() => {
@@ -364,6 +385,56 @@ function HomeContent() {
     }
   }, []);
 
+  // Tự động chuyển đổi Key từ Khách sang Tài khoản (Auto-migrate on Login/Register)
+  const checkAndMigrateGuestKey = useCallback(async (user: AuthUser) => {
+    if (!user) return;
+    try {
+      const rawLocalKey = typeof window !== 'undefined' ? localStorage.getItem('mathviz_license_key') : null;
+      const localKey = rawLocalKey?.trim().toUpperCase();
+
+      // Bỏ qua nếu không có key hoặc là key mẫu dùng thử mặc định
+      if (!localKey || localKey === 'MV-TRIAL-1234') {
+        return;
+      }
+
+      // Bỏ qua nếu user đã có key này được gán trên DB
+      const userApiKey = (user.apiKey || user.api_key || '').trim().toUpperCase();
+      if (userApiKey && userApiKey === localKey) {
+        localStorage.removeItem('mathviz_license_key');
+        localStorage.removeItem('mathviz_customer_name');
+        setLicenseKey('');
+        setLicenseStatus(null);
+        setCustomerName(null);
+        return;
+      }
+
+      // Gửi yêu cầu redeem key vào tài khoản mới đăng nhập để nâng cấp lên VIP trên Neon DB
+      const res = await fetch('/api/license/redeem', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyCode: localKey }),
+      });
+
+      const data = await res.json();
+      if (res.ok && (data.success || data.user)) {
+        if (data.user) {
+          setCurrentUser((prev) => (prev ? { ...prev, ...data.user } : data.user));
+        }
+        // Dọn sạch key trong localStorage theo đúng yêu cầu
+        localStorage.removeItem('mathviz_license_key');
+        localStorage.removeItem('mathviz_customer_name');
+        setLicenseKey('');
+        setLicenseStatus(null);
+        setCustomerName(null);
+
+        setMigrateToastMsg('🎉 Đã tự động liên kết License Key từ phiên khách vào tài khoản VIP của bạn!');
+        setTimeout(() => setMigrateToastMsg(null), 6000);
+      }
+    } catch (err) {
+      console.warn('Lỗi tự động liên kết License Key:', err);
+    }
+  }, []);
+
   // Fetch logged in user on Mount
   useEffect(() => {
     const fetchUserSession = async () => {
@@ -373,6 +444,7 @@ function HomeContent() {
           const data = await res.json();
           if (data.user) {
             setCurrentUser(data.user);
+            checkAndMigrateGuestKey(data.user);
           }
         }
       } catch (err) {
@@ -380,7 +452,7 @@ function HomeContent() {
       }
     };
     fetchUserSession();
-  }, []);
+  }, [checkAndMigrateGuestKey]);
 
   const MAX_GALLERY_ITEMS = 50;
 
@@ -672,12 +744,14 @@ function HomeContent() {
     if (savedCustomerName) {
       setCustomerName(savedCustomerName);
     }
-    const initialKey = savedKey || 'MV-TRIAL-1234';
-    setLicenseKey(initialKey);
-    if (!savedKey) {
-      localStorage.setItem('mathviz_license_key', initialKey);
+    if (savedKey) {
+      setLicenseKey(savedKey);
+      checkLicenseKey(savedKey);
+    } else {
+      const defaultKey = 'MV-TRIAL-1234';
+      setLicenseKey(defaultKey);
+      checkLicenseKey(defaultKey);
     }
-    checkLicenseKey(initialKey);
   }, [checkLicenseKey]);
 
   const handleKeyChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -691,10 +765,11 @@ function HomeContent() {
     }
   };
 
-  // Kích hoạt License Key để nâng cấp tài khoản lên VIP
+  // Kích hoạt License Key dạng Hybrid: Khách vãng lai (localStorage) hoặc Liên kết Tài khoản (Neon DB)
   const handleRedeemLicenseKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!redeemKeyCode.trim()) {
+    const cleanKey = redeemKeyCode.trim().toUpperCase();
+    if (!cleanKey) {
       setRedeemError('Vui lòng nhập mã License Key.');
       return;
     }
@@ -704,35 +779,73 @@ function HomeContent() {
     setRedeemSuccessMsg(null);
 
     try {
-      const res = await fetch('/api/license/redeem', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keyCode: redeemKeyCode.trim() }),
-      });
+      if (currentUser) {
+        // TRƯỜNG HỢP 1: ĐÃ ĐĂNG NHẬP -> Gán key vào tài khoản (lên VIP trên DB Neon)
+        const res = await fetch('/api/license/redeem', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyCode: cleanKey }),
+        });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Không thể kích hoạt License Key.');
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || 'Không thể kích hoạt License Key.');
+        }
+
+        // Cập nhật thông tin currentUser
+        if (data.user) {
+          setCurrentUser((prev) => (prev ? { ...prev, ...data.user } : data.user));
+        }
+
+        // Dọn sạch key trong localStorage theo yêu cầu khi đã liên kết vào tài khoản Neon
+        localStorage.removeItem('mathviz_license_key');
+        localStorage.removeItem('mathviz_customer_name');
+        setLicenseKey('');
+        setLicenseStatus(null);
+        setCustomerName(null);
+
+        setRedeemSuccessMsg('🎉 Kích hoạt tài khoản VIP thành công! Toàn bộ tính năng cao cấp đã được mở khóa.');
+
+        setTimeout(() => {
+          setIsRedeemModalOpen(false);
+          setRedeemSuccessMsg(null);
+          setRedeemKeyCode('');
+        }, 2200);
+      } else {
+        // TRƯỜNG HỢP 2: CHƯA ĐĂNG NHẬP (KHÁCH VÃNG LAI)
+        // 1. Xác thực key qua API kiểm tra tính hợp lệ
+        const checkRes = await fetch('/api/license/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: cleanKey }),
+        });
+
+        const checkData = await checkRes.json();
+        if (!checkRes.ok || !checkData.valid) {
+          throw new Error(checkData.message || 'Mã License Key không hợp lệ hoặc đã hết lượt sử dụng.');
+        }
+
+        // 2. Lưu key vào localStorage như cơ chế cũ để mở khóa sử dụng trên trình duyệt hiện tại
+        localStorage.setItem('mathviz_license_key', cleanKey);
+        setLicenseKey(cleanKey);
+        setLicenseStatus(checkData);
+        if (checkData.customerName) {
+          setCustomerName(checkData.customerName);
+          localStorage.setItem('mathviz_customer_name', checkData.customerName);
+        } else {
+          setCustomerName(null);
+          localStorage.removeItem('mathviz_customer_name');
+        }
+
+        // 3. Hiển thị thông báo thành công và nhắc liên kết
+        setRedeemSuccessMsg('🎉 Đã kích hoạt License Key trên trình duyệt này! Hãy đăng nhập để liên kết key này vĩnh viễn vào tài khoản của bạn.');
+
+        setTimeout(() => {
+          setIsRedeemModalOpen(false);
+          setRedeemSuccessMsg(null);
+          setRedeemKeyCode('');
+        }, 2500);
       }
-
-      // Cập nhật thông tin currentUser
-      if (data.user) {
-        setCurrentUser((prev) => (prev ? { ...prev, ...data.user } : data.user));
-      }
-
-      // Đồng bộ License Key vào localStorage và cập nhật trạng thái Header
-      const upperKey = redeemKeyCode.trim().toUpperCase();
-      localStorage.setItem('mathviz_license_key', upperKey);
-      setLicenseKey(upperKey);
-      checkLicenseKey(upperKey);
-
-      setRedeemSuccessMsg('🎉 Kích hoạt tài khoản VIP thành công! Toàn bộ tính năng cao cấp đã được mở khóa.');
-
-      setTimeout(() => {
-        setIsRedeemModalOpen(false);
-        setRedeemSuccessMsg(null);
-        setRedeemKeyCode('');
-      }, 2000);
     } catch (err: any) {
       setRedeemError(err.message || 'Đã có lỗi xảy ra khi kích hoạt.');
     } finally {
@@ -832,8 +945,8 @@ function HomeContent() {
       return;
     }
 
-    if (!licenseKey.trim()) {
-      setErrorMsg('Vui lòng nhập License Key để tạo hình.');
+    if (!isAccountVip && !licenseKey.trim() && !licenseStatus?.valid) {
+      setErrorMsg('Vui lòng nhập License Key hoặc đăng nhập tài khoản VIP để tạo hình.');
       return;
     }
 
@@ -845,15 +958,17 @@ function HomeContent() {
     }
 
     try {
-      // 1. Kiểm tra License Key nhanh qua endpoint nội bộ (< 80ms)
-      const checkRes = await fetch('/api/license/check', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: licenseKey.trim() }),
-      });
-      const checkData = await checkRes.json();
-      if (!checkRes.ok || !checkData.valid) {
-        throw new Error(checkData.message || 'License key không hợp lệ hoặc đã hết lượt sử dụng.');
+      // 1. Kiểm tra License Key nhanh qua endpoint nội bộ nếu không phải tài khoản VIP
+      if (!isAccountVip) {
+        const checkRes = await fetch('/api/license/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: licenseKey.trim() }),
+        });
+        const checkData = await checkRes.json();
+        if (!checkRes.ok || !checkData.valid) {
+          throw new Error(checkData.message || 'License key không hợp lệ hoặc đã hết lượt sử dụng.');
+        }
       }
 
       // 2. Gọi Google Gemini trực tiếp từ Client trình duyệt qua chuỗi Cascade
@@ -868,14 +983,16 @@ function HomeContent() {
       setSvgOutput(generatedSvg);
       saveToHistory(generatedSvg, activePrompt);
 
-      // 3. Trừ credit License trong nền (< 50ms, không cản trở hiển thị hình)
-      fetch('/api/license/consume', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-License-Key': licenseKey.trim(),
-        },
-      }).catch((e) => console.warn('Lỗi cập nhật credit:', e));
+      // 3. Trừ credit License trong nền nếu là khách dùng key có giới hạn credit
+      if (!isAccountVip && licenseKey.trim()) {
+        fetch('/api/license/consume', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-License-Key': licenseKey.trim(),
+          },
+        }).catch((e) => console.warn('Lỗi cập nhật credit:', e));
+      }
 
       // Hoàn tất thanh tiến trình
       setProgress(100);
@@ -885,7 +1002,9 @@ function HomeContent() {
         setRefineInput('');
       }
       // Cập nhật lại số lượt sử dụng
-      checkLicenseKey();
+      if (!isAccountVip) {
+        checkLicenseKey();
+      }
     } catch (err: any) {
       console.error('Lỗi sinh hình SVG:', err);
       const errMsg = String(err?.message || '');
@@ -1003,8 +1122,8 @@ function HomeContent() {
 
   // Export TikZ handler
   const handleExportTikz = async () => {
-    if (!licenseKey.trim()) {
-      setErrorMsg('Vui lòng nhập License Key để xuất mã TikZ.');
+    if (!isAccountVip && !licenseKey.trim() && !licenseStatus?.valid) {
+      setErrorMsg('Vui lòng nhập License Key hoặc đăng nhập tài khoản VIP để xuất mã TikZ.');
       return;
     }
     setIsTikzModalOpen(true);
@@ -1017,7 +1136,7 @@ function HomeContent() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-License-Key': licenseKey.trim(),
+          'X-License-Key': currentUser?.apiKey || licenseKey.trim() || 'VIP-ACCOUNT',
           ...getApiKeyHeaders(),
         },
         body: JSON.stringify({
@@ -1176,27 +1295,56 @@ function HomeContent() {
                 </button>
               ) : (
                 /* Collapsed VIP Badge */
-                <button
-                  type="button"
-                  onClick={() => setIsLicenseExpanded(true)}
-                  className="h-10 inline-flex items-center justify-center gap-2 px-3.5 rounded-xl border border-emerald-300/80 dark:border-emerald-700/60 bg-emerald-50/90 hover:bg-emerald-100/90 dark:bg-emerald-950/50 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 text-xs font-semibold shadow-xs transition-all cursor-pointer group shrink-0"
-                  title="Bấm để xem chi tiết hoặc thay đổi License Key"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  <span className="flex items-center gap-1 font-mono text-[11px] text-emerald-700 dark:text-emerald-400">
-                    <Key className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    VIP: {maskKey(licenseKey)}
-                  </span>
-                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-200/60 dark:bg-emerald-900/60 text-emerald-900 dark:text-emerald-200 font-medium">
-                    {customerName ? `👋 ${customerName}` : 'VIP'} •{' '}
-                    {licenseStatus.totalCredits === -1
-                      ? 'Vĩnh viễn'
-                      : `Còn ${licenseStatus.remainingCredits} lượt`}
-                  </span>
-                  <span className="text-[10px] text-emerald-600/70 dark:text-emerald-400/70 group-hover:text-emerald-800 dark:group-hover:text-emerald-200 transition font-normal ml-0.5">
-                    ⚙️ Đổi key
-                  </span>
-                </button>
+                <div className="relative group shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setIsLicenseExpanded(true)}
+                    className="h-10 inline-flex items-center justify-center gap-2 px-3.5 rounded-xl border border-amber-300/90 dark:border-amber-700/60 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/50 dark:to-yellow-950/40 text-amber-800 dark:text-amber-300 text-xs font-semibold shadow-xs hover:shadow-sm transition-all cursor-pointer shrink-0"
+                    title={
+                      !currentUser
+                        ? 'Đăng nhập để liên kết key này vĩnh viễn vào tài khoản của bạn'
+                        : 'Bấm để xem chi tiết hoặc thay đổi License Key'
+                    }
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span className="flex items-center gap-1 font-mono text-[11px] text-amber-700 dark:text-amber-400 font-bold">
+                      <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      {!currentUser ? `⭐ VIP (Tạm thời): ${maskKey(licenseKey)}` : `VIP: ${maskKey(licenseKey)}`}
+                    </span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-medium">
+                      {customerName ? `👋 ${customerName}` : !currentUser ? 'Chưa liên kết' : 'VIP'} •{' '}
+                      {licenseStatus.totalCredits === -1
+                        ? 'Vĩnh viễn'
+                        : `Còn ${licenseStatus.remainingCredits} lượt`}
+                    </span>
+                    <span className="text-[10px] text-amber-700/70 dark:text-amber-400/70 group-hover:text-amber-900 dark:group-hover:text-amber-200 transition font-normal ml-0.5">
+                      ⚙️ Đổi key
+                    </span>
+                  </button>
+
+                  {!currentUser && (
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-72 p-3 bg-slate-900 dark:bg-slate-950 text-slate-100 text-xs rounded-2xl shadow-xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all z-50 border border-amber-500/40 backdrop-blur-md text-left">
+                      <div className="flex items-center gap-1.5 text-amber-400 font-bold mb-1">
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>License Key VIP trên trình duyệt</span>
+                      </div>
+                      <p className="text-[11px] text-slate-300 leading-tight">
+                        Đăng nhập để liên kết key này vĩnh viễn vào tài khoản của bạn, tránh bị mất khi đổi máy hoặc xóa cache.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsAuthModalOpen(true);
+                        }}
+                        className="mt-2.5 w-full py-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-[11px] shadow-sm transition flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <LogIn className="w-3.5 h-3.5" />
+                        <span>Đăng nhập liên kết ngay</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
               );
             })()
           ) : (
@@ -1228,6 +1376,20 @@ function HomeContent() {
                   ) : (
                     <ShieldCheck className="w-3.5 h-3.5 text-cyan-600 dark:text-cyan-400" />
                   )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRedeemKeyCode('');
+                    setRedeemError(null);
+                    setRedeemSuccessMsg(null);
+                    setIsRedeemModalOpen(true);
+                  }}
+                  className="h-7 px-2 rounded-md bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-bold text-[10px] flex items-center gap-1 cursor-pointer transition shadow-xs shrink-0"
+                  title="Mở hộp thoại kích hoạt License Key VIP"
+                >
+                  <Crown className="w-3 h-3" />
+                  <span className="hidden md:inline">Kích hoạt VIP</span>
                 </button>
               </div>
 
@@ -1332,15 +1494,34 @@ function HomeContent() {
 
           {/* User Auth Section: Login Button or User Profile Pill */}
           {!currentUser ? (
-            <button
-              type="button"
-              onClick={() => setIsAuthModalOpen(true)}
-              className="h-10 px-3 sm:px-3.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600 via-cyan-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
-              title="Đăng nhập hoặc đăng ký tài khoản Neon"
-            >
-              <LogIn className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Đăng nhập</span>
-            </button>
+            <div className="flex items-center gap-2 shrink-0">
+              {!isGuestVip && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRedeemKeyCode('');
+                    setRedeemError(null);
+                    setRedeemSuccessMsg(null);
+                    setIsRedeemModalOpen(true);
+                  }}
+                  className="h-10 px-3 rounded-xl border border-amber-300/80 dark:border-amber-700/60 bg-amber-50/80 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-900/50 text-amber-800 dark:text-amber-300 text-xs font-semibold flex items-center gap-1.5 shadow-xs cursor-pointer transition shrink-0"
+                  title="Nhập License Key để kích hoạt VIP"
+                >
+                  <Crown className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                  <span className="hidden sm:inline">Nhập Key VIP</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen(true)}
+                className="h-10 px-3 sm:px-3.5 rounded-xl text-xs font-semibold bg-gradient-to-r from-blue-600 via-cyan-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white flex items-center gap-1.5 shadow-sm hover:shadow transition-all cursor-pointer shrink-0"
+                title="Đăng nhập hoặc đăng ký tài khoản Neon"
+              >
+                <LogIn className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Đăng nhập</span>
+              </button>
+            </div>
           ) : (
             <div className="flex items-center gap-2 shrink-0">
               {/* User Avatar + Name + Role Badge + Dropdown Menu */}
@@ -1965,7 +2146,7 @@ function HomeContent() {
           suppressHydrationWarning
           className={`flex-1 min-h-0 w-full px-4 md:px-6 py-3 overflow-hidden ${mainTab === 'lesson-plan' ? 'flex flex-col' : 'hidden'}`}
         >
-          <LessonPlanView licenseKey={licenseKey} />
+          <LessonPlanView licenseKey={currentUser?.apiKey || licenseKey} />
         </div>
       </main>
 
@@ -2197,13 +2378,15 @@ function HomeContent() {
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
-                    <span>Kích Hoạt VIP</span>
+                    <span>{currentUser ? 'Kích Hoạt VIP Tài Khoản' : 'Nhập License Key / VIP'}</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-700 dark:text-amber-300 font-bold border border-amber-500/30">
                       PREMIUM
                     </span>
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    Liên kết License Key để nâng cấp tài khoản
+                    {currentUser
+                      ? 'Liên kết License Key để nâng cấp tài khoản lên VIP trên Neon DB'
+                      : 'Kích hoạt trên trình duyệt này hoặc đăng nhập để liên kết vĩnh viễn'}
                   </p>
                 </div>
               </div>
@@ -2238,6 +2421,28 @@ function HomeContent() {
                 </li>
               </ul>
             </div>
+
+            {/* Guest Hint */}
+            {!currentUser && (
+              <div className="p-3 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-800 dark:text-blue-300 flex items-center justify-between gap-2 relative z-10">
+                <div className="flex items-center gap-2">
+                  <Key className="w-4 h-4 text-blue-500 shrink-0" />
+                  <span className="text-[11px]">
+                    Bạn chưa đăng nhập. Key sẽ lưu tạm trên trình duyệt này.
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRedeemModalOpen(false);
+                    setIsAuthModalOpen(true);
+                  }}
+                  className="text-[11px] font-bold text-blue-600 dark:text-blue-400 hover:underline shrink-0 cursor-pointer"
+                >
+                  Đăng nhập ngay →
+                </button>
+              </div>
+            )}
 
             {/* Form */}
             <form onSubmit={handleRedeemLicenseKey} className="flex flex-col gap-3.5 relative z-10">
@@ -2312,10 +2517,32 @@ function HomeContent() {
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
-        onSuccess={(user) => {
+        onSuccess={async (user) => {
           setCurrentUser(user);
+          await checkAndMigrateGuestKey(user);
+          syncWithNeon(user);
         }}
       />
+
+      {/* Toast thông báo tự động chuyển đổi Key */}
+      {migrateToastMsg && (
+        <div className="fixed bottom-12 right-6 z-50 p-4 rounded-2xl bg-slate-900/95 text-white border border-amber-500/40 shadow-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300 max-w-md backdrop-blur-md">
+          <div className="w-8 h-8 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shrink-0">
+            <Crown className="w-5 h-5" />
+          </div>
+          <div className="text-xs">
+            <p className="font-bold text-amber-400">Nâng cấp VIP thành công</p>
+            <p className="text-slate-300 text-[11px] mt-0.5">{migrateToastMsg}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setMigrateToastMsg(null)}
+            className="text-slate-400 hover:text-white p-1 ml-auto cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -85,6 +85,23 @@ export async function POST(req: NextRequest) {
     }
 
     if (keyRecord.status === 'used' || keyRecord.used_by !== null) {
+      if (keyRecord.used_by && String(keyRecord.used_by).toLowerCase() === String(currentUser.id).toLowerCase()) {
+        return NextResponse.json({
+          success: true,
+          message: 'Mã key này đã được liên kết với tài khoản của bạn.',
+          user: {
+            id: currentUser.id,
+            name: currentUser.name,
+            email: (currentUser as any).email || '',
+            username: currentUser.username,
+            role: currentUser.role,
+            isVip: true,
+            vipExpiresAt: currentUser.vipExpiresAt || keyRecord.expiresAt,
+            apiKey: cleanKey,
+          },
+        });
+      }
+
       return NextResponse.json(
         { error: 'Mã key không hợp lệ hoặc đã được sử dụng.' },
         { status: 400 }
