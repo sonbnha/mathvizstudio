@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
 
     const remaining =
       keyRecord.totalCredits === -1
-        ? 'Vô hạn'
+        ? '∞'
         : Math.max(0, keyRecord.totalCredits - keyRecord.usedCredits);
 
     const upperKey = keyRecord.key.toUpperCase();

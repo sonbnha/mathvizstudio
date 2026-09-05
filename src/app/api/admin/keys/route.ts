@@ -273,9 +273,8 @@ export async function POST(req: NextRequest) {
       expiresAt.setDate(expiresAt.getDate() + days);
     }
 
-    const defaultName = 'Khách hàng';
-    const rawName = customerName?.trim() || customer_name?.trim() || defaultName;
-    const finalCustomerName = note?.trim() ? `${rawName} (${note.trim()})` : rawName;
+    const finalCustomerName =
+      customerName?.trim() || customer_name?.trim() || (note?.trim() ? note.trim() : null);
 
     // 4. INSERT an toàn vào Neon Postgres bảng license_keys
     const insertedRows = await sql`

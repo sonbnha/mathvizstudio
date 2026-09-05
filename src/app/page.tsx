@@ -217,7 +217,7 @@ function HomeContent() {
     (licenseStatus.keyType === 'vip' ||
       licenseKey.toUpperCase().startsWith('MV-VIP') ||
       licenseStatus.totalCredits === -1 ||
-      ((licenseStatus.totalCredits ?? 0) > 0 && (licenseStatus.remainingCredits === 'Vô hạn' || Number(licenseStatus.remainingCredits) > 0)))
+      ((licenseStatus.totalCredits ?? 0) > 0 && (licenseStatus.remainingCredits === 'Vô hạn' || licenseStatus.remainingCredits === '∞' || Number(licenseStatus.remainingCredits) > 0)))
   );
 
   const isEffectiveVip = isAccountVip || isGuestVip;
@@ -1378,7 +1378,7 @@ function HomeContent() {
                       <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-200/60 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-medium">
                         {customerName ? `👋 ${customerName}` : 'Chưa liên kết'} •{' '}
                         {licenseStatus.totalCredits === -1
-                          ? 'Vĩnh viễn'
+                          ? '∞'
                           : `Còn ${licenseStatus.remainingCredits} lượt`}
                       </span>
                       <span className="text-[10px] text-amber-700/70 dark:text-amber-400/70 group-hover:text-amber-900 dark:group-hover:text-amber-200 transition font-normal ml-0.5">
@@ -1553,7 +1553,7 @@ function HomeContent() {
                               </span>
                               <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
                                 <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
-                                <span>⭐ VIP • Vô hạn</span>
+                                <span>⭐ VIP • ∞</span>
                               </span>
                             </div>
                           );
@@ -1568,7 +1568,7 @@ function HomeContent() {
                               {isVipActive && (
                                 <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
                                   <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
-                                  <span>⭐ VIP • {usageLimit === -1 ? 'Vô hạn' : `Còn ${remainingCredits} lượt`}</span>
+                                  <span>⭐ VIP • {usageLimit === -1 ? '∞' : `Còn ${remainingCredits} lượt`}</span>
                                 </span>
                               )}
                             </div>
@@ -1579,7 +1579,7 @@ function HomeContent() {
                           return (
                             <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-yellow-500 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1 shrink-0">
                               <Crown className="w-3 h-3 text-slate-950 fill-slate-950 shrink-0" />
-                              <span>⭐ VIP • {usageLimit === -1 ? 'Vô hạn' : `Còn ${remainingCredits} lượt`}</span>
+                              <span>⭐ VIP • {usageLimit === -1 ? '∞' : `Còn ${remainingCredits} lượt`}</span>
                             </span>
                           );
                         }
@@ -1728,7 +1728,7 @@ function HomeContent() {
 
                         {/* Dòng 2: Hạn sử dụng */}
                         <div className="flex items-center justify-between">
-                          <span className="text-slate-500 dark:text-slate-400 text-[11px]">Hạn sử dụng:</span>
+                          <span className="text-slate-500 dark:text-slate-400 text-[11px]">Hạn dùng:</span>
                           <span className="text-[11px] text-right">
                             {isVipActive ? (
                               vipExp ? (
@@ -1741,7 +1741,7 @@ function HomeContent() {
                                   </span>
                                 </span>
                               ) : (
-                                <strong className="text-amber-600 dark:text-amber-400 font-bold">Vô hạn (Vĩnh viễn ⭐)</strong>
+                                <strong className="text-amber-600 dark:text-amber-400 font-bold">∞</strong>
                               )
                             ) : isVipExpired ? (
                               <span className="text-rose-500 text-[10px]">
@@ -1756,10 +1756,10 @@ function HomeContent() {
                         {/* Dòng 3: Lượt tạo hình + Progress bar */}
                         <div className="flex flex-col gap-1 pt-1.5 border-t border-slate-200/60 dark:border-slate-700/50">
                           <div className="flex items-center justify-between text-[11px]">
-                            <span className="text-slate-500 dark:text-slate-400">Lượt tạo hình:</span>
+                            <span className="text-slate-500 dark:text-slate-400">Lượt dùng:</span>
                             <span className="font-semibold text-slate-700 dark:text-slate-200">
                               {usageLimit === -1 ? (
-                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">Vô hạn lượt</span>
+                                <span className="text-emerald-600 dark:text-emerald-400 font-bold">∞</span>
                               ) : remainingCredits > 0 ? (
                                 <span>
                                   <strong className="text-cyan-600 dark:text-cyan-400 font-bold">{remainingCredits}</strong> / {usageLimit} lượt {!isVipActive ? '(Dùng thử)' : ''}
