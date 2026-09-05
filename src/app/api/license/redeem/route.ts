@@ -138,17 +138,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 5. Tính toán thời hạn VIP
-    // Nếu key có expiresAt: gán ngày hết hạn của key (hoặc giữ ngày xa hơn nếu user đang có VIP)
-    // Nếu key không có expiresAt: VIP vĩnh viễn (null)
+    // 5. Tính toán thời hạn VIP thông minh (Cộng dồn số ngày nếu đang còn hạn)
     let newVipExpiresAt: Date | null = null;
     if (keyRecord.expiresAt) {
+      const now = new Date();
       const keyExp = new Date(keyRecord.expiresAt);
-      if (currentUser.vipExpiresAt) {
-        const curExp = new Date(currentUser.vipExpiresAt);
-        newVipExpiresAt = keyExp > curExp ? keyExp : curExp;
+      const curExp = currentUser.vipExpiresAt ? new Date(currentUser.vipExpiresAt) : null;
+
+      if (curExp && curExp > now) {
+        // Tài khoản đang còn hạn VIP: CỘNG DỒN THÊM số ngày của key mới vào hạn hiện tại
+        const keyDurationMs = Math.max(0, keyExp.getTime() - now.getTime());
+        const keyDurationDays = Math.max(1, Math.round(keyDurationMs / (1000 * 60 * 60 * 24)));
+        const accumulatedDate = new Date(curExp);
+        accumulatedDate.setDate(accumulatedDate.getDate() + keyDurationDays);
+        newVipExpiresAt = accumulatedDate;
       } else {
-        newVipExpiresAt = keyExp;
+        // Tài khoản chưa có VIP hoặc đã hết hạn: Bắt đầu tính hạn mới từ key
+        newVipExpiresAt = keyExp > now ? keyExp : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
       }
     }
 

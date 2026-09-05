@@ -20,6 +20,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Lightbulb,
+  Zap,
 } from 'lucide-react';
 import {
   LESSON_PLAN_PRESETS,
@@ -30,6 +31,8 @@ import {
 } from '@/lib/lessonPlanUtils';
 import { LessonPlanWordPreview } from './LessonPlanWordPreview';
 import { useApiKey } from '@/context/ApiKeyContext';
+import { computeLicenseStatus } from '@/lib/licenseStatus';
+import RenewLicenseModal from '@/components/RenewLicenseModal';
 
 interface LessonPlanViewProps {
   licenseKey?: string;
@@ -65,8 +68,27 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
   const [isExporting, setIsExporting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  const [currentUser, setCurrentUser] = useState<any | null>(null);
+  const [isRenewModalOpen, setIsRenewModalOpen] = useState(false);
+
+  React.useEffect(() => {
+    fetch('/api/auth/me')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.user) setCurrentUser(data.user);
+      })
+      .catch(() => {});
+  }, []);
+
   // Effective key
   const effectiveKey = customKey.trim() || parentKey.trim();
+
+  // License status check
+  const licenseInfo = computeLicenseStatus({
+    user: currentUser,
+    guestKey: effectiveKey,
+    guestLicenseStatus: null,
+  });
 
   // Preset Selection
   const applyPreset = (preset: LessonPlanPreset) => {
@@ -83,6 +105,12 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
 
     if (!topic.trim()) {
       setErrorMsg('Vui lòng nhập Tên bài học / Chủ đề trước khi bắt đầu.');
+      return;
+    }
+
+    // Chặn và mở modal gia hạn nếu tài khoản đã hết hạn hoặc hết lượt
+    if (licenseInfo.isExpiredOrDepleted) {
+      setIsRenewModalOpen(true);
       return;
     }
 
@@ -349,6 +377,17 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
               </p>
             </div>
           </div>
+          {licenseInfo.isNearExpiry && (
+            <button
+              type="button"
+              onClick={() => setIsRenewModalOpen(true)}
+              className="px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 border border-amber-500/40 shadow-xs flex items-center gap-1.5 transition cursor-pointer animate-pulse hover:animate-none shrink-0"
+              title="Gói bản quyền sắp hết hạn hoặc hết lượt. Bấm để gia hạn ngay!"
+            >
+              <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500 shrink-0" />
+              <span>⚡ Gia hạn key</span>
+            </button>
+          )}
         </div>
 
         {/* Scrollable Form Content */}
@@ -664,6 +703,21 @@ export default function LessonPlanView({ licenseKey: parentKey = '' }: LessonPla
           </div>
         )}
       </div>
+
+      {/* Modal Gia Hạn Bản Quyền */}
+      <RenewLicenseModal
+        isOpen={isRenewModalOpen}
+        onClose={() => setIsRenewModalOpen(false)}
+        currentUser={currentUser}
+        isNearExpiry={licenseInfo.isNearExpiry}
+        onSuccess={(data) => {
+          if (data?.user) {
+            setCurrentUser(data.user);
+          } else if (data?.key) {
+            setCustomKey(data.key);
+          }
+        }}
+      />
     </div>
   );
 }

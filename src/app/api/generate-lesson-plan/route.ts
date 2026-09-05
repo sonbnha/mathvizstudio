@@ -39,11 +39,55 @@ export async function POST(req: NextRequest) {
       )
     );
 
+    // Kiểm tra tài khoản VIP hết hạn đối với người dùng không phải admin
+    if (currentUser && (currentUser.role || '').toLowerCase() !== 'admin') {
+      const exp = currentUser.vipExpiresAt || (currentUser as any).vip_expires_at;
+      const isExpired = Boolean(exp && new Date(exp) <= new Date());
+      if (isExpired) {
+        return new Response(
+          JSON.stringify({ error: 'Gói VIP của bạn đã hết hạn. Vui lòng gia hạn thêm License Key.' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      // Trừ lượt trong nền
+      const userKey = (currentUser as any).apiKey || (currentUser as any).api_key;
+      if (!isContinue && userKey) {
+        try {
+          const { getDb } = await import('@/lib/db');
+          const sql = getDb();
+          await sql`
+            UPDATE license_keys
+            SET used_credits = used_credits + 1
+            WHERE (UPPER(key) = ${userKey.toUpperCase()} OR UPPER(key_code) = ${userKey.toUpperCase()})
+              AND (total_credits = -1 OR used_credits < total_credits);
+          `;
+        } catch {}
+      }
+    }
+
     let keyRecord: any = null;
     if (!isAccountVip && licenseKey && typeof licenseKey === 'string' && licenseKey.trim() !== '') {
-      keyRecord = await prisma.licenseKey.findUnique({
-        where: { key: licenseKey.trim().toUpperCase() },
-      });
+      try {
+        keyRecord = await prisma.licenseKey.findUnique({
+          where: { key: licenseKey.trim().toUpperCase() },
+        });
+      } catch {}
+
+      if (!keyRecord) {
+        try {
+          const { getDb } = await import('@/lib/db');
+          const sql = getDb();
+          const rows = await sql`
+            SELECT id, key, key_code, total_credits AS "totalCredits", used_credits AS "usedCredits", expires_at AS "expiresAt", is_active AS "isActive"
+            FROM license_keys
+            WHERE UPPER(key) = ${licenseKey.trim().toUpperCase()} OR UPPER(key_code) = ${licenseKey.trim().toUpperCase()}
+            LIMIT 1;
+          `;
+          if (rows.length > 0) {
+            keyRecord = rows[0];
+          }
+        } catch {}
+      }
 
       if (!keyRecord) {
         return new Response(
@@ -75,10 +119,22 @@ export async function POST(req: NextRequest) {
 
       // Deduct credit only for new generation, NOT when continuing cut-off text
       if (!isContinue && keyRecord.totalCredits !== -1) {
-        await prisma.licenseKey.update({
-          where: { id: keyRecord.id },
-          data: { usedCredits: { increment: 1 } },
-        });
+        try {
+          await prisma.licenseKey.update({
+            where: { id: keyRecord.id },
+            data: { usedCredits: { increment: 1 } },
+          });
+        } catch {}
+
+        try {
+          const { getDb } = await import('@/lib/db');
+          const sql = getDb();
+          await sql`
+            UPDATE license_keys
+            SET used_credits = used_credits + 1
+            WHERE id::text = ${keyRecord.id}::text OR UPPER(key) = ${licenseKey.trim().toUpperCase()};
+          `;
+        } catch {}
       }
     }
 
